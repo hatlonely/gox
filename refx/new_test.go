@@ -128,6 +128,64 @@ func TestNewT(t *testing.T) {
 	}
 }
 
+func TestRegisterT(t *testing.T) {
+	// 使用 RegisterT 注册构造函数（只注册一个避免覆盖）
+	err := RegisterT[*Value](NewValue)
+	if err != nil {
+		t.Fatalf("RegisterT() error = %v", err)
+	}
+
+	// 测试通过 NewT 创建对象
+	result1, err := NewT[*Value](&Options{Name: "registerT-test"})
+	if err != nil {
+		t.Fatalf("NewT() error = %v", err)
+	}
+
+	if result1.Name != "registerT-test" {
+		t.Errorf("NewT() got name = %v, want %v", result1.Name, "registerT-test")
+	}
+
+	// 测试通过 New 创建对象  
+	result2, err := New("github.com/hatlonely/gox/refx", "Value", &Options{Name: "new-test"})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	if value, ok := result2.(*Value); ok {
+		if value.Name != "new-test" {
+			t.Errorf("New() got name = %v, want %v", value.Name, "new-test")
+		}
+	} else {
+		t.Errorf("New() result is not *Value type")
+	}
+
+	// 测试注册另一种类型的构造函数
+	type AnotherValue struct {
+		Name string
+	}
+
+	newAnotherValue := func(options *Options) *AnotherValue {
+		if options == nil {
+			return &AnotherValue{Name: "another-default"}
+		}
+		return &AnotherValue{Name: "another-" + options.Name}
+	}
+
+	err = RegisterT[*AnotherValue](newAnotherValue)
+	if err != nil {
+		t.Fatalf("RegisterT[AnotherValue]() error = %v", err)
+	}
+
+	result3, err := NewT[*AnotherValue](&Options{Name: "test"})
+	if err != nil {
+		t.Fatalf("NewT[AnotherValue]() error = %v", err)
+	}
+
+	if result3.Name != "another-test" {
+		t.Errorf("NewT[AnotherValue]() got name = %v, want %v", result3.Name, "another-test")
+	}
+}
+
 func TestNewConstructor(t *testing.T) {
 	tests := []struct {
 		name     string

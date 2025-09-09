@@ -100,6 +100,26 @@ func Register(namespace string, type_ string, newFunc any) error {
 	return nil
 }
 
+func RegisterT[T any](newFunc any) error {
+	var t T
+	tType := reflect.TypeOf(t)
+	
+	// 如果是指针类型，获取其元素类型
+	for tType.Kind() == reflect.Ptr {
+		tType = tType.Elem()
+	}
+	
+	// 从类型中提取包名和类型名作为默认的namespace和type
+	pkgPath := tType.PkgPath()
+	typeName := tType.Name()
+	
+	if pkgPath == "" || typeName == "" {
+		return fmt.Errorf("cannot determine package path or type name for type %T", t)
+	}
+	
+	return Register(pkgPath, typeName, newFunc)
+}
+
 func New(namespace string, type_ string, options any) (any, error) {
 	key := namespace + ":" + type_
 	value, ok := nameConstructorMap.Load(key)
