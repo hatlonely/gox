@@ -42,6 +42,92 @@ func NewErrorValue() (*Value, error) {
 	return &Value{Name: "error-test"}, nil
 }
 
+func TestRegisterAndNew(t *testing.T) {
+	// 注册构造函数
+	err := Register("test", "Value", NewValue)
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	err = Register("test", "DefaultValue", NewDefaultValue)
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	// 测试 New 方法
+	tests := []struct {
+		name      string
+		namespace string
+		type_     string
+		options   any
+		wantErr   bool
+		expected  string
+	}{
+		{
+			name:      "Create Value with options",
+			namespace: "test",
+			type_:     "Value",
+			options:   &Options{Name: "registered"},
+			wantErr:   false,
+			expected:  "registered",
+		},
+		{
+			name:      "Create DefaultValue without options",
+			namespace: "test",
+			type_:     "DefaultValue",
+			options:   nil,
+			wantErr:   false,
+			expected:  "default",
+		},
+		{
+			name:      "Not found constructor",
+			namespace: "test",
+			type_:     "NotExist",
+			options:   nil,
+			wantErr:   true,
+			expected:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := New(tt.namespace, tt.type_, tt.options)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr {
+				if value, ok := result.(*Value); ok {
+					if value.Name != tt.expected {
+						t.Errorf("New() got name = %v, want %v", value.Name, tt.expected)
+					}
+				} else {
+					t.Errorf("New() result is not *Value type")
+				}
+			}
+		})
+	}
+}
+
+func TestNewT(t *testing.T) {
+	// 注册构造函数，使用完整的包路径作为namespace
+	err := Register("github.com/hatlonely/gox/refx", "Value", NewValue)
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	// 测试 NewT 方法
+	result, err := NewT[*Value](&Options{Name: "generic"})
+	if err != nil {
+		t.Fatalf("NewT() error = %v", err)
+	}
+
+	if result.Name != "generic" {
+		t.Errorf("NewT() got name = %v, want %v", result.Name, "generic")
+	}
+}
+
 func TestNewConstructor(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -7,8 +7,8 @@ import (
 )
 
 type constructor struct {
-	newFunc reflect.Value
-	hasOptions bool
+	newFunc      reflect.Value
+	hasOptions   bool
 	returnsError bool
 }
 
@@ -72,14 +72,14 @@ func (c *constructor) new(options any) (any, error) {
 		// 有错误返回值的情况
 		obj := results[0].Interface()
 		errResult := results[1].Interface()
-		
+
 		if errResult != nil {
 			if err, ok := errResult.(error); ok {
 				return nil, err
 			}
 			return nil, fmt.Errorf("second return value is not an error")
 		}
-		
+
 		return obj, nil
 	} else {
 		// 只有对象返回值的情况
@@ -89,15 +89,58 @@ func (c *constructor) new(options any) (any, error) {
 
 var nameConstructorMap sync.Map
 
-func Register(namespace string, type_ string, constructor any) error {
+func Register(namespace string, type_ string, newFunc any) error {
+	constructor, err := newConstructor(newFunc)
+	if err != nil {
+		return fmt.Errorf("failed to create constructor: %w", err)
+	}
+	
+	key := namespace + ":" + type_
+	nameConstructorMap.Store(key, constructor)
 	return nil
 }
 
 func New(namespace string, type_ string, options any) (any, error) {
-	return nil, nil
+	key := namespace + ":" + type_
+	value, ok := nameConstructorMap.Load(key)
+	if !ok {
+		return nil, fmt.Errorf("constructor not found for %s:%s", namespace, type_)
+	}
+	
+	constructor, ok := value.(*constructor)
+	if !ok {
+		return nil, fmt.Errorf("invalid constructor type for %s:%s", namespace, type_)
+	}
+	
+	return constructor.new(options)
 }
 
 func NewT[T any](options any) (T, error) {
 	var t T
-	return t, nil
+	tType := reflect.TypeOf(t)
+	
+	// 如果是指针类型，获取其元素类型
+	for tType.Kind() == reflect.Ptr {
+		tType = tType.Elem()
+	}
+	
+	// 从类型中提取包名和类型名作为默认的namespace和type
+	pkgPath := tType.PkgPath()
+	typeName := tType.Name()
+	
+	if pkgPath == "" || typeName == "" {
+		return t, fmt.Errorf("cannot determine package path or type name for type %T", t)
+	}
+	
+	obj, err := New(pkgPath, typeName, options)
+	if err != nil {
+		return t, err
+	}
+	
+	result, ok := obj.(T)
+	if !ok {
+		return t, fmt.Errorf("created object is not of type %T", t)
+	}
+	
+	return result, nil
 }
