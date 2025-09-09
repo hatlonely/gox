@@ -149,6 +149,20 @@ func RegisterT[T any](newFunc any) error {
 	return Register(pkgPath, typeName, newFunc)
 }
 
+func MustRegister(namespace string, type_ string, newFunc any) {
+	err := Register(namespace, type_, newFunc)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func MustRegisterT[T any](newFunc any) {
+	err := RegisterT[T](newFunc)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func New(namespace string, type_ string, options any) (any, error) {
 	key := namespace + ":" + type_
 	value, ok := nameConstructorMap.Load(key)

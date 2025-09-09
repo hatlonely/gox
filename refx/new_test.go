@@ -2,6 +2,7 @@ package refx
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -275,6 +276,118 @@ func TestDuplicateRegisterT(t *testing.T) {
 	if result.Name != "test-registerT" {
 		t.Errorf("NewT() got name = %v, want %v", result.Name, "test-registerT")
 	}
+}
+
+func TestMustRegister(t *testing.T) {
+	namespace := "test-must"
+	
+	// 测试正常注册不会panic
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("MustRegister() should not panic on valid registration, got: %v", r)
+		}
+	}()
+	
+	MustRegister(namespace, "Value", NewValue)
+	
+	// 验证注册成功
+	result, err := New(namespace, "Value", &Options{Name: "must-test"})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	
+	if value, ok := result.(*Value); ok {
+		if value.Name != "must-test" {
+			t.Errorf("New() got name = %v, want %v", value.Name, "must-test")
+		}
+	} else {
+		t.Errorf("New() result is not *Value type")
+	}
+}
+
+func TestMustRegisterPanic(t *testing.T) {
+	namespace := "test-must-panic"
+	
+	// 先注册一个构造函数
+	MustRegister(namespace, "Value", NewValue)
+	
+	// 测试重复注册不同函数会panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("MustRegister() should panic when registering different function")
+		} else {
+			// 验证panic信息包含预期的错误信息
+			errorStr := fmt.Sprintf("%v", r)
+			expected := "constructor for test-must-panic:Value already registered with different function"
+			if errorStr != expected {
+				t.Errorf("MustRegister() panic message = %v, want %v", errorStr, expected)
+			}
+		}
+	}()
+	
+	// 这应该会panic
+	MustRegister(namespace, "Value", NewDefaultValue)
+}
+
+func TestMustRegisterT(t *testing.T) {
+	// 定义新类型避免与其他测试冲突
+	type MustTestValue struct {
+		Name string
+	}
+	
+	newMustTestValue := func(options *Options) *MustTestValue {
+		if options == nil {
+			return &MustTestValue{Name: "must-default"}
+		}
+		return &MustTestValue{Name: "must-" + options.Name}
+	}
+	
+	// 测试正常注册不会panic
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("MustRegisterT() should not panic on valid registration, got: %v", r)
+		}
+	}()
+	
+	MustRegisterT[*MustTestValue](newMustTestValue)
+	
+	// 验证注册成功
+	result, err := NewT[*MustTestValue](&Options{Name: "registerT"})
+	if err != nil {
+		t.Fatalf("NewT() error = %v", err)
+	}
+	
+	if result.Name != "must-registerT" {
+		t.Errorf("NewT() got name = %v, want %v", result.Name, "must-registerT")
+	}
+}
+
+func TestMustRegisterTPanic(t *testing.T) {
+	// 定义新类型避免与其他测试冲突
+	type MustPanicTestValue struct {
+		Name string
+	}
+	
+	newFunc1 := func(options *Options) *MustPanicTestValue {
+		return &MustPanicTestValue{Name: "func1"}
+	}
+	
+	newFunc2 := func(options *Options) *MustPanicTestValue {
+		return &MustPanicTestValue{Name: "func2"}
+	}
+	
+	// 先注册一个构造函数
+	MustRegisterT[*MustPanicTestValue](newFunc1)
+	
+	// 测试重复注册不同函数会panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("MustRegisterT() should panic when registering different function")
+		}
+	}()
+	
+	// 这应该会panic
+	MustRegisterT[*MustPanicTestValue](newFunc2)
 }
 
 func TestNewConstructor(t *testing.T) {
