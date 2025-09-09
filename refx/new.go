@@ -7,6 +7,7 @@ import (
 )
 
 type constructor struct {
+	originalFunc any
 	newFunc      reflect.Value
 	hasOptions   bool
 	returnsError bool
@@ -45,6 +46,7 @@ func newConstructor(newFunc any) (*constructor, error) {
 	}
 
 	return &constructor{
+		originalFunc: newFunc,
 		newFunc:      funcValue,
 		hasOptions:   hasOptions,
 		returnsError: returnsError,
@@ -89,13 +91,40 @@ func (c *constructor) new(options any) (any, error) {
 
 var nameConstructorMap sync.Map
 
+func isSameFunc(func1, func2 any) bool {
+	if func1 == nil || func2 == nil {
+		return func1 == func2
+	}
+	
+	v1 := reflect.ValueOf(func1)
+	v2 := reflect.ValueOf(func2)
+	
+	// 比较函数指针
+	return v1.Pointer() == v2.Pointer()
+}
+
 func Register(namespace string, type_ string, newFunc any) error {
+	key := namespace + ":" + type_
+	
+	// 检查是否已经注册
+	if existingValue, ok := nameConstructorMap.Load(key); ok {
+		if existingConstructor, ok := existingValue.(*constructor); ok {
+			// 检查是否是相同的函数
+			if isSameFunc(existingConstructor.originalFunc, newFunc) {
+				// 相同函数，跳过注册
+				return nil
+			} else {
+				// 不同函数，返回错误
+				return fmt.Errorf("constructor for %s:%s already registered with different function", namespace, type_)
+			}
+		}
+	}
+	
 	constructor, err := newConstructor(newFunc)
 	if err != nil {
 		return fmt.Errorf("failed to create constructor: %w", err)
 	}
 	
-	key := namespace + ":" + type_
 	nameConstructorMap.Store(key, constructor)
 	return nil
 }

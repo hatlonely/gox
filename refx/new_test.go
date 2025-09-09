@@ -186,6 +186,97 @@ func TestRegisterT(t *testing.T) {
 	}
 }
 
+func TestDuplicateRegister(t *testing.T) {
+	// 清理之前的注册（通过使用不同的namespace避免冲突）
+	namespace := "test-duplicate"
+	
+	// 第一次注册
+	err := Register(namespace, "Value", NewValue)
+	if err != nil {
+		t.Fatalf("First Register() error = %v", err)
+	}
+	
+	// 第二次注册相同的函数应该成功（跳过）
+	err = Register(namespace, "Value", NewValue)
+	if err != nil {
+		t.Errorf("Second Register() with same function should not error, got: %v", err)
+	}
+	
+	// 注册不同的函数应该失败
+	err = Register(namespace, "Value", NewDefaultValue)
+	if err == nil {
+		t.Error("Register() with different function should return error")
+	} else {
+		expectedMsg := "constructor for test-duplicate:Value already registered with different function"
+		if err.Error() != expectedMsg {
+			t.Errorf("Register() error message = %v, want %v", err.Error(), expectedMsg)
+		}
+	}
+	
+	// 验证原始注册的函数仍然有效
+	result, err := New(namespace, "Value", &Options{Name: "duplicate-test"})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	
+	if value, ok := result.(*Value); ok {
+		if value.Name != "duplicate-test" {
+			t.Errorf("New() got name = %v, want %v", value.Name, "duplicate-test")
+		}
+	} else {
+		t.Errorf("New() result is not *Value type")
+	}
+}
+
+func TestDuplicateRegisterT(t *testing.T) {
+	// 定义一个新的类型避免与其他测试冲突
+	type TestValue struct {
+		Name string
+	}
+	
+	newTestValue := func(options *Options) *TestValue {
+		if options == nil {
+			return &TestValue{Name: "test-default"}
+		}
+		return &TestValue{Name: "test-" + options.Name}
+	}
+	
+	anotherNewTestValue := func(options *Options) *TestValue {
+		if options == nil {
+			return &TestValue{Name: "another-default"}
+		}
+		return &TestValue{Name: "another-" + options.Name}
+	}
+	
+	// 第一次注册
+	err := RegisterT[*TestValue](newTestValue)
+	if err != nil {
+		t.Fatalf("First RegisterT() error = %v", err)
+	}
+	
+	// 第二次注册相同的函数应该成功（跳过）
+	err = RegisterT[*TestValue](newTestValue)
+	if err != nil {
+		t.Errorf("Second RegisterT() with same function should not error, got: %v", err)
+	}
+	
+	// 注册不同的函数应该失败
+	err = RegisterT[*TestValue](anotherNewTestValue)
+	if err == nil {
+		t.Error("RegisterT() with different function should return error")
+	}
+	
+	// 验证原始注册的函数仍然有效
+	result, err := NewT[*TestValue](&Options{Name: "registerT"})
+	if err != nil {
+		t.Fatalf("NewT() error = %v", err)
+	}
+	
+	if result.Name != "test-registerT" {
+		t.Errorf("NewT() got name = %v, want %v", result.Name, "test-registerT")
+	}
+}
+
 func TestNewConstructor(t *testing.T) {
 	tests := []struct {
 		name     string
