@@ -405,9 +405,14 @@ func (ms *MapStorage) convertToStruct(src, dst reflect.Value) error {
 			continue
 		}
 		
-		// 获取字段名，优先使用 json tag
+		// 获取字段名，优先使用 json tag，然后是 yaml tag
 		fieldName := field.Name
 		if tag := field.Tag.Get("json"); tag != "" {
+			tagName := strings.Split(tag, ",")[0]
+			if tagName != "-" && tagName != "" {
+				fieldName = tagName
+			}
+		} else if tag := field.Tag.Get("yaml"); tag != "" {
 			tagName := strings.Split(tag, ",")[0]
 			if tagName != "-" && tagName != "" {
 				fieldName = tagName
