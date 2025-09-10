@@ -13,6 +13,11 @@ type MapStorage struct {
 	data interface{}
 }
 
+// Data 获取存储的原始数据
+func (ms *MapStorage) Data() interface{} {
+	return ms.data
+}
+
 // NewMapStorage 创建一个新的 MapStorage 实例
 func NewMapStorage(data interface{}) *MapStorage {
 	return &MapStorage{data: data}
