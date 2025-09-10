@@ -17,9 +17,12 @@ type Provider interface {
 // 提供层级化配置访问和结构体绑定功能
 type Storage interface {
 	// Sub 获取子配置存储对象
+	// key 可以包含点号（.）表示多级嵌套，[]表示数组索引
+	// 例如 "database.connections[0].host"
 	Sub(key string) Storage
-	// ToStruct 将配置数据绑定到结构体
-	ToStruct(object any) error
+
+	// ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
+	ConvertTo(object any) error
 }
 
 // Decoder 配置数据编解码器接口
@@ -58,8 +61,8 @@ func (c *Config) Sub(key string) *Config {
 	return nil
 }
 
-// ToStruct 将配置数据绑定到结构体
-func (c *Config) ToStruct(object any) error {
+// ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
+func (c *Config) ConvertTo(object any) error {
 	return nil
 }
 
