@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // MapStorage 基于 map 和 slice 的存储实现
@@ -191,6 +192,13 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 		return nil
 	}
 	
+	// 特殊类型转换：time.Duration 和 time.Time
+	if err := ms.convertTimeTypes(srcValue, dst); err == nil {
+		return nil
+	} else if err.Error() != "not a time type" {
+		return err
+	}
+	
 	// 类型转换
 	switch dst.Kind() {
 	case reflect.Map:
@@ -213,6 +221,113 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 	}
 	
 	return fmt.Errorf("cannot convert %v to %v", srcValue.Type(), dst.Type())
+}
+
+// convertTimeTypes 处理时间相关类型的转换
+func (ms *MapStorage) convertTimeTypes(src, dst reflect.Value) error {
+	dstType := dst.Type()
+	
+	// 转换为 time.Duration
+	if dstType == reflect.TypeOf(time.Duration(0)) {
+		return ms.convertToDuration(src, dst)
+	}
+	
+	// 转换为 time.Time
+	if dstType == reflect.TypeOf(time.Time{}) {
+		return ms.convertToTime(src, dst)
+	}
+	
+	return fmt.Errorf("not a time type")
+}
+
+// convertToDuration 将源值转换为 time.Duration
+func (ms *MapStorage) convertToDuration(src, dst reflect.Value) error {
+	switch src.Kind() {
+	case reflect.String:
+		str := src.String()
+		duration, err := time.ParseDuration(str)
+		if err != nil {
+			return fmt.Errorf("failed to parse duration %q: %v", str, err)
+		}
+		dst.Set(reflect.ValueOf(duration))
+		return nil
+		
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		// 将整数视为纳秒
+		nanoseconds := src.Int()
+		duration := time.Duration(nanoseconds)
+		dst.Set(reflect.ValueOf(duration))
+		return nil
+		
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		// 将无符号整数视为纳秒
+		nanoseconds := src.Uint()
+		duration := time.Duration(nanoseconds)
+		dst.Set(reflect.ValueOf(duration))
+		return nil
+		
+	case reflect.Float32, reflect.Float64:
+		// 将浮点数视为秒
+		seconds := src.Float()
+		duration := time.Duration(seconds * float64(time.Second))
+		dst.Set(reflect.ValueOf(duration))
+		return nil
+	}
+	
+	return fmt.Errorf("cannot convert %v to time.Duration", src.Type())
+}
+
+// convertToTime 将源值转换为 time.Time
+func (ms *MapStorage) convertToTime(src, dst reflect.Value) error {
+	switch src.Kind() {
+	case reflect.String:
+		str := src.String()
+		
+		// 尝试多种时间格式
+		formats := []string{
+			time.RFC3339,
+			time.RFC3339Nano,
+			"2006-01-02T15:04:05Z07:00",
+			"2006-01-02T15:04:05",
+			"2006-01-02 15:04:05",
+			"2006-01-02",
+			"15:04:05",
+		}
+		
+		for _, format := range formats {
+			if t, err := time.Parse(format, str); err == nil {
+				dst.Set(reflect.ValueOf(t))
+				return nil
+			}
+		}
+		
+		return fmt.Errorf("failed to parse time %q", str)
+		
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		// Unix 时间戳（秒）
+		timestamp := src.Int()
+		t := time.Unix(timestamp, 0)
+		dst.Set(reflect.ValueOf(t))
+		return nil
+		
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		// Unix 时间戳（秒）
+		timestamp := int64(src.Uint())
+		t := time.Unix(timestamp, 0)
+		dst.Set(reflect.ValueOf(t))
+		return nil
+		
+	case reflect.Float32, reflect.Float64:
+		// Unix 时间戳（秒，支持小数）
+		timestamp := src.Float()
+		seconds := int64(timestamp)
+		nanoseconds := int64((timestamp - float64(seconds)) * 1e9)
+		t := time.Unix(seconds, nanoseconds)
+		dst.Set(reflect.ValueOf(t))
+		return nil
+	}
+	
+	return fmt.Errorf("cannot convert %v to time.Time", src.Type())
 }
 
 // convertToMap 转换为 map 类型

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"testing"
+	"time"
 )
 
 func TestMapStorage_Sub(t *testing.T) {
@@ -129,5 +130,133 @@ func TestMapStorage_ConvertTo_Slice(t *testing.T) {
 		if item != expected[i] {
 			t.Errorf("Expected item %d to be %s, got %s", i, expected[i], item)
 		}
+	}
+}
+
+func TestMapStorage_ConvertTo_Duration(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     interface{}
+		expected time.Duration
+	}{
+		{
+			name:     "string duration",
+			data:     "5m30s",
+			expected: 5*time.Minute + 30*time.Second,
+		},
+		{
+			name:     "string hour duration",
+			data:     "2h15m",
+			expected: 2*time.Hour + 15*time.Minute,
+		},
+		{
+			name:     "nanoseconds as int64",
+			data:     int64(1000000000), // 1 second
+			expected: time.Second,
+		},
+		{
+			name:     "seconds as float64",
+			data:     2.5, // 2.5 seconds
+			expected: 2*time.Second + 500*time.Millisecond,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := NewMapStorage(tt.data)
+			var duration time.Duration
+			err := storage.ConvertTo(&duration)
+			if err != nil {
+				t.Fatalf("ConvertTo failed: %v", err)
+			}
+			if duration != tt.expected {
+				t.Errorf("Expected duration %v, got %v", tt.expected, duration)
+			}
+		})
+	}
+}
+
+func TestMapStorage_ConvertTo_Time(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     interface{}
+		expected time.Time
+	}{
+		{
+			name:     "RFC3339 string",
+			data:     "2023-12-25T15:30:45Z",
+			expected: time.Date(2023, 12, 25, 15, 30, 45, 0, time.UTC),
+		},
+		{
+			name:     "date only string",
+			data:     "2023-12-25",
+			expected: time.Date(2023, 12, 25, 0, 0, 0, 0, time.UTC),
+		},
+		{
+			name:     "datetime string",
+			data:     "2023-12-25 15:30:45",
+			expected: time.Date(2023, 12, 25, 15, 30, 45, 0, time.UTC),
+		},
+		{
+			name:     "unix timestamp int64",
+			data:     int64(1703517045), // 2023-12-25 15:30:45 UTC
+			expected: time.Unix(1703517045, 0),
+		},
+		{
+			name:     "unix timestamp float64",
+			data:     1703517045.5, // 2023-12-25 15:30:45.5 UTC
+			expected: time.Unix(1703517045, 500000000),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := NewMapStorage(tt.data)
+			var timeValue time.Time
+			err := storage.ConvertTo(&timeValue)
+			if err != nil {
+				t.Fatalf("ConvertTo failed: %v", err)
+			}
+			if !timeValue.Equal(tt.expected) {
+				t.Errorf("Expected time %v, got %v", tt.expected, timeValue)
+			}
+		})
+	}
+}
+
+func TestMapStorage_ConvertTo_TimeInStruct(t *testing.T) {
+	data := map[string]interface{}{
+		"timeout":    "30s",
+		"created_at": "2023-12-25T15:30:45Z",
+		"expires_at": int64(1703517045),
+	}
+
+	storage := NewMapStorage(data)
+
+	type Config struct {
+		Timeout   time.Duration `json:"timeout"`
+		CreatedAt time.Time     `json:"created_at"`
+		ExpiresAt time.Time     `json:"expires_at"`
+	}
+
+	var config Config
+	err := storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("ConvertTo failed: %v", err)
+	}
+
+	expectedTimeout := 30 * time.Second
+	if config.Timeout != expectedTimeout {
+		t.Errorf("Expected timeout %v, got %v", expectedTimeout, config.Timeout)
+	}
+
+	expectedCreatedAt := time.Date(2023, 12, 25, 15, 30, 45, 0, time.UTC)
+	if !config.CreatedAt.Equal(expectedCreatedAt) {
+		t.Errorf("Expected created_at %v, got %v", expectedCreatedAt, config.CreatedAt)
+	}
+
+	expectedExpiresAt := time.Unix(1703517045, 0)
+	if !config.ExpiresAt.Equal(expectedExpiresAt) {
+		t.Errorf("Expected expires_at %v, got %v", expectedExpiresAt, config.ExpiresAt)
 	}
 }
