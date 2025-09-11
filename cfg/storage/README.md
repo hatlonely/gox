@@ -67,6 +67,30 @@ storage.ConvertTo(&config)
 // cache.redis.host -> CACHE_REDIS_HOST
 ```
 
+#### 复杂嵌套结构支持
+
+```go
+// 同时支持 struct、map、slice 混合嵌套
+data := map[string]interface{}{
+    "APP_NAME": "service",
+    "DATABASE_POOLS_0_HOST": "db1.com",
+    "DATABASE_POOLS_1_HOST": "db2.com", 
+    "CACHE_REDIS_URL": "redis://localhost",
+    "FEATURES_AUTH_ENABLED": true,
+}
+
+type Config struct {
+    Name string `cfg:"name"`
+    Database struct {
+        Pools []struct {
+            Host string `cfg:"host"`
+        } `cfg:"pools"`
+    } `cfg:"database"`
+    Cache    map[string]string `cfg:"cache"`    // redis_url: redis://localhost
+    Features map[string]bool   `cfg:"features"` // auth_enabled: true
+}
+```
+
 ## 功能特性
 
 - **层次化访问**：使用点号表示法 (`database.host`) 和数组索引 (`servers[0]`) 访问嵌套结构
