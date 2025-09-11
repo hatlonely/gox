@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -530,5 +531,266 @@ func TestFlatStorage_SmartFieldMatching(t *testing.T) {
 	}
 	if config.Server.Timeout != 30*time.Second {
 		t.Errorf("Expected server timeout 30s, got %v", config.Server.Timeout)
+	}
+}
+
+func TestFlatStorage_ComplexNestedStructure(t *testing.T) {
+	// 复杂嵌套结构：同时包含 struct、map、slice
+	data := map[string]interface{}{
+		// 应用基础配置
+		"APP_NAME":    "complex-service",
+		"APP_VERSION": "2.0.0",
+		"APP_DEBUG":   true,
+		
+		// 服务器配置 (struct)
+		"SERVER_HOST":    "0.0.0.0",
+		"SERVER_PORT":    8080,
+		"SERVER_TIMEOUT": "60s",
+		
+		// 数据库连接池配置 (slice of struct)
+		"DATABASE_POOLS_0_NAME":        "primary",
+		"DATABASE_POOLS_0_HOST":        "db1.example.com",
+		"DATABASE_POOLS_0_PORT":        5432,
+		"DATABASE_POOLS_0_MAX_CONNS":   20,
+		"DATABASE_POOLS_0_TIMEOUT":     "30s",
+		"DATABASE_POOLS_1_NAME":        "replica",
+		"DATABASE_POOLS_1_HOST":        "db2.example.com",
+		"DATABASE_POOLS_1_PORT":        5433,
+		"DATABASE_POOLS_1_MAX_CONNS":   10,
+		"DATABASE_POOLS_1_TIMEOUT":     "15s",
+		
+		// 缓存配置 (map)
+		"CACHE_REDIS_URL":      "redis://localhost:6379",
+		"CACHE_REDIS_PASSWORD": "secret",
+		"CACHE_MEMCACHED_URLS": "mc1.example.com:11211,mc2.example.com:11211",
+		
+		// 功能开关 (map)
+		"FEATURES_USER_REGISTRATION": true,
+		"FEATURES_PAYMENT_GATEWAY":   false,
+		"FEATURES_EMAIL_VERIFICATION": true,
+		
+		// 外部服务配置 (slice of map)
+		"SERVICES_0_NAME": "auth-service",
+		"SERVICES_0_URL":  "https://auth.example.com",
+		"SERVICES_0_TIMEOUT": "10s",
+		"SERVICES_0_RETRIES": 3,
+		"SERVICES_1_NAME": "payment-service", 
+		"SERVICES_1_URL":  "https://payment.example.com",
+		"SERVICES_1_TIMEOUT": "20s",
+		"SERVICES_1_RETRIES": 5,
+		
+		// 监控配置 (nested struct with slice)
+		"MONITORING_METRICS_ENABLED":     true,
+		"MONITORING_METRICS_INTERVAL":    "30s",
+		"MONITORING_ALERTS_0_TYPE":       "email",
+		"MONITORING_ALERTS_0_TARGET":     "admin@example.com",
+		"MONITORING_ALERTS_0_THRESHOLD":  90.0,
+		"MONITORING_ALERTS_1_TYPE":       "slack",
+		"MONITORING_ALERTS_1_TARGET":     "#alerts",
+		"MONITORING_ALERTS_1_THRESHOLD":  95.0,
+	}
+
+	storage := NewFlatStorageWithOptions(data, "_", "_%d")
+
+	// 定义复杂嵌套结构
+	type DatabasePool struct {
+		Name     string        `cfg:"name"`
+		Host     string        `cfg:"host"`
+		Port     int           `cfg:"port"`
+		MaxConns int           `cfg:"max_conns"`
+		Timeout  time.Duration `cfg:"timeout"`
+	}
+
+	type ServiceConfig map[string]interface{}
+
+	type Alert struct {
+		Type      string  `cfg:"type"`
+		Target    string  `cfg:"target"`
+		Threshold float64 `cfg:"threshold"`
+	}
+
+	type MonitoringConfig struct {
+		Metrics struct {
+			Enabled  bool          `cfg:"enabled"`
+			Interval time.Duration `cfg:"interval"`
+		} `cfg:"metrics"`
+		Alerts []Alert `cfg:"alerts"`
+	}
+
+	type ComplexConfig struct {
+		// 基本字段
+		Name    string `cfg:"name"`
+		Version string `cfg:"version"`
+		Debug   bool   `cfg:"debug"`
+		
+		// 嵌套结构体
+		Server struct {
+			Host    string        `cfg:"host"`
+			Port    int           `cfg:"port"`
+			Timeout time.Duration `cfg:"timeout"`
+		} `cfg:"server"`
+		
+		// 结构体切片
+		Database struct {
+			Pools []DatabasePool `cfg:"pools"`
+		} `cfg:"database"`
+		
+		// Map类型
+		Cache    map[string]string `cfg:"cache"`
+		Features map[string]bool   `cfg:"features"`
+		
+		// Map切片
+		Services []ServiceConfig `cfg:"services"`
+		
+		// 复杂嵌套：包含结构体和切片的结构体
+		Monitoring MonitoringConfig `cfg:"monitoring"`
+	}
+
+	var config ComplexConfig
+	err := storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("Failed to convert complex nested structure: %v", err)
+	}
+
+	// 验证基本字段
+	if config.Name != "complex-service" {
+		t.Errorf("Expected name 'complex-service', got %v", config.Name)
+	}
+	if config.Version != "2.0.0" {
+		t.Errorf("Expected version '2.0.0', got %v", config.Version)
+	}
+	if !config.Debug {
+		t.Errorf("Expected debug true, got %v", config.Debug)
+	}
+
+	// 验证嵌套结构体
+	if config.Server.Host != "0.0.0.0" {
+		t.Errorf("Expected server host '0.0.0.0', got %v", config.Server.Host)
+	}
+	if config.Server.Port != 8080 {
+		t.Errorf("Expected server port 8080, got %v", config.Server.Port)
+	}
+	if config.Server.Timeout != 60*time.Second {
+		t.Errorf("Expected server timeout 60s, got %v", config.Server.Timeout)
+	}
+
+	// 验证结构体切片
+	if len(config.Database.Pools) != 2 {
+		t.Errorf("Expected 2 database pools, got %d", len(config.Database.Pools))
+	}
+	if len(config.Database.Pools) > 0 {
+		pool := config.Database.Pools[0]
+		if pool.Name != "primary" {
+			t.Errorf("Expected pool 0 name 'primary', got %v", pool.Name)
+		}
+		if pool.Host != "db1.example.com" {
+			t.Errorf("Expected pool 0 host 'db1.example.com', got %v", pool.Host)
+		}
+		if pool.Port != 5432 {
+			t.Errorf("Expected pool 0 port 5432, got %v", pool.Port)
+		}
+		if pool.MaxConns != 20 {
+			t.Errorf("Expected pool 0 max conns 20, got %v", pool.MaxConns)
+		}
+		if pool.Timeout != 30*time.Second {
+			t.Errorf("Expected pool 0 timeout 30s, got %v", pool.Timeout)
+		}
+	}
+
+	// 验证Map类型
+	if config.Cache == nil {
+		t.Error("Expected cache map to be initialized")
+	} else {
+		// 检查不同的键名格式
+		redisURL := ""
+		redisPassword := ""
+		for k, v := range config.Cache {
+			switch strings.ToLower(k) {
+			case "redis_url", "url":
+				redisURL = v
+			case "redis_password", "password":
+				redisPassword = v
+			}
+		}
+		
+		if redisURL != "redis://localhost:6379" {
+			t.Errorf("Expected cache redis url 'redis://localhost:6379', got %v", redisURL)
+		}
+		if redisPassword != "secret" {
+			t.Errorf("Expected cache redis password 'secret', got %v", redisPassword)
+		}
+	}
+
+	if config.Features == nil {
+		t.Error("Expected features map to be initialized")
+	} else {
+		// 检查不同的键名格式 
+		userReg := false
+		paymentGW := true // 默认为true，这样如果找不到就会显示错误
+		for k, v := range config.Features {
+			switch strings.ToLower(strings.ReplaceAll(k, "_", "")) {
+			case "userregistration", "registration":
+				userReg = v
+			case "paymentgateway", "gateway":
+				paymentGW = v
+			}
+		}
+		
+		if !userReg {
+			t.Errorf("Expected features user_registration true, got %v", userReg)
+		}
+		if paymentGW {
+			t.Errorf("Expected features payment_gateway false, got %v", paymentGW)
+		}
+	}
+
+	// 验证Map切片
+	if len(config.Services) != 2 {
+		t.Errorf("Expected 2 services, got %d", len(config.Services))
+	}
+	if len(config.Services) > 0 {
+		service := config.Services[0]
+		
+		// 查找name和url，考虑不同的键名格式
+		var serviceName, serviceURL interface{}
+		for k, v := range service {
+			switch strings.ToUpper(k) {
+			case "NAME":
+				serviceName = v
+			case "URL":
+				serviceURL = v
+			}
+		}
+		
+		if serviceName != "auth-service" {
+			t.Errorf("Expected service 0 name 'auth-service', got %v", serviceName)
+		}
+		if serviceURL != "https://auth.example.com" {
+			t.Errorf("Expected service 0 url 'https://auth.example.com', got %v", serviceURL)
+		}
+	}
+
+	// 验证复杂嵌套结构
+	if !config.Monitoring.Metrics.Enabled {
+		t.Errorf("Expected monitoring metrics enabled true, got %v", config.Monitoring.Metrics.Enabled)
+	}
+	if config.Monitoring.Metrics.Interval != 30*time.Second {
+		t.Errorf("Expected monitoring metrics interval 30s, got %v", config.Monitoring.Metrics.Interval)
+	}
+	
+	if len(config.Monitoring.Alerts) != 2 {
+		t.Errorf("Expected 2 monitoring alerts, got %d", len(config.Monitoring.Alerts))
+	}
+	if len(config.Monitoring.Alerts) > 0 {
+		alert := config.Monitoring.Alerts[0]
+		if alert.Type != "email" {
+			t.Errorf("Expected alert 0 type 'email', got %v", alert.Type)
+		}
+		if alert.Target != "admin@example.com" {
+			t.Errorf("Expected alert 0 target 'admin@example.com', got %v", alert.Target)
+		}
+		if alert.Threshold != 90.0 {
+			t.Errorf("Expected alert 0 threshold 90.0, got %v", alert.Threshold)
+		}
 	}
 }

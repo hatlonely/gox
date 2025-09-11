@@ -572,7 +572,10 @@ func (fs *FlatStorage) convertToMap(flatData map[string]interface{}, dst reflect
 		dst.Set(reflect.MakeMap(dst.Type()))
 	}
 	
-	for key, value := range flatData {
+	// 处理扁平数据到map的转换，移除公共前缀
+	processedData := fs.removePrefixFromKeys(flatData)
+	
+	for key, value := range processedData {
 		// 转换键
 		keyValue := reflect.ValueOf(key)
 		convertedKey := keyValue
@@ -596,9 +599,120 @@ func (fs *FlatStorage) convertToMap(flatData map[string]interface{}, dst reflect
 	return nil
 }
 
-// convertToSlice 转换为 slice 类型，从打平的数据中重建数组
+// removePrefixFromKeys 移除键名中的公共前缀，用于map转换
+func (fs *FlatStorage) removePrefixFromKeys(flatData map[string]interface{}) map[string]interface{} {
+	if len(flatData) == 0 {
+		return flatData
+	}
+	
+	// 查找最长公共前缀
+	var commonPrefix string
+	keys := make([]string, 0, len(flatData))
+	for key := range flatData {
+		keys = append(keys, key)
+	}
+	
+	if len(keys) > 0 {
+		commonPrefix = keys[0]
+		for _, key := range keys[1:] {
+			commonPrefix = fs.longestCommonPrefix(commonPrefix, key)
+		}
+		
+		// 如果公共前缀以分隔符结尾，移除分隔符后的所有内容作为前缀
+		if idx := strings.LastIndex(commonPrefix, fs.KeySeparator); idx >= 0 {
+			commonPrefix = commonPrefix[:idx+len(fs.KeySeparator)]
+		} else {
+			commonPrefix = ""
+		}
+	}
+	
+	// 构建移除前缀后的map
+	result := make(map[string]interface{})
+	for key, value := range flatData {
+		cleanKey := key
+		if commonPrefix != "" && strings.HasPrefix(key, commonPrefix) {
+			cleanKey = key[len(commonPrefix):]
+		}
+		result[cleanKey] = value
+	}
+	
+	return result
+}
+
+// longestCommonPrefix 计算两个字符串的最长公共前缀
+func (fs *FlatStorage) longestCommonPrefix(a, b string) string {
+	minLen := len(a)
+	if len(b) < minLen {
+		minLen = len(b)
+	}
+	
+	for i := 0; i < minLen; i++ {
+		if a[i] != b[i] {
+			return a[:i]
+		}
+	}
+	
+	return a[:minLen]
+}
+
+// convertToSlice 转换为 slice 类型，支持直接从打平数据构建
 func (fs *FlatStorage) convertToSlice(flatData map[string]interface{}, dst reflect.Value) error {
-	// 重建嵌套结构来获取数组数据
+	// 首先尝试从打平的数据直接构建数组
+	arrayItems := fs.extractArrayFromFlatData(flatData)
+	
+	if len(arrayItems) > 0 {
+		dst.Set(reflect.MakeSlice(dst.Type(), len(arrayItems), len(arrayItems)))
+		
+		for i, itemData := range arrayItems {
+			dstItem := dst.Index(i)
+			
+			// 根据目标元素类型进行转换
+			if dstItem.Kind() == reflect.Struct {
+				if err := fs.convertToStruct(itemData, dstItem); err != nil {
+					return err
+				}
+			} else if dstItem.Kind() == reflect.Map || (dstItem.Type().Kind() == reflect.Map) {
+				// 处理 map 类型，包括 map[string]interface{} 和其别名类型
+				if dstItem.IsNil() {
+					dstItem.Set(reflect.MakeMap(dstItem.Type()))
+				}
+				
+				for k, v := range itemData {
+					keyValue := reflect.ValueOf(k)
+					convertedKey := keyValue
+					if !keyValue.Type().AssignableTo(dstItem.Type().Key()) {
+						if keyValue.Type().ConvertibleTo(dstItem.Type().Key()) {
+							convertedKey = keyValue.Convert(dstItem.Type().Key())
+						} else {
+							return fmt.Errorf("cannot convert key %v to %v", keyValue.Type(), dstItem.Type().Key())
+						}
+					}
+					
+					valueReflect := reflect.ValueOf(v)
+					convertedValue := valueReflect
+					if !valueReflect.Type().AssignableTo(dstItem.Type().Elem()) {
+						if valueReflect.Type().ConvertibleTo(dstItem.Type().Elem()) {
+							convertedValue = valueReflect.Convert(dstItem.Type().Elem())
+						} else {
+							// 对于 interface{} 目标类型，直接赋值
+							if dstItem.Type().Elem().Kind() == reflect.Interface {
+								convertedValue = valueReflect
+							} else {
+								return fmt.Errorf("cannot convert value %v to %v", valueReflect.Type(), dstItem.Type().Elem())
+							}
+						}
+					}
+					
+					dstItem.SetMapIndex(convertedKey, convertedValue)
+				}
+			} else {
+				return fmt.Errorf("unsupported slice element type: %v", dstItem.Type())
+			}
+		}
+		return nil
+	}
+	
+	// 回退到重建嵌套结构的方法
 	nested := fs.buildNestedStructure()
 	
 	if nestedSlice, ok := nested.([]interface{}); ok {
@@ -607,10 +721,8 @@ func (fs *FlatStorage) convertToSlice(flatData map[string]interface{}, dst refle
 		
 		for i := 0; i < length; i++ {
 			dstItem := dst.Index(i)
-			// 如果目标是结构体，需要特殊处理
 			if dstItem.Kind() == reflect.Struct {
 				if itemMap, ok := nestedSlice[i].(map[string]interface{}); ok {
-					// 将map转换为结构体
 					if err := fs.convertToStruct(itemMap, dstItem); err != nil {
 						return err
 					}
@@ -627,6 +739,56 @@ func (fs *FlatStorage) convertToSlice(flatData map[string]interface{}, dst refle
 	}
 	
 	return fmt.Errorf("cannot convert flat data to slice")
+}
+
+// extractArrayFromFlatData 从打平的数据中提取数组数据
+func (fs *FlatStorage) extractArrayFromFlatData(flatData map[string]interface{}) []map[string]interface{} {
+	// 按索引分组数据
+	indexedData := make(map[int]map[string]interface{})
+	maxIndex := -1
+	
+	for key, value := range flatData {
+		// 解析类似 "pools_0_name", "pools_1_host" 的键名
+		if parts := strings.Split(key, fs.KeySeparator); len(parts) >= 2 {
+			// 查找索引部分
+			for i := 1; i < len(parts); i++ {
+				if index, err := strconv.Atoi(parts[i]); err == nil {
+					if index > maxIndex {
+						maxIndex = index
+					}
+					
+					// 构建子键名
+					var subKey string
+					if i+1 < len(parts) {
+						subKey = strings.Join(parts[i+1:], fs.KeySeparator)
+					} else {
+						subKey = parts[0] // 如果没有后续部分，使用前缀作为键
+					}
+					
+					if _, exists := indexedData[index]; !exists {
+						indexedData[index] = make(map[string]interface{})
+					}
+					indexedData[index][subKey] = value
+					break
+				}
+			}
+		}
+	}
+	
+	// 构建结果数组
+	if maxIndex >= 0 {
+		result := make([]map[string]interface{}, maxIndex+1)
+		for i := 0; i <= maxIndex; i++ {
+			if data, exists := indexedData[i]; exists {
+				result[i] = data
+			} else {
+				result[i] = make(map[string]interface{})
+			}
+		}
+		return result
+	}
+	
+	return nil
 }
 
 // convertToStruct 转换为 struct 类型，支持基于字段路径的智能匹配
@@ -695,10 +857,30 @@ func (fs *FlatStorage) convertToStructWithPrefix(flatData map[string]interface{}
 					return err
 				}
 			}
-		} else if fieldValue.Kind() == reflect.Struct {
-			// 即使没有直接匹配，也尝试递归处理嵌套结构体
-			if err := fs.convertToStructWithPrefix(flatData, fieldValue, fullPath); err != nil {
-				return err
+		} else {
+			// 没有直接匹配时，根据字段类型进行特殊处理
+			switch fieldValue.Kind() {
+			case reflect.Struct:
+				// 嵌套结构体，递归处理
+				if err := fs.convertToStructWithPrefix(flatData, fieldValue, fullPath); err != nil {
+					return err
+				}
+			case reflect.Slice:
+				// 切片类型，查找相关的数组数据
+				arrayData := fs.filterDataWithPrefix(flatData, fullPath)
+				if len(arrayData) > 0 {
+					if err := fs.convertToSlice(arrayData, fieldValue); err != nil {
+						return err
+					}
+				}
+			case reflect.Map:
+				// Map类型，查找相关的map数据
+				mapData := fs.filterDataWithPrefix(flatData, fullPath)
+				if len(mapData) > 0 {
+					if err := fs.convertToMap(mapData, fieldValue); err != nil {
+						return err
+					}
+				}
 			}
 		}
 	}
@@ -726,6 +908,27 @@ func (fs *FlatStorage) findMatchingValue(flatData map[string]interface{}, fieldP
 		}
 	}
 	return nil, false
+}
+
+// filterDataWithPrefix 过滤出具有指定前缀的数据
+func (fs *FlatStorage) filterDataWithPrefix(flatData map[string]interface{}, prefix string) map[string]interface{} {
+	result := make(map[string]interface{})
+	
+	// 生成可能的前缀模式
+	prefixPatterns := fs.generateKeyPatterns(prefix)
+	prefixPatterns = append(prefixPatterns, fs.generatePrefixedPatterns(prefix)...)
+	
+	for _, pattern := range prefixPatterns {
+		prefixWithSep := pattern + fs.KeySeparator
+		
+		for key, value := range flatData {
+			if strings.HasPrefix(key, prefixWithSep) {
+				result[key] = value
+			}
+		}
+	}
+	
+	return result
 }
 
 // generateKeyPatterns 生成字段路径的可能键名模式
