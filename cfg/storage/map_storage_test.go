@@ -80,8 +80,8 @@ func TestMapStorage_Sub(t *testing.T) {
 
 func TestMapStorage_ConvertTo_Struct(t *testing.T) {
 	data := map[string]interface{}{
-		"name": "test-server",
-		"port": 8080,
+		"name":    "test-server",
+		"port":    8080,
 		"enabled": true,
 	}
 
@@ -268,7 +268,7 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 			"name":    "complex-service",
 			"version": "1.0.0",
 			"environment": map[string]interface{}{
-				"type": "production",
+				"type":   "production",
 				"region": "us-west-2",
 			},
 		},
@@ -282,26 +282,26 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 				},
 				"pools": []interface{}{
 					map[string]interface{}{
-						"name":         "readonly",
+						"name":            "readonly",
 						"max_connections": 10,
-						"timeout":      "30s",
+						"timeout":         "30s",
 					},
 					map[string]interface{}{
-						"name":         "readwrite", 
+						"name":            "readwrite",
 						"max_connections": 5,
-						"timeout":      "60s",
+						"timeout":         "60s",
 					},
 				},
 			},
 			"replicas": []interface{}{
 				map[string]interface{}{
-					"host": "replica1.example.com",
-					"port": 5432,
+					"host":   "replica1.example.com",
+					"port":   5432,
 					"weight": 0.6,
 				},
 				map[string]interface{}{
-					"host": "replica2.example.com", 
-					"port": 5432,
+					"host":   "replica2.example.com",
+					"port":   5432,
 					"weight": 0.4,
 				},
 			},
@@ -311,7 +311,7 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 				"name": "auth-service",
 				"endpoints": []interface{}{
 					"https://auth.example.com/login",
-					"https://auth.example.com/logout", 
+					"https://auth.example.com/logout",
 				},
 				"config": map[string]interface{}{
 					"rate_limit": 1000,
@@ -329,7 +329,7 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 				},
 				"config": map[string]interface{}{
 					"rate_limit": 500,
-					"timeout":    "10s", 
+					"timeout":    "10s",
 					"providers": []interface{}{
 						map[string]interface{}{
 							"type": "email",
@@ -340,7 +340,7 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 							},
 						},
 						map[string]interface{}{
-							"type": "sms",
+							"type":    "sms",
 							"gateway": "twilio",
 							"credentials": map[string]interface{}{
 								"account_sid": "AC123",
@@ -353,7 +353,7 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 		},
 		"monitoring": map[string]interface{}{
 			"metrics": map[string]interface{}{
-				"enabled": true,
+				"enabled":  true,
 				"interval": "1m",
 				"collectors": []interface{}{
 					"prometheus",
@@ -373,8 +373,8 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 						},
 					},
 					map[string]interface{}{
-						"type": "elasticsearch",
-						"url":  "https://es.example.com",
+						"type":  "elasticsearch",
+						"url":   "https://es.example.com",
 						"index": "app-logs",
 					},
 				},
@@ -454,8 +454,8 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 
 	// 测试6: 嵌套的slice转换
 	type ServiceEndpoint struct {
-		Name      string            `json:"name"`
-		Endpoints []string          `json:"endpoints"`
+		Name      string                 `json:"name"`
+		Endpoints []string               `json:"endpoints"`
 		Config    map[string]interface{} `json:"config"`
 	}
 
@@ -501,18 +501,18 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 	// 测试8: 完整的复杂结构转换
 	type ComplexConfig struct {
 		Application struct {
-			Name    string `json:"name"`
-			Version string `json:"version"`
+			Name        string `json:"name"`
+			Version     string `json:"version"`
 			Environment struct {
 				Type   string `json:"type"`
 				Region string `json:"region"`
 			} `json:"environment"`
 		} `json:"application"`
-		
+
 		Database struct {
 			Primary struct {
-				Host string `json:"host"`
-				Port int    `json:"port"`
+				Host  string         `json:"host"`
+				Port  int            `json:"port"`
 				Pools []DatabasePool `json:"pools"`
 			} `json:"primary"`
 			Replicas []struct {
@@ -521,14 +521,14 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 				Weight float64 `json:"weight"`
 			} `json:"replicas"`
 		} `json:"database"`
-		
+
 		Services []ServiceEndpoint `json:"services"`
-		
+
 		Monitoring struct {
 			Metrics struct {
-				Enabled   bool          `json:"enabled"`
-				Interval  time.Duration `json:"interval"`
-				Collectors []string     `json:"collectors"`
+				Enabled    bool          `json:"enabled"`
+				Interval   time.Duration `json:"interval"`
+				Collectors []string      `json:"collectors"`
 			} `json:"metrics"`
 		} `json:"monitoring"`
 	}
@@ -563,5 +563,173 @@ func TestMapStorage_ComplexNestedStructure(t *testing.T) {
 	}
 	if len(complexConfig.Monitoring.Metrics.Collectors) != 2 {
 		t.Errorf("Expected 2 metric collectors, got %v", len(complexConfig.Monitoring.Metrics.Collectors))
+	}
+}
+
+func TestMapStorage_CfgTagPriority(t *testing.T) {
+	// 测试数据
+	data := map[string]interface{}{
+		"custom_name": "test_value",
+		"json_name":   "json_value",
+		"yaml_name":   "yaml_value",
+		"toml_name":   "toml_value",
+		"ini_name":    "ini_value",
+		"CustomName":  "field_name_value", // 用于测试字段名匹配
+	}
+
+	storage := NewMapStorage(data)
+
+	// 定义测试结构体，cfg 标签应该有最高优先级
+	type TestStruct struct {
+		// cfg 标签优先级最高
+		Field1 string `cfg:"custom_name" json:"json_name" yaml:"yaml_name" toml:"toml_name" ini:"ini_name"`
+
+		// json 标签优先于 yaml/toml/ini
+		Field2 string `json:"json_name" yaml:"yaml_name" toml:"toml_name" ini:"ini_name"`
+
+		// yaml 标签优先于 toml/ini
+		Field3 string `yaml:"yaml_name" toml:"toml_name" ini:"ini_name"`
+
+		// toml 标签优先于 ini
+		Field4 string `toml:"toml_name" ini:"ini_name"`
+
+		// 只有 ini 标签
+		Field5 string `ini:"ini_name"`
+
+		// 没有标签，使用字段名
+		CustomName string
+	}
+
+	var result TestStruct
+	err := storage.ConvertTo(&result)
+	if err != nil {
+		t.Fatalf("Failed to convert to struct: %v", err)
+	}
+
+	// 验证 cfg 标签优先级最高
+	if result.Field1 != "test_value" {
+		t.Errorf("Expected Field1 to use cfg tag value 'test_value', got %v", result.Field1)
+	}
+
+	// 验证 json 标签优先于其他标签
+	if result.Field2 != "json_value" {
+		t.Errorf("Expected Field2 to use json tag value 'json_value', got %v", result.Field2)
+	}
+
+	// 验证 yaml 标签优先于 toml/ini
+	if result.Field3 != "yaml_value" {
+		t.Errorf("Expected Field3 to use yaml tag value 'yaml_value', got %v", result.Field3)
+	}
+
+	// 验证 toml 标签优先于 ini
+	if result.Field4 != "toml_value" {
+		t.Errorf("Expected Field4 to use toml tag value 'toml_value', got %v", result.Field4)
+	}
+
+	// 验证 ini 标签
+	if result.Field5 != "ini_value" {
+		t.Errorf("Expected Field5 to use ini tag value 'ini_value', got %v", result.Field5)
+	}
+
+	// 验证字段名匹配
+	if result.CustomName != "field_name_value" {
+		t.Errorf("Expected CustomName to use field name matching 'field_name_value', got %v", result.CustomName)
+	}
+}
+
+func TestMapStorage_CfgTagIgnore(t *testing.T) {
+	// 测试 cfg 标签的忽略功能
+	data := map[string]interface{}{
+		"visible_field": "should_appear",
+		"hidden_field":  "should_not_appear",
+	}
+
+	storage := NewMapStorage(data)
+
+	type TestStruct struct {
+		VisibleField string `cfg:"visible_field"`
+		HiddenField  string `cfg:"-"`            // 使用 - 忽略字段
+		DefaultField string `cfg:"hidden_field"` // 应该能获取到值
+	}
+
+	var result TestStruct
+	err := storage.ConvertTo(&result)
+	if err != nil {
+		t.Fatalf("Failed to convert to struct: %v", err)
+	}
+
+	// 验证正常字段
+	if result.VisibleField != "should_appear" {
+		t.Errorf("Expected VisibleField to be 'should_appear', got %v", result.VisibleField)
+	}
+
+	// 验证忽略字段应该为空
+	if result.HiddenField != "" {
+		t.Errorf("Expected HiddenField to be empty (ignored), got %v", result.HiddenField)
+	}
+
+	// 验证其他字段正常工作
+	if result.DefaultField != "should_not_appear" {
+		t.Errorf("Expected DefaultField to be 'should_not_appear', got %v", result.DefaultField)
+	}
+}
+
+func TestMapStorage_CfgTagWithComplexData(t *testing.T) {
+	// 测试复杂数据结构中的 cfg 标签
+	data := map[string]interface{}{
+		"app_config": map[string]interface{}{
+			"service_name": "test-service",
+			"listen_port":  8080,
+			"debug_mode":   true,
+		},
+		"db_settings": map[string]interface{}{
+			"connection_string": "mysql://localhost:3306/test",
+			"pool_size":         20,
+		},
+	}
+
+	storage := NewMapStorage(data)
+
+	type AppConfig struct {
+		ServiceName string `cfg:"service_name" json:"name"`
+		ListenPort  int    `cfg:"listen_port" json:"port"`
+		DebugMode   bool   `cfg:"debug_mode" json:"debug"`
+	}
+
+	type DatabaseConfig struct {
+		ConnectionString string `cfg:"connection_string"`
+		PoolSize         int    `cfg:"pool_size"`
+	}
+
+	type CompleteConfig struct {
+		App      AppConfig      `cfg:"app_config"`
+		Database DatabaseConfig `cfg:"db_settings"`
+	}
+
+	var result CompleteConfig
+	err := storage.ConvertTo(&result)
+	if err != nil {
+		t.Fatalf("Failed to convert to complex struct: %v", err)
+	}
+
+	// 验证嵌套结构
+	if result.App.ServiceName != "test-service" {
+		t.Errorf("Expected service name 'test-service', got %v", result.App.ServiceName)
+	}
+
+	if result.App.ListenPort != 8080 {
+		t.Errorf("Expected listen port 8080, got %v", result.App.ListenPort)
+	}
+
+	if !result.App.DebugMode {
+		t.Errorf("Expected debug mode true, got %v", result.App.DebugMode)
+	}
+
+	if result.Database.ConnectionString != "mysql://localhost:3306/test" {
+		t.Errorf("Expected connection string 'mysql://localhost:3306/test', got %v", result.Database.ConnectionString)
+	}
+
+	if result.Database.PoolSize != 20 {
+		t.Errorf("Expected pool size 20, got %v", result.Database.PoolSize)
 	}
 }
