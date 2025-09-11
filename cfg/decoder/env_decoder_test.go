@@ -487,3 +487,110 @@ DISABLED=false`
 		t.Errorf("Expected disabled to be false, got %v", config.Disabled)
 	}
 }
+
+func TestEnvDecoder_TimeSupport(t *testing.T) {
+	decoder := NewEnvDecoder()
+
+	envData := `# 时间类型支持测试
+CREATED_AT=2023-01-15T10:30:00Z
+UPDATED_TIME=2023-12-25 15:45:30
+BIRTH_DATE=1990-01-15
+START_TIME=08:30:00
+TIMESTAMP=1642248600`
+
+	storage, err := decoder.Decode([]byte(envData))
+	if err != nil {
+		t.Fatalf("Failed to decode .env: %v", err)
+	}
+
+	// 使用结构体进行 time.Time 转换测试
+	type Config struct {
+		CreatedAt   time.Time `cfg:"created_at"`
+		UpdatedTime time.Time `cfg:"updated_time"`
+		BirthDate   time.Time `cfg:"birth_date"`
+		StartTime   time.Time `cfg:"start_time"`
+		Timestamp   time.Time `cfg:"timestamp"`
+	}
+
+	var config Config
+	err = storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("Failed to convert to config struct: %v", err)
+	}
+
+	// 验证 RFC3339 格式解析
+	expectedCreated := time.Date(2023, 1, 15, 10, 30, 0, 0, time.UTC)
+	if !config.CreatedAt.Equal(expectedCreated) {
+		t.Errorf("Expected created_at %v, got %v", expectedCreated, config.CreatedAt)
+	}
+
+	// 验证自定义格式解析
+	expectedUpdated := time.Date(2023, 12, 25, 15, 45, 30, 0, time.UTC)
+	if !config.UpdatedTime.Equal(expectedUpdated) {
+		t.Errorf("Expected updated_time %v, got %v", expectedUpdated, config.UpdatedTime)
+	}
+
+	// 验证日期格式解析
+	expectedBirth := time.Date(1990, 1, 15, 0, 0, 0, 0, time.UTC)
+	if !config.BirthDate.Equal(expectedBirth) {
+		t.Errorf("Expected birth_date %v, got %v", expectedBirth, config.BirthDate)
+	}
+
+	// 验证 Unix 时间戳解析
+	expectedTimestamp := time.Unix(1642248600, 0)
+	if !config.Timestamp.Equal(expectedTimestamp) {
+		t.Errorf("Expected timestamp %v, got %v", expectedTimestamp, config.Timestamp)
+	}
+}
+
+func TestEnvDecoder_NestedTimeSupport(t *testing.T) {
+	decoder := NewEnvDecoder()
+
+	envData := `# 嵌套结构中的时间支持
+SERVER_START_TIME=2023-01-01T00:00:00Z
+SERVER_SHUTDOWN_TIME=2023-12-31T23:59:59Z
+DATABASE_LAST_BACKUP=2023-06-15T12:00:00Z
+LOG_ROTATE_TIME=03:00:00`
+
+	storage, err := decoder.Decode([]byte(envData))
+	if err != nil {
+		t.Fatalf("Failed to decode .env: %v", err)
+	}
+
+	// 测试嵌套结构中的 time.Time 字段
+	type Config struct {
+		Server struct {
+			StartTime    time.Time `cfg:"start_time"`
+			ShutdownTime time.Time `cfg:"shutdown_time"`
+		} `cfg:"server"`
+		Database struct {
+			LastBackup time.Time `cfg:"last_backup"`
+		} `cfg:"database"`
+		Log struct {
+			RotateTime time.Time `cfg:"rotate_time"`
+		} `cfg:"log"`
+	}
+
+	var config Config
+	err = storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("Failed to convert to config struct: %v", err)
+	}
+
+	// 验证服务器时间配置
+	expectedStart := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+	if !config.Server.StartTime.Equal(expectedStart) {
+		t.Errorf("Expected server start_time %v, got %v", expectedStart, config.Server.StartTime)
+	}
+
+	expectedShutdown := time.Date(2023, 12, 31, 23, 59, 59, 0, time.UTC)
+	if !config.Server.ShutdownTime.Equal(expectedShutdown) {
+		t.Errorf("Expected server shutdown_time %v, got %v", expectedShutdown, config.Server.ShutdownTime)
+	}
+
+	// 验证数据库配置
+	expectedBackup := time.Date(2023, 6, 15, 12, 0, 0, 0, time.UTC)
+	if !config.Database.LastBackup.Equal(expectedBackup) {
+		t.Errorf("Expected database last_backup %v, got %v", expectedBackup, config.Database.LastBackup)
+	}
+}

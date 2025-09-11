@@ -846,13 +846,13 @@ func (fs *FlatStorage) convertToStructWithPrefix(flatData map[string]interface{}
 		// 查找匹配的键值
 		value, found := fs.findMatchingValue(flatData, fullPath)
 		if found {
-			if fieldValue.Kind() == reflect.Struct {
-				// 如果是嵌套结构体，递归处理
+			if fieldValue.Kind() == reflect.Struct && fieldValue.Type() != reflect.TypeOf(time.Time{}) {
+				// 如果是嵌套结构体（但不是 time.Time），递归处理
 				if err := fs.convertToStructWithPrefix(flatData, fieldValue, fullPath); err != nil {
 					return err
 				}
 			} else {
-				// 直接赋值
+				// 直接赋值（包括 time.Time）
 				if err := fs.convertDirectValue(value, fieldValue); err != nil {
 					return err
 				}

@@ -794,3 +794,111 @@ func TestFlatStorage_ComplexNestedStructure(t *testing.T) {
 		}
 	}
 }
+
+func TestFlatStorage_TimeConversion(t *testing.T) {
+	// 测试 time.Time 类型转换
+	data := map[string]interface{}{
+		"start_time":   "2023-01-01T00:00:00Z",
+		"end_time":     "2023-12-31T23:59:59Z",
+		"timeout":      "30s",
+		"timestamp":    int64(1672531200), // 2023-01-01 00:00:00 UTC
+		"float_time":   1672531200.5,      // 2023-01-01 00:00:00.5 UTC
+	}
+
+	storage := NewFlatStorage(data)
+
+	type TimeConfig struct {
+		StartTime   time.Time     `cfg:"start_time"`
+		EndTime     time.Time     `cfg:"end_time"`
+		Timeout     time.Duration `cfg:"timeout"`
+		Timestamp   time.Time     `cfg:"timestamp"`
+		FloatTime   time.Time     `cfg:"float_time"`
+	}
+
+	var config TimeConfig
+	err := storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("Failed to convert to time config: %v", err)
+	}
+
+	// 验证字符串到 time.Time 的转换
+	expectedStartTime, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
+	if !config.StartTime.Equal(expectedStartTime) {
+		t.Errorf("Expected start time %v, got %v", expectedStartTime, config.StartTime)
+	}
+
+	expectedEndTime, _ := time.Parse(time.RFC3339, "2023-12-31T23:59:59Z")
+	if !config.EndTime.Equal(expectedEndTime) {
+		t.Errorf("Expected end time %v, got %v", expectedEndTime, config.EndTime)
+	}
+
+	// 验证字符串到 time.Duration 的转换
+	expectedTimeout := 30 * time.Second
+	if config.Timeout != expectedTimeout {
+		t.Errorf("Expected timeout %v, got %v", expectedTimeout, config.Timeout)
+	}
+
+	// 验证 int64 时间戳到 time.Time 的转换
+	expectedTimestamp := time.Unix(1672531200, 0)
+	if !config.Timestamp.Equal(expectedTimestamp) {
+		t.Errorf("Expected timestamp %v, got %v", expectedTimestamp, config.Timestamp)
+	}
+
+	// 验证 float64 时间戳到 time.Time 的转换
+	expectedFloatTime := time.Unix(1672531200, 500000000)
+	if !config.FloatTime.Equal(expectedFloatTime) {
+		t.Errorf("Expected float time %v, got %v", expectedFloatTime, config.FloatTime)
+	}
+}
+
+func TestFlatStorage_TimeInNestedStructure(t *testing.T) {
+	// 测试嵌套结构中的 time.Time
+	data := map[string]interface{}{
+		"server_config_start_time":  "2023-06-15T10:30:00Z",
+		"server_config_timeout":     "45s",
+		"database_created_at":       "2023-01-15T08:00:00Z",
+		"database_backup_interval":  "24h",
+	}
+
+	storage := NewFlatStorageWithOptions(data, "_", "_%d")
+
+	type ServerConfig struct {
+		StartTime time.Time     `cfg:"start_time"`
+		Timeout   time.Duration `cfg:"timeout"`
+	}
+
+	type DatabaseConfig struct {
+		CreatedAt      time.Time     `cfg:"created_at"`
+		BackupInterval time.Duration `cfg:"backup_interval"`
+	}
+
+	type AppConfig struct {
+		Server   ServerConfig    `cfg:"server_config"`
+		Database DatabaseConfig `cfg:"database"`
+	}
+
+	var config AppConfig
+	err := storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("Failed to convert nested time config: %v", err)
+	}
+
+	// 验证嵌套结构中的时间字段
+	expectedServerStartTime, _ := time.Parse(time.RFC3339, "2023-06-15T10:30:00Z")
+	if !config.Server.StartTime.Equal(expectedServerStartTime) {
+		t.Errorf("Expected server start time %v, got %v", expectedServerStartTime, config.Server.StartTime)
+	}
+
+	if config.Server.Timeout != 45*time.Second {
+		t.Errorf("Expected server timeout 45s, got %v", config.Server.Timeout)
+	}
+
+	expectedDBCreatedAt, _ := time.Parse(time.RFC3339, "2023-01-15T08:00:00Z")
+	if !config.Database.CreatedAt.Equal(expectedDBCreatedAt) {
+		t.Errorf("Expected database created at %v, got %v", expectedDBCreatedAt, config.Database.CreatedAt)
+	}
+
+	if config.Database.BackupInterval != 24*time.Hour {
+		t.Errorf("Expected database backup interval 24h, got %v", config.Database.BackupInterval)
+	}
+}
