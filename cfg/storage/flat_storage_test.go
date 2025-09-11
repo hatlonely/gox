@@ -454,3 +454,81 @@ func TestFlatStorage_CustomSeparator(t *testing.T) {
 		t.Errorf("Expected server 0 'srv1', got %v", server0)
 	}
 }
+
+func TestFlatStorage_SmartFieldMatching(t *testing.T) {
+	// 模拟.env文件的键名模式
+	data := map[string]interface{}{
+		"DATABASE_PRIMARY_HOST":     "db1.example.com",
+		"DATABASE_PRIMARY_PORT":     5432,
+		"DATABASE_SECONDARY_HOST":   "db2.example.com", 
+		"DATABASE_SECONDARY_PORT":   5433,
+		"CACHE_REDIS_HOST":          "redis.example.com",
+		"CACHE_REDIS_PORT":          6379,
+		"APP_NAME":                  "test-service",
+		"APP_VERSION":               "1.0.0",
+		"SERVER_TIMEOUT":            "30s",
+	}
+
+	storage := NewFlatStorageWithOptions(data, "_", "_%d")
+
+	// 定义嵌套结构体，字段路径应该能智能匹配到对应的环境变量
+	type DatabaseConfig struct {
+		Primary struct {
+			Host string `cfg:"host"`
+			Port int    `cfg:"port"`
+		} `cfg:"primary"`
+		Secondary struct {
+			Host string `cfg:"host"`
+			Port int    `cfg:"port"`
+		} `cfg:"secondary"`
+	}
+
+	type CacheConfig struct {
+		Redis struct {
+			Host string `cfg:"host"`
+			Port int    `cfg:"port"`
+		} `cfg:"redis"`
+	}
+
+	type AppConfig struct {
+		Name     string        `cfg:"name"`
+		Version  string        `cfg:"version"`
+		Database DatabaseConfig `cfg:"database"`
+		Cache    CacheConfig    `cfg:"cache"`
+		Server   struct {
+			Timeout time.Duration `cfg:"timeout"`
+		} `cfg:"server"`
+	}
+
+	var config AppConfig
+	err := storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("Failed to convert to nested struct: %v", err)
+	}
+
+	// 验证智能匹配的结果
+	if config.Name != "test-service" {
+		t.Errorf("Expected app name 'test-service', got %v", config.Name)
+	}
+	if config.Version != "1.0.0" {
+		t.Errorf("Expected app version '1.0.0', got %v", config.Version)
+	}
+	if config.Database.Primary.Host != "db1.example.com" {
+		t.Errorf("Expected database primary host 'db1.example.com', got %v", config.Database.Primary.Host)
+	}
+	if config.Database.Primary.Port != 5432 {
+		t.Errorf("Expected database primary port 5432, got %v", config.Database.Primary.Port)
+	}
+	if config.Database.Secondary.Host != "db2.example.com" {
+		t.Errorf("Expected database secondary host 'db2.example.com', got %v", config.Database.Secondary.Host)
+	}
+	if config.Cache.Redis.Host != "redis.example.com" {
+		t.Errorf("Expected cache redis host 'redis.example.com', got %v", config.Cache.Redis.Host)
+	}
+	if config.Cache.Redis.Port != 6379 {
+		t.Errorf("Expected cache redis port 6379, got %v", config.Cache.Redis.Port)
+	}
+	if config.Server.Timeout != 30*time.Second {
+		t.Errorf("Expected server timeout 30s, got %v", config.Server.Timeout)
+	}
+}

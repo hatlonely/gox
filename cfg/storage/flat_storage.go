@@ -100,27 +100,7 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 		return nil
 	}
 	
-	// 如果只有一个空键，说明这是一个叶子值
-	if len(fs.data) == 1 {
-		if value, exists := fs.data[""]; exists {
-			return fs.convertValue(value, reflect.ValueOf(object))
-		}
-	}
-	
-	// 重建嵌套结构然后转换
-	nested := fs.buildNestedStructure()
-	
-	// 特殊处理：如果目标是基本类型但嵌套结构是map，尝试提取单个值
-	dst := reflect.ValueOf(object)
-	if dst.Kind() == reflect.Ptr && dst.Elem().Kind() != reflect.Map && dst.Elem().Kind() != reflect.Slice && dst.Elem().Kind() != reflect.Struct {
-		if nestedMap, ok := nested.(map[string]interface{}); ok && len(nestedMap) == 1 {
-			for _, value := range nestedMap {
-				return fs.convertValue(value, dst)
-			}
-		}
-	}
-	
-	return fs.convertValue(nested, dst)
+	return fs.convertValue(fs.data, reflect.ValueOf(object))
 }
 
 // flattenData 将嵌套数据打平存储
@@ -411,17 +391,42 @@ func (fs *FlatStorage) convertValue(src interface{}, dst reflect.Value) error {
 		return fmt.Errorf("destination is not settable")
 	}
 	
-	srcValue := reflect.ValueOf(src)
-	if !srcValue.IsValid() {
-		return nil
-	}
-	
 	// 处理目标为指针的情况
 	if dst.Kind() == reflect.Ptr {
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
 		}
 		return fs.convertValue(src, dst.Elem())
+	}
+	
+	// 如果源数据是打平的map，根据目标类型进行处理
+	if flatData, ok := src.(map[string]interface{}); ok {
+		switch dst.Kind() {
+		case reflect.Struct:
+			return fs.convertToStruct(flatData, dst)
+		case reflect.Map:
+			return fs.convertToMap(flatData, dst)
+		case reflect.Slice:
+			return fs.convertToSlice(flatData, dst)
+		default:
+			// 对于基本类型，尝试查找单个匹配的值
+			if len(flatData) == 1 {
+				for _, value := range flatData {
+					return fs.convertDirectValue(value, dst)
+				}
+			}
+		}
+	}
+	
+	// 直接值转换
+	return fs.convertDirectValue(src, dst)
+}
+
+// convertDirectValue 直接值转换，处理基本类型和时间类型
+func (fs *FlatStorage) convertDirectValue(src interface{}, dst reflect.Value) error {
+	srcValue := reflect.ValueOf(src)
+	if !srcValue.IsValid() {
+		return nil
 	}
 	
 	// 处理源为指针的情况
@@ -445,19 +450,10 @@ func (fs *FlatStorage) convertValue(src interface{}, dst reflect.Value) error {
 		return err
 	}
 	
-	// 类型转换
-	switch dst.Kind() {
-	case reflect.Map:
-		return fs.convertToMap(srcValue, dst)
-	case reflect.Slice:
-		return fs.convertToSlice(srcValue, dst)
-	case reflect.Struct:
-		return fs.convertToStruct(srcValue, dst)
-	case reflect.Interface:
-		if dst.Type().NumMethod() == 0 {
-			dst.Set(srcValue)
-			return nil
-		}
+	// 接口类型
+	if dst.Kind() == reflect.Interface && dst.Type().NumMethod() == 0 {
+		dst.Set(srcValue)
+		return nil
 	}
 	
 	// 尝试直接转换
@@ -571,30 +567,27 @@ func (fs *FlatStorage) convertToTime(src, dst reflect.Value) error {
 }
 
 // convertToMap 转换为 map 类型
-func (fs *FlatStorage) convertToMap(src, dst reflect.Value) error {
-	if src.Kind() != reflect.Map {
-		return fmt.Errorf("source is not a map")
-	}
-	
+func (fs *FlatStorage) convertToMap(flatData map[string]interface{}, dst reflect.Value) error {
 	if dst.IsNil() {
 		dst.Set(reflect.MakeMap(dst.Type()))
 	}
 	
-	for _, key := range src.MapKeys() {
-		srcValue := src.MapIndex(key)
-		dstValue := reflect.New(dst.Type().Elem()).Elem()
-		
-		if err := fs.convertValue(srcValue.Interface(), dstValue); err != nil {
-			return err
+	for key, value := range flatData {
+		// 转换键
+		keyValue := reflect.ValueOf(key)
+		convertedKey := keyValue
+		if !keyValue.Type().AssignableTo(dst.Type().Key()) {
+			if keyValue.Type().ConvertibleTo(dst.Type().Key()) {
+				convertedKey = keyValue.Convert(dst.Type().Key())
+			} else {
+				return fmt.Errorf("cannot convert key %v to %v", keyValue.Type(), dst.Type().Key())
+			}
 		}
 		
-		convertedKey := key
-		if !key.Type().AssignableTo(dst.Type().Key()) {
-			if key.Type().ConvertibleTo(dst.Type().Key()) {
-				convertedKey = key.Convert(dst.Type().Key())
-			} else {
-				return fmt.Errorf("cannot convert key %v to %v", key.Type(), dst.Type().Key())
-			}
+		// 转换值
+		dstValue := reflect.New(dst.Type().Elem()).Elem()
+		if err := fs.convertDirectValue(value, dstValue); err != nil {
+			return err
 		}
 		
 		dst.SetMapIndex(convertedKey, dstValue)
@@ -603,33 +596,46 @@ func (fs *FlatStorage) convertToMap(src, dst reflect.Value) error {
 	return nil
 }
 
-// convertToSlice 转换为 slice 类型
-func (fs *FlatStorage) convertToSlice(src, dst reflect.Value) error {
-	if src.Kind() != reflect.Slice && src.Kind() != reflect.Array {
-		return fmt.Errorf("source is not a slice or array")
-	}
+// convertToSlice 转换为 slice 类型，从打平的数据中重建数组
+func (fs *FlatStorage) convertToSlice(flatData map[string]interface{}, dst reflect.Value) error {
+	// 重建嵌套结构来获取数组数据
+	nested := fs.buildNestedStructure()
 	
-	length := src.Len()
-	dst.Set(reflect.MakeSlice(dst.Type(), length, length))
-	
-	for i := 0; i < length; i++ {
-		srcItem := src.Index(i)
-		dstItem := dst.Index(i)
+	if nestedSlice, ok := nested.([]interface{}); ok {
+		length := len(nestedSlice)
+		dst.Set(reflect.MakeSlice(dst.Type(), length, length))
 		
-		if err := fs.convertValue(srcItem.Interface(), dstItem); err != nil {
-			return err
+		for i := 0; i < length; i++ {
+			dstItem := dst.Index(i)
+			// 如果目标是结构体，需要特殊处理
+			if dstItem.Kind() == reflect.Struct {
+				if itemMap, ok := nestedSlice[i].(map[string]interface{}); ok {
+					// 将map转换为结构体
+					if err := fs.convertToStruct(itemMap, dstItem); err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("cannot convert array item to struct: expected map, got %T", nestedSlice[i])
+				}
+			} else {
+				if err := fs.convertDirectValue(nestedSlice[i], dstItem); err != nil {
+					return err
+				}
+			}
 		}
+		return nil
 	}
 	
-	return nil
+	return fmt.Errorf("cannot convert flat data to slice")
 }
 
-// convertToStruct 转换为 struct 类型
-func (fs *FlatStorage) convertToStruct(src, dst reflect.Value) error {
-	if src.Kind() != reflect.Map {
-		return fmt.Errorf("source is not a map")
-	}
-	
+// convertToStruct 转换为 struct 类型，支持基于字段路径的智能匹配
+func (fs *FlatStorage) convertToStruct(flatData map[string]interface{}, dst reflect.Value) error {
+	return fs.convertToStructWithPrefix(flatData, dst, "")
+}
+
+// convertToStructWithPrefix 递归转换结构体，支持路径前缀
+func (fs *FlatStorage) convertToStructWithPrefix(flatData map[string]interface{}, dst reflect.Value, prefix string) error {
 	dstType := dst.Type()
 	
 	for i := 0; i < dstType.NumField(); i++ {
@@ -669,21 +675,122 @@ func (fs *FlatStorage) convertToStruct(src, dst reflect.Value) error {
 			}
 		}
 		
-		// 查找对应的源值
-		var srcFieldValue reflect.Value
-		for _, key := range src.MapKeys() {
-			if key.String() == fieldName {
-				srcFieldValue = src.MapIndex(key)
-				break
-			}
+		// 构建完整的字段路径
+		fullPath := fieldName
+		if prefix != "" {
+			fullPath = prefix + fs.KeySeparator + fieldName
 		}
 		
-		if srcFieldValue.IsValid() {
-			if err := fs.convertValue(srcFieldValue.Interface(), fieldValue); err != nil {
+		// 查找匹配的键值
+		value, found := fs.findMatchingValue(flatData, fullPath)
+		if found {
+			if fieldValue.Kind() == reflect.Struct {
+				// 如果是嵌套结构体，递归处理
+				if err := fs.convertToStructWithPrefix(flatData, fieldValue, fullPath); err != nil {
+					return err
+				}
+			} else {
+				// 直接赋值
+				if err := fs.convertDirectValue(value, fieldValue); err != nil {
+					return err
+				}
+			}
+		} else if fieldValue.Kind() == reflect.Struct {
+			// 即使没有直接匹配，也尝试递归处理嵌套结构体
+			if err := fs.convertToStructWithPrefix(flatData, fieldValue, fullPath); err != nil {
 				return err
 			}
 		}
 	}
 	
 	return nil
+}
+
+// findMatchingValue 查找与字段路径匹配的值，支持模糊匹配
+func (fs *FlatStorage) findMatchingValue(flatData map[string]interface{}, fieldPath string) (interface{}, bool) {
+	// 1. 精确匹配
+	if value, exists := flatData[fieldPath]; exists {
+		return value, true
+	}
+	
+	// 2. 尝试不同的分隔符组合进行匹配
+	// 将字段路径转换为可能的键名模式
+	patterns := fs.generateKeyPatterns(fieldPath)
+	
+	// 3. 尝试添加常见前缀
+	patterns = append(patterns, fs.generatePrefixedPatterns(fieldPath)...)
+	
+	for _, pattern := range patterns {
+		if value, exists := flatData[pattern]; exists {
+			return value, true
+		}
+	}
+	return nil, false
+}
+
+// generateKeyPatterns 生成字段路径的可能键名模式
+func (fs *FlatStorage) generateKeyPatterns(fieldPath string) []string {
+	var patterns []string
+	
+	// 原始路径
+	patterns = append(patterns, fieldPath)
+	
+	// 如果使用下划线分隔符
+	if fs.KeySeparator == "_" {
+		// 也尝试点号分隔符
+		dotPath := strings.ReplaceAll(fieldPath, "_", ".")
+		patterns = append(patterns, dotPath)
+		
+		// 全大写版本
+		patterns = append(patterns, strings.ToUpper(fieldPath))
+		
+		// 全小写版本  
+		patterns = append(patterns, strings.ToLower(fieldPath))
+	}
+	
+	// 如果使用点号分隔符，也尝试下划线
+	if fs.KeySeparator == "." {
+		underscorePath := strings.ReplaceAll(fieldPath, ".", "_")
+		patterns = append(patterns, underscorePath)
+		
+		// 全大写版本
+		patterns = append(patterns, strings.ToUpper(underscorePath))
+		
+		// 全小写版本  
+		patterns = append(patterns, strings.ToLower(underscorePath))
+	}
+	
+	return patterns
+}
+
+// generatePrefixedPatterns 生成带前缀的模式，用于匹配环境变量风格的键名
+func (fs *FlatStorage) generatePrefixedPatterns(fieldPath string) []string {
+	var patterns []string
+	
+	// 常见前缀列表
+	prefixes := []string{"APP", "app"}
+	
+	for _, prefix := range prefixes {
+		// 生成前缀 + 分隔符 + 字段路径的模式
+		prefixed := prefix + fs.KeySeparator + fieldPath
+		patterns = append(patterns, prefixed)
+		patterns = append(patterns, strings.ToUpper(prefixed))
+		patterns = append(patterns, strings.ToLower(prefixed))
+		
+		// 如果分隔符是下划线，也尝试点号
+		if fs.KeySeparator == "_" {
+			dotPrefixed := strings.ReplaceAll(prefixed, "_", ".")
+			patterns = append(patterns, dotPrefixed)
+		}
+		
+		// 如果分隔符是点号，也尝试下划线
+		if fs.KeySeparator == "." {
+			underscorePrefixed := strings.ReplaceAll(prefixed, ".", "_")
+			patterns = append(patterns, underscorePrefixed)
+			patterns = append(patterns, strings.ToUpper(underscorePrefixed))
+			patterns = append(patterns, strings.ToLower(underscorePrefixed))
+		}
+	}
+	
+	return patterns
 }
