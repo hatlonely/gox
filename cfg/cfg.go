@@ -2,6 +2,7 @@ package cfg
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -86,6 +87,70 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 	})
 
 	return cfg, nil
+}
+
+// NewConfig 简单构造方法，从文件中加载配置
+// 根据文件后缀自动选择对应的解码器：
+//   .json/.json5 -> JsonDecoder
+//   .yaml/.yml -> YamlDecoder  
+//   .toml -> TomlDecoder
+//   .ini -> IniDecoder
+//   .env -> EnvDecoder
+func NewConfig(filename string) (*Config, error) {
+	if filename == "" {
+		return nil, fmt.Errorf("filename cannot be empty")
+	}
+
+	// 根据文件扩展名确定解码器类型
+	ext := strings.ToLower(filepath.Ext(filename))
+	var decoderType string
+	var decoderOptions any
+
+	switch ext {
+	case ".json", ".json5":
+		decoderType = "JsonDecoder"
+		decoderOptions = &decoder.JsonDecoderOptions{UseJSON5: ext == ".json5"}
+	case ".yaml", ".yml":
+		decoderType = "YamlDecoder"
+		decoderOptions = &decoder.YamlDecoderOptions{Indent: 2}
+	case ".toml":
+		decoderType = "TomlDecoder"
+		decoderOptions = &decoder.TomlDecoderOptions{Indent: "  "}
+	case ".ini":
+		decoderType = "IniDecoder"
+		decoderOptions = &decoder.IniDecoderOptions{
+			AllowEmptyValues: true,
+			AllowBoolKeys:    true,
+			AllowShadows:     true,
+		}
+	case ".env":
+		decoderType = "EnvDecoder"
+		decoderOptions = &decoder.EnvDecoderOptions{
+			Separator:     "_",
+			ArrayFormat:   "_%d",
+			AllowComments: true,
+		}
+	default:
+		return nil, fmt.Errorf("unsupported file extension: %s", ext)
+	}
+
+	// 构建选项
+	options := &Options{
+		Provider: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/provider",
+			Type:      "FileProvider",
+			Options: &provider.FileProviderOptions{
+				FilePath: filename,
+			},
+		},
+		Decoder: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/decoder",
+			Type:      decoderType,
+			Options:   decoderOptions,
+		},
+	}
+
+	return NewConfigWithOptions(options)
 }
 
 // handleProviderChange 处理 Provider 数据变更

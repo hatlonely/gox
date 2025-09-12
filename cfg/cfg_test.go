@@ -3,6 +3,7 @@ package cfg
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -320,6 +321,80 @@ redis:
 		// 验证监听器注册到根配置
 		if len(config.onKeyChangeHandlers["app.database.primary"]) != 1 {
 			t.Error("Nested config OnChange should register to root config with full key")
+		}
+	})
+
+	t.Run("NewConfig Simple Usage", func(t *testing.T) {
+		// 测试 NewConfig 函数的简单用法
+		yamlFile := filepath.Join(tempDir, "simple.yaml")
+		yamlContent := `database:
+  host: localhost
+  port: 3306`
+		
+		if err := os.WriteFile(yamlFile, []byte(yamlContent), 0644); err != nil {
+			t.Fatalf("Failed to write YAML file: %v", err)
+		}
+
+		config, err := NewConfig(yamlFile)
+		if err != nil {
+			t.Fatalf("Failed to create config with NewConfig: %v", err)
+		}
+		defer config.provider.Close()
+
+		// 测试配置读取
+		var result map[string]any
+		err = config.ConvertTo(&result)
+		if err != nil {
+			t.Fatalf("Failed to convert config: %v", err)
+		}
+
+		if result["database"] == nil {
+			t.Error("Database section should exist")
+		}
+
+		// 测试子配置访问
+		dbConfig := config.Sub("database")
+		var db map[string]any
+		err = dbConfig.ConvertTo(&db)
+		if err != nil {
+			t.Fatalf("Failed to convert database config: %v", err)
+		}
+
+		if db["host"] != "localhost" {
+			t.Errorf("Expected host 'localhost', got '%v'", db["host"])
+		}
+	})
+
+	t.Run("NewConfig Error Handling", func(t *testing.T) {
+		// 测试错误情况
+		tests := []struct {
+			name        string
+			filename    string
+			expectError string
+		}{
+			{
+				name:        "Empty filename",
+				filename:    "",
+				expectError: "filename cannot be empty",
+			},
+			{
+				name:        "Unsupported extension",
+				filename:    "config.xml",
+				expectError: "unsupported file extension: .xml",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := NewConfig(tt.filename)
+				if err == nil {
+					t.Fatal("Expected error, got nil")
+				}
+
+				if !strings.Contains(err.Error(), tt.expectError) {
+					t.Errorf("Expected error to contain '%s', got '%s'", tt.expectError, err.Error())
+				}
+			})
 		}
 	})
 }
