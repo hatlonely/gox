@@ -6,7 +6,9 @@ import (
 )
 
 func TestJsonDecoder_StandardJSON(t *testing.T) {
-	decoder := NewJsonDecoderWithOptions(false) // 不使用JSON5
+	decoder := NewJsonDecoderWithOptions(&JsonDecoderOptions{
+		UseJSON5: false, // 不使用JSON5
+	})
 
 	jsonData := `{
 		"name": "test-app",

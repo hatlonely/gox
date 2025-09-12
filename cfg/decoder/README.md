@@ -15,6 +15,14 @@ type Decoder interface {
 }
 ```
 
+## 构造方法设计
+
+所有解码器都采用统一的构造方法模式：
+
+- `NewXXXDecoder()`: 使用默认配置创建解码器
+- `NewXXXDecoderWithOptions(options *XXXDecoderOptions)`: 使用自定义配置创建解码器
+- 当 `options` 参数为 `nil` 时，自动使用默认配置
+
 ## 支持的格式
 
 ### JSON 解码器 (`JsonDecoder`)
@@ -25,7 +33,9 @@ type Decoder interface {
 
 ```go
 decoder := NewJsonDecoder()  // 默认启用 JSON5
-decoder := NewJsonDecoderWithOptions(false)  // 仅标准 JSON
+decoder := NewJsonDecoderWithOptions(&JsonDecoderOptions{
+    UseJSON5: false,  // 仅标准 JSON
+})
 ```
 
 ### YAML 解码器 (`YamlDecoder`)
@@ -35,7 +45,9 @@ decoder := NewJsonDecoderWithOptions(false)  // 仅标准 JSON
 
 ```go
 decoder := NewYamlDecoder()  // 默认 2 空格缩进
-decoder := NewYamlDecoderWithIndent(4)  // 4 空格缩进
+decoder := NewYamlDecoderWithOptions(&YamlDecoderOptions{
+    Indent: 4,  // 4 空格缩进
+})
 ```
 
 ### TOML 解码器 (`TomlDecoder`)
@@ -45,7 +57,9 @@ decoder := NewYamlDecoderWithIndent(4)  // 4 空格缩进
 
 ```go
 decoder := NewTomlDecoder()  // 默认 2 空格缩进
-decoder := NewTomlDecoderWithIndent("\t")  // Tab 缩进
+decoder := NewTomlDecoderWithOptions(&TomlDecoderOptions{
+    Indent: "\t",  // Tab 缩进
+})
 ```
 
 ### INI 解码器 (`IniDecoder`)
@@ -57,11 +71,11 @@ decoder := NewTomlDecoderWithIndent("\t")  // Tab 缩进
 
 ```go
 decoder := NewIniDecoder()  // 默认所有选项开启
-decoder := NewIniDecoderWithOptions(
-    true,   // AllowEmptyValues
-    true,   // AllowBoolKeys
-    false,  // AllowShadows
-)
+decoder := NewIniDecoderWithOptions(&IniDecoderOptions{
+    AllowEmptyValues: true,
+    AllowBoolKeys:    true,
+    AllowShadows:     false,
+})
 ```
 
 ### 环境变量解码器 (`EnvDecoder`)
@@ -74,31 +88,55 @@ decoder := NewIniDecoderWithOptions(
 
 ```go
 decoder := NewEnvDecoder()  // 默认使用 "_" 分隔符
-decoder := NewEnvDecoderWithOptions(".", "[%d]")  // 自定义分隔符
+decoder := NewEnvDecoderWithOptions(&EnvDecoderOptions{
+    Separator:   ".",
+    ArrayFormat: "[%d]",
+    AllowComments: true,
+    AllowEmpty:    true,
+})
 ```
 
 ## 使用示例
 
+### 基本使用
+
 ```go
-// JSON
+// 使用默认配置
 jsonDecoder := decoder.NewJsonDecoder()
-storage, err := jsonDecoder.Decode([]byte(`{"key": "value"}`))
-
-// YAML
 yamlDecoder := decoder.NewYamlDecoder()
-storage, err := yamlDecoder.Decode([]byte(`key: value`))
-
-// TOML
 tomlDecoder := decoder.NewTomlDecoder()
-storage, err := tomlDecoder.Decode([]byte(`key = "value"`))
-
-// INI
 iniDecoder := decoder.NewIniDecoder()
-storage, err := iniDecoder.Decode([]byte(`key=value`))
-
-// ENV
 envDecoder := decoder.NewEnvDecoder()
+
+// 解码数据
+storage, err := jsonDecoder.Decode([]byte(`{"key": "value"}`))
+storage, err := yamlDecoder.Decode([]byte(`key: value`))
+storage, err := tomlDecoder.Decode([]byte(`key = "value"`))
+storage, err := iniDecoder.Decode([]byte(`key=value`))
 storage, err := envDecoder.Decode([]byte(`KEY=value`))
+```
+
+### 自定义配置
+
+```go
+// 使用自定义配置
+jsonDecoder := decoder.NewJsonDecoderWithOptions(&decoder.JsonDecoderOptions{
+    UseJSON5: false,
+})
+
+yamlDecoder := decoder.NewYamlDecoderWithOptions(&decoder.YamlDecoderOptions{
+    Indent: 4,
+})
+
+envDecoder := decoder.NewEnvDecoderWithOptions(&decoder.EnvDecoderOptions{
+    Separator:     ".",
+    ArrayFormat:   "[%d]",
+    AllowComments: true,
+    AllowEmpty:    true,
+})
+
+// 传递 nil 使用默认配置
+iniDecoder := decoder.NewIniDecoderWithOptions(nil)
 ```
 
 ## 特性

@@ -369,7 +369,12 @@ TIMEOUT=30.5`
 
 func TestEnvDecoder_CustomOptions(t *testing.T) {
 	// 测试自定义分隔符和数组格式
-	decoder := NewEnvDecoderWithOptions("_", "_%d")
+	decoder := NewEnvDecoderWithOptions(&EnvDecoderOptions{
+		Separator:     "_",
+		ArrayFormat:   "_%d",
+		AllowComments: true,
+		AllowEmpty:    true,
+	})
 
 	// 使用和 FlatStorage 测试中相似的数据格式
 	envData := `APP_NAME=test-service
