@@ -45,12 +45,12 @@ type GormProviderOptions struct {
 	DSN          string                 // 数据源名称
 	TableName    string                 // 表名，默认 config_data
 	PollInterval time.Duration          // 轮询间隔，默认 5 秒
-	GormConfig   *gorm.Config          // GORM 配置
+	GormConfig   *gorm.Config           // GORM 配置
 	Extra        map[string]interface{} // 额外配置
 }
 
-// NewGormProvider 创建 GORM Provider
-func NewGormProvider(options *GormProviderOptions) (*GormProvider, error) {
+// NewGormProviderWithOptions 创建 GORM Provider
+func NewGormProviderWithOptions(options *GormProviderOptions) (*GormProvider, error) {
 	if options == nil {
 		return nil, &ProviderError{Msg: "gorm provider options is required"}
 	}
@@ -138,7 +138,7 @@ func (p *GormProvider) Load() ([]byte, error) {
 
 	var config ConfigData
 	result := p.db.Table(p.tableName).Where("id = ?", p.configID).First(&config)
-	
+
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, &ProviderError{Msg: "config not found: " + p.configID}
@@ -158,7 +158,7 @@ func (p *GormProvider) Save(data []byte) error {
 	// 先查找是否存在
 	var existingConfig ConfigData
 	result := p.db.Table(p.tableName).Where("id = ?", p.configID).First(&existingConfig)
-	
+
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
 		return &ProviderError{Msg: "failed to check existing config", Err: result.Error}
 	}
@@ -225,7 +225,7 @@ func (p *GormProvider) checkForChanges() {
 
 	var config ConfigData
 	result := p.db.Table(p.tableName).Where("id = ?", p.configID).First(&config)
-	
+
 	if result.Error != nil {
 		return // 忽略错误，继续轮询
 	}
@@ -243,11 +243,11 @@ func (p *GormProvider) checkForChanges() {
 // Close 关闭提供者，释放资源
 func (p *GormProvider) Close() error {
 	close(p.stopChan)
-	
+
 	sqlDB, err := p.db.DB()
 	if err != nil {
 		return &ProviderError{Msg: "failed to get underlying sql.DB", Err: err}
 	}
-	
+
 	return sqlDB.Close()
 }

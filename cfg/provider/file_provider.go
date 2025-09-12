@@ -19,7 +19,7 @@ type FileProviderOptions struct {
 	FilePath string
 }
 
-func NewFileProvider(options *FileProviderOptions) (*FileProvider, error) {
+func NewFileProviderWithOptions(options *FileProviderOptions) (*FileProvider, error) {
 	if options == nil || options.FilePath == "" {
 		return nil, &ProviderError{Msg: "file path is required"}
 	}

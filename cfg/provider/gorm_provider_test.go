@@ -10,8 +10,8 @@ import (
 func TestGormProvider_SQLite(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbFile := filepath.Join(tmpDir, "test.db")
-	
-	provider, err := NewGormProvider(&GormProviderOptions{
+
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID: "test_config",
 		Driver:   "sqlite",
 		DSN:      dbFile,
@@ -42,8 +42,8 @@ func TestGormProvider_SQLite(t *testing.T) {
 func TestGormProvider_LoadNonExistent(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbFile := filepath.Join(tmpDir, "test.db")
-	
-	provider, err := NewGormProvider(&GormProviderOptions{
+
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID: "nonexistent_config",
 		Driver:   "sqlite",
 		DSN:      dbFile,
@@ -62,8 +62,8 @@ func TestGormProvider_LoadNonExistent(t *testing.T) {
 func TestGormProvider_OnChange(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbFile := filepath.Join(tmpDir, "test.db")
-	
-	provider, err := NewGormProvider(&GormProviderOptions{
+
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID:     "test_config",
 		Driver:       "sqlite",
 		DSN:          dbFile,
@@ -119,8 +119,8 @@ func TestGormProvider_CustomTableName(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbFile := filepath.Join(tmpDir, "test.db")
 	customTableName := "custom_config"
-	
-	provider, err := NewGormProvider(&GormProviderOptions{
+
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID:  "test_config",
 		Driver:    "sqlite",
 		DSN:       dbFile,
@@ -149,13 +149,13 @@ func TestGormProvider_CustomTableName(t *testing.T) {
 
 func TestGormProvider_InvalidOptions(t *testing.T) {
 	// 测试 nil options
-	_, err := NewGormProvider(nil)
+	_, err := NewGormProviderWithOptions(nil)
 	if err == nil {
 		t.Error("Expected error for nil options")
 	}
 
 	// 测试空 ConfigID
-	_, err = NewGormProvider(&GormProviderOptions{
+	_, err = NewGormProviderWithOptions(&GormProviderOptions{
 		Driver: "sqlite",
 		DSN:    ":memory:",
 	})
@@ -164,7 +164,7 @@ func TestGormProvider_InvalidOptions(t *testing.T) {
 	}
 
 	// 测试空 Driver
-	_, err = NewGormProvider(&GormProviderOptions{
+	_, err = NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID: "test",
 		DSN:      ":memory:",
 	})
@@ -173,7 +173,7 @@ func TestGormProvider_InvalidOptions(t *testing.T) {
 	}
 
 	// 测试空 DSN
-	_, err = NewGormProvider(&GormProviderOptions{
+	_, err = NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID: "test",
 		Driver:   "sqlite",
 	})
@@ -182,7 +182,7 @@ func TestGormProvider_InvalidOptions(t *testing.T) {
 	}
 
 	// 测试不支持的驱动
-	_, err = NewGormProvider(&GormProviderOptions{
+	_, err = NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID: "test",
 		Driver:   "unsupported",
 		DSN:      ":memory:",
@@ -199,7 +199,7 @@ func TestGormProvider_MySQL_Skip(t *testing.T) {
 		t.Skip("MYSQL_TEST_DSN not set, skipping MySQL test")
 	}
 
-	provider, err := NewGormProvider(&GormProviderOptions{
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
 		ConfigID: "mysql_test_config",
 		Driver:   "mysql",
 		DSN:      mysqlDSN,

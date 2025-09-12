@@ -17,7 +17,7 @@ func TestFileProvider_Read(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	provider, err := NewFileProvider(&FileProviderOptions{
+	provider, err := NewFileProviderWithOptions(&FileProviderOptions{
 		FilePath: testFile,
 	})
 	if err != nil {
@@ -36,7 +36,7 @@ func TestFileProvider_Read(t *testing.T) {
 }
 
 func TestFileProvider_ReadNonexistentFile(t *testing.T) {
-	provider, err := NewFileProvider(&FileProviderOptions{
+	provider, err := NewFileProviderWithOptions(&FileProviderOptions{
 		FilePath: "/nonexistent/file.json",
 	})
 	if err != nil {
@@ -61,7 +61,7 @@ func TestFileProvider_OnChange(t *testing.T) {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
-	provider, err := NewFileProvider(&FileProviderOptions{
+	provider, err := NewFileProviderWithOptions(&FileProviderOptions{
 		FilePath: testFile,
 	})
 	if err != nil {
@@ -97,7 +97,7 @@ func TestFileProvider_Save(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "test.json")
 	testContent := `{"key": "new_value"}`
 
-	provider, err := NewFileProvider(&FileProviderOptions{
+	provider, err := NewFileProviderWithOptions(&FileProviderOptions{
 		FilePath: testFile,
 	})
 	if err != nil {
@@ -121,7 +121,7 @@ func TestFileProvider_Save(t *testing.T) {
 }
 
 func TestFileProvider_SaveInvalidPath(t *testing.T) {
-	provider, err := NewFileProvider(&FileProviderOptions{
+	provider, err := NewFileProviderWithOptions(&FileProviderOptions{
 		FilePath: "/invalid/path/test.json",
 	})
 	if err != nil {
@@ -136,12 +136,12 @@ func TestFileProvider_SaveInvalidPath(t *testing.T) {
 }
 
 func TestFileProvider_InvalidOptions(t *testing.T) {
-	_, err := NewFileProvider(nil)
+	_, err := NewFileProviderWithOptions(nil)
 	if err == nil {
 		t.Error("Expected error for nil options")
 	}
 
-	_, err = NewFileProvider(&FileProviderOptions{})
+	_, err = NewFileProviderWithOptions(&FileProviderOptions{})
 	if err == nil {
 		t.Error("Expected error for empty file path")
 	}
