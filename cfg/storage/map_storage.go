@@ -40,6 +40,22 @@ func (ms *MapStorage) ConvertTo(object interface{}) error {
 	return ms.convertValue(ms.data, reflect.ValueOf(object))
 }
 
+// Equals 比较两个 MapStorage 是否包含相同的数据内容
+func (ms *MapStorage) Equals(other Storage) bool {
+	if other == nil {
+		return false
+	}
+	
+	// 只支持同类型比较
+	otherMapStorage, ok := other.(*MapStorage)
+	if !ok {
+		return false
+	}
+	
+	// 直接比较 data 字段
+	return reflect.DeepEqual(ms.data, otherMapStorage.data)
+}
+
 // getValue 根据 key 获取嵌套的值
 func (ms *MapStorage) getValue(key string) interface{} {
 	keys := ms.parseKey(key)

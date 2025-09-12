@@ -3,7 +3,6 @@ package cfg
 import (
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/hatlonely/gox/cfg/decoder"
@@ -201,8 +200,8 @@ func (c *Config) isKeyChanged(oldStorage, newStorage storage.Storage, key string
 	oldSubStorage := oldStorage.Sub(key)
 	newSubStorage := newStorage.Sub(key)
 
-	// 简单的深度比较（这里可以根据需要优化）
-	return !reflect.DeepEqual(oldSubStorage, newSubStorage)
+	// 使用 Storage 的 Equals 方法进行比较，各实现可以根据自身特点优化
+	return !oldSubStorage.Equals(newSubStorage)
 }
 
 // Sub 获取子配置对象

@@ -103,6 +103,44 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 	return fs.convertValue(fs.data, reflect.ValueOf(object))
 }
 
+// Equals 比较两个 FlatStorage 是否包含相同的数据内容
+func (fs *FlatStorage) Equals(other Storage) bool {
+	if other == nil {
+		return false
+	}
+	
+	// 只支持同类型比较
+	otherFlatStorage, ok := other.(*FlatStorage)
+	if !ok {
+		return false
+	}
+	
+	// 直接比较 data 字段
+	return fs.equalsMaps(fs.data, otherFlatStorage.data)
+}
+
+// equalsMaps 比较两个 map[string]interface{} 是否相等
+// 相比 reflect.DeepEqual，这个方法对 FlatStorage 的扁平化数据结构更高效
+func (fs *FlatStorage) equalsMaps(map1, map2 map[string]interface{}) bool {
+	if len(map1) != len(map2) {
+		return false
+	}
+	
+	for key, value1 := range map1 {
+		value2, exists := map2[key]
+		if !exists {
+			return false
+		}
+		
+		// 对于基本类型值，直接比较
+		if !reflect.DeepEqual(value1, value2) {
+			return false
+		}
+	}
+	
+	return true
+}
+
 // flattenData 将嵌套数据打平存储
 func (fs *FlatStorage) flattenData(prefix string, data interface{}) {
 	rv := reflect.ValueOf(data)

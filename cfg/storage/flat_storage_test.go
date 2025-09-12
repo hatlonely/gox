@@ -6,6 +6,106 @@ import (
 	"time"
 )
 
+func TestFlatStorage_Equals(t *testing.T) {
+	// 测试基本的 Equals 功能
+	data1 := map[string]interface{}{
+		"database.host": "localhost",
+		"database.port": 3306,
+		"servers[0]":    "server1",
+		"servers[1]":    "server2",
+	}
+
+	data2 := map[string]interface{}{
+		"database.host": "localhost",
+		"database.port": 3306,
+		"servers[0]":    "server1",
+		"servers[1]":    "server2",
+	}
+
+	data3 := map[string]interface{}{
+		"database.host": "localhost",
+		"database.port": 3307, // 不同的端口
+		"servers[0]":    "server1",
+		"servers[1]":    "server2",
+	}
+
+	storage1 := NewFlatStorage(data1)
+	storage2 := NewFlatStorage(data2)
+	storage3 := NewFlatStorage(data3)
+
+	// 测试相同数据的比较
+	if !storage1.Equals(storage2) {
+		t.Error("Expected storage1 to equal storage2")
+	}
+
+	// 测试不同数据的比较
+	if storage1.Equals(storage3) {
+		t.Error("Expected storage1 to not equal storage3")
+	}
+
+	// 测试与 nil 的比较
+	if storage1.Equals(nil) {
+		t.Error("Expected storage1 to not equal nil")
+	}
+
+	// 测试 Sub 后的比较
+	sub1 := storage1.Sub("database")
+	sub2 := storage2.Sub("database")
+	sub3 := storage3.Sub("database")
+
+	if !sub1.Equals(sub2) {
+		t.Error("Expected sub1 to equal sub2")
+	}
+
+	if sub1.Equals(sub3) {
+		t.Error("Expected sub1 to not equal sub3")
+	}
+
+	// 测试空数据比较
+	empty1 := NewFlatStorage(map[string]interface{}{})
+	empty2 := NewFlatStorage(map[string]interface{}{})
+
+	if !empty1.Equals(empty2) {
+		t.Error("Expected empty1 to equal empty2")
+	}
+
+	// 测试不同长度的数据
+	shortData := map[string]interface{}{
+		"database.host": "localhost",
+	}
+	shortStorage := NewFlatStorage(shortData)
+
+	if storage1.Equals(shortStorage) {
+		t.Error("Expected storage1 to not equal shortStorage")
+	}
+
+	// 测试相同长度但键不同的数据
+	differentKeys := map[string]interface{}{
+		"database.host": "localhost",
+		"database.port": 3306,
+		"servers[0]":    "server1",
+		"cache.timeout": 30, // 不同的键
+	}
+	differentKeysStorage := NewFlatStorage(differentKeys)
+
+	if storage1.Equals(differentKeysStorage) {
+		t.Error("Expected storage1 to not equal differentKeysStorage")
+	}
+
+	// 测试相同键但值不同的数据
+	differentValues := map[string]interface{}{
+		"database.host": "localhost",
+		"database.port": 3306,
+		"servers[0]":    "server1",
+		"servers[1]":    "server3", // 不同的值
+	}
+	differentValuesStorage := NewFlatStorage(differentValues)
+
+	if storage1.Equals(differentValuesStorage) {
+		t.Error("Expected storage1 to not equal differentValuesStorage")
+	}
+}
+
 func TestFlatStorage_BasicUsage(t *testing.T) {
 	// 创建打平的数据
 	data := map[string]interface{}{

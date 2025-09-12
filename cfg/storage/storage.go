@@ -10,4 +10,8 @@ type Storage interface {
 
 	// ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
 	ConvertTo(object interface{}) error
+
+	// Equals 比较两个 Storage 是否包含相同的数据内容
+	// 各个实现可以根据自身特点优化比较逻辑
+	Equals(other Storage) bool
 }

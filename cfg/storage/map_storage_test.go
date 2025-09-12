@@ -5,6 +5,83 @@ import (
 	"time"
 )
 
+func TestMapStorage_Equals(t *testing.T) {
+	data1 := map[string]interface{}{
+		"database": map[string]interface{}{
+			"host": "localhost",
+			"port": 3306,
+		},
+		"servers": []interface{}{"server1", "server2"},
+	}
+
+	data2 := map[string]interface{}{
+		"database": map[string]interface{}{
+			"host": "localhost",
+			"port": 3306,
+		},
+		"servers": []interface{}{"server1", "server2"},
+	}
+
+	data3 := map[string]interface{}{
+		"database": map[string]interface{}{
+			"host": "localhost",
+			"port": 3307, // 不同的端口
+		},
+		"servers": []interface{}{"server1", "server2"},
+	}
+
+	storage1 := NewMapStorage(data1)
+	storage2 := NewMapStorage(data2)
+	storage3 := NewMapStorage(data3)
+
+	// 测试相同数据的比较
+	if !storage1.Equals(storage2) {
+		t.Error("Expected storage1 to equal storage2")
+	}
+
+	// 测试不同数据的比较
+	if storage1.Equals(storage3) {
+		t.Error("Expected storage1 to not equal storage3")
+	}
+
+	// 测试与 nil 的比较
+	if storage1.Equals(nil) {
+		t.Error("Expected storage1 to not equal nil")
+	}
+
+	// 测试 Sub 后的比较
+	sub1 := storage1.Sub("database")
+	sub2 := storage2.Sub("database")
+	sub3 := storage3.Sub("database")
+
+	if !sub1.Equals(sub2) {
+		t.Error("Expected sub1 to equal sub2")
+	}
+
+	if sub1.Equals(sub3) {
+		t.Error("Expected sub1 to not equal sub3")
+	}
+
+	// 测试空数据比较
+	empty1 := NewMapStorage(nil)
+	empty2 := NewMapStorage(nil)
+	emptyMap1 := NewMapStorage(map[string]interface{}{})
+	emptyMap2 := NewMapStorage(map[string]interface{}{})
+
+	if !empty1.Equals(empty2) {
+		t.Error("Expected empty1 to equal empty2")
+	}
+
+	if !emptyMap1.Equals(emptyMap2) {
+		t.Error("Expected emptyMap1 to equal emptyMap2")
+	}
+
+	// nil 和 {} 在 reflect.DeepEqual 中不相等，这是预期的行为
+	if empty1.Equals(emptyMap1) {
+		t.Error("Expected empty1 to not equal emptyMap1 (nil vs empty map)")
+	}
+}
+
 func TestMapStorage_Sub(t *testing.T) {
 	data := map[string]interface{}{
 		"database": map[string]interface{}{
