@@ -53,6 +53,9 @@ type Config struct {
 
 	parent *Config
 	key    string
+
+	onChangeHandlers    []func(*Config) error
+	onKeyChangeHandlers map[string][]func(*Config) error
 }
 
 // NewConfigWithOptions 根据选项创建配置对象
