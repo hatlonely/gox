@@ -46,6 +46,18 @@ func (p *FileProvider) Load() ([]byte, error) {
 	return data, nil
 }
 
+func (p *FileProvider) Save(data []byte) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	err := os.WriteFile(p.filePath, data, 0644)
+	if err != nil {
+		return &ProviderError{Msg: "failed to write file", Err: err}
+	}
+
+	return nil
+}
+
 func (p *FileProvider) OnChange(fn func(data []byte) error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

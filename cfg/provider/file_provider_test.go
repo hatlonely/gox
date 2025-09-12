@@ -92,6 +92,49 @@ func TestFileProvider_OnChange(t *testing.T) {
 	}
 }
 
+func TestFileProvider_Save(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.json")
+	testContent := `{"key": "new_value"}`
+
+	provider, err := NewFileProvider(&FileProviderOptions{
+		FilePath: testFile,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create FileProvider: %v", err)
+	}
+	defer provider.Close()
+
+	err = provider.Save([]byte(testContent))
+	if err != nil {
+		t.Fatalf("Failed to save file: %v", err)
+	}
+
+	data, err := provider.Load()
+	if err != nil {
+		t.Fatalf("Failed to read saved file: %v", err)
+	}
+
+	if string(data) != testContent {
+		t.Errorf("Expected %s, got %s", testContent, string(data))
+	}
+}
+
+func TestFileProvider_SaveInvalidPath(t *testing.T) {
+	provider, err := NewFileProvider(&FileProviderOptions{
+		FilePath: "/invalid/path/test.json",
+	})
+	if err != nil {
+		t.Fatalf("Failed to create FileProvider: %v", err)
+	}
+	defer provider.Close()
+
+	err = provider.Save([]byte("test"))
+	if err == nil {
+		t.Error("Expected error when saving to invalid path")
+	}
+}
+
 func TestFileProvider_InvalidOptions(t *testing.T) {
 	_, err := NewFileProvider(nil)
 	if err == nil {
