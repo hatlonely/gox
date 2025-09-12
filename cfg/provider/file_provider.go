@@ -34,7 +34,7 @@ func NewFileProvider(options *FileProviderOptions) (*FileProvider, error) {
 	}, nil
 }
 
-func (p *FileProvider) Read() ([]byte, error) {
+func (p *FileProvider) Load() ([]byte, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 

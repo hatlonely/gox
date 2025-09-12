@@ -25,7 +25,7 @@ func TestFileProvider_Read(t *testing.T) {
 	}
 	defer provider.Close()
 
-	data, err := provider.Read()
+	data, err := provider.Load()
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestFileProvider_ReadNonexistentFile(t *testing.T) {
 	}
 	defer provider.Close()
 
-	_, err = provider.Read()
+	_, err = provider.Load()
 	if err == nil {
 		t.Error("Expected error when reading nonexistent file")
 	}

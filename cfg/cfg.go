@@ -7,10 +7,14 @@ import (
 // Provider 配置数据提供者接口
 // 负责读取配置数据和监听配置变更
 type Provider interface {
-	// Read 读取配置数据
-	Read() (data []byte, err error)
+	// Load 读取配置数据
+	Load() (data []byte, err error)
+	// Save 保存配置数据
+	Save(data []byte) error
 	// OnChange 监听配置数据变更
 	OnChange(fn func(data []byte) error)
+	// Close 关闭提供者，释放资源
+	Close() error
 }
 
 // Storage 配置数据存储接口
