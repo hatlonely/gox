@@ -11,7 +11,6 @@ import (
 	"github.com/hatlonely/gox/refx"
 )
 
-
 // Options 配置类初始化选项
 type Options struct {
 	Provider refx.TypeOptions
@@ -75,9 +74,9 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 
 	// 创建 Config 实例
 	cfg := &Config{
-		provider: prov,
-		storage:  stor,
-		decoder:  dec,
+		provider:            prov,
+		storage:             stor,
+		decoder:             dec,
 		onKeyChangeHandlers: make(map[string][]func(*Config) error),
 	}
 
@@ -208,4 +207,3 @@ func (c *Config) getFullKey() string {
 
 	return strings.Join(keys, ".")
 }
-
