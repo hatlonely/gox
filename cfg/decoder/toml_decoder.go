@@ -8,6 +8,12 @@ import (
 	"github.com/hatlonely/gox/cfg/storage"
 )
 
+// TomlDecoderOptions TOML解码器配置选项
+type TomlDecoderOptions struct {
+	// Indent TOML缩进空格数，用于格式化输出
+	Indent string
+}
+
 // TomlDecoder TOML格式编解码器
 // 支持标准TOML格式，包含注释支持
 type TomlDecoder struct {
@@ -15,17 +21,21 @@ type TomlDecoder struct {
 	Indent string
 }
 
-// NewTomlDecoder 创建新的TOML解码器
+// NewTomlDecoder 创建新的TOML解码器，使用默认配置
 func NewTomlDecoder() *TomlDecoder {
 	return &TomlDecoder{
 		Indent: "  ", // 默认2个空格缩进
 	}
 }
 
-// NewTomlDecoderWithIndent 创建指定缩进的TOML解码器
-func NewTomlDecoderWithIndent(indent string) *TomlDecoder {
+// NewTomlDecoderWithOptions 使用选项创建TOML解码器
+func NewTomlDecoderWithOptions(options *TomlDecoderOptions) *TomlDecoder {
+	if options == nil {
+		// 使用默认配置
+		return NewTomlDecoder()
+	}
 	return &TomlDecoder{
-		Indent: indent,
+		Indent: options.Indent,
 	}
 }
 

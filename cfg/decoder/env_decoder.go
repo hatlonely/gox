@@ -11,6 +11,18 @@ import (
 	"github.com/hatlonely/gox/cfg/storage"
 )
 
+// EnvDecoderOptions 环境变量解码器配置选项
+type EnvDecoderOptions struct {
+	// Separator 键分隔符，默认为"_"
+	Separator string
+	// ArrayFormat 数组格式，默认为"_%d"
+	ArrayFormat string
+	// AllowComments 是否允许注释，默认为true
+	AllowComments bool
+	// AllowEmpty 是否允许空行，默认为true
+	AllowEmpty bool
+}
+
 // EnvDecoder .env格式编解码器
 // 支持环境变量格式，使用FlatStorage进行智能字段匹配
 type EnvDecoder struct {
@@ -24,7 +36,7 @@ type EnvDecoder struct {
 	AllowEmpty bool
 }
 
-// NewEnvDecoder 创建新的环境变量解码器
+// NewEnvDecoder 创建新的环境变量解码器，使用默认配置
 func NewEnvDecoder() *EnvDecoder {
 	return &EnvDecoder{
 		Separator:     "_",
@@ -35,12 +47,16 @@ func NewEnvDecoder() *EnvDecoder {
 }
 
 // NewEnvDecoderWithOptions 使用选项创建环境变量解码器
-func NewEnvDecoderWithOptions(separator, arrayFormat string) *EnvDecoder {
+func NewEnvDecoderWithOptions(options *EnvDecoderOptions) *EnvDecoder {
+	if options == nil {
+		// 使用默认配置
+		return NewEnvDecoder()
+	}
 	return &EnvDecoder{
-		Separator:     separator,
-		ArrayFormat:   arrayFormat,
-		AllowComments: true,
-		AllowEmpty:    true,
+		Separator:     options.Separator,
+		ArrayFormat:   options.ArrayFormat,
+		AllowComments: options.AllowComments,
+		AllowEmpty:    options.AllowEmpty,
 	}
 }
 

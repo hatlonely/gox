@@ -10,6 +10,16 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+// IniDecoderOptions INI解码器配置选项
+type IniDecoderOptions struct {
+	// AllowEmptyValues 允许空值
+	AllowEmptyValues bool
+	// AllowBoolKeys 允许布尔型键（无值的键）
+	AllowBoolKeys bool
+	// AllowShadows 允许重复键（创建数组）
+	AllowShadows bool
+}
+
 // IniDecoder INI格式编解码器
 // 支持标准INI格式，包含注释和分组支持
 type IniDecoder struct {
@@ -21,7 +31,7 @@ type IniDecoder struct {
 	AllowShadows bool
 }
 
-// NewIniDecoder 创建新的INI解码器
+// NewIniDecoder 创建新的INI解码器，使用默认配置
 func NewIniDecoder() *IniDecoder {
 	return &IniDecoder{
 		AllowEmptyValues: true,
@@ -30,12 +40,16 @@ func NewIniDecoder() *IniDecoder {
 	}
 }
 
-// NewIniDecoderWithOptions 创建带选项的INI解码器
-func NewIniDecoderWithOptions(allowEmptyValues, allowBoolKeys, allowShadows bool) *IniDecoder {
+// NewIniDecoderWithOptions 使用选项创建INI解码器
+func NewIniDecoderWithOptions(options *IniDecoderOptions) *IniDecoder {
+	if options == nil {
+		// 使用默认配置
+		return NewIniDecoder()
+	}
 	return &IniDecoder{
-		AllowEmptyValues: allowEmptyValues,
-		AllowBoolKeys:    allowBoolKeys,
-		AllowShadows:     allowShadows,
+		AllowEmptyValues: options.AllowEmptyValues,
+		AllowBoolKeys:    options.AllowBoolKeys,
+		AllowShadows:     options.AllowShadows,
 	}
 }
 

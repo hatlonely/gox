@@ -9,6 +9,12 @@ import (
 	"github.com/hatlonely/gox/cfg/storage"
 )
 
+// JsonDecoderOptions JSON解码器配置选项
+type JsonDecoderOptions struct {
+	// UseJSON5 是否使用JSON5解析器（支持注释、尾随逗号等）
+	UseJSON5 bool
+}
+
 // JsonDecoder JSON格式编解码器
 // 支持标准JSON和JSON5格式（包含注释）
 type JsonDecoder struct {
@@ -16,7 +22,7 @@ type JsonDecoder struct {
 	UseJSON5 bool
 }
 
-// NewJsonDecoder 创建新的JSON解码器
+// NewJsonDecoder 创建新的JSON解码器，使用默认配置
 func NewJsonDecoder() *JsonDecoder {
 	return &JsonDecoder{
 		UseJSON5: true, // 默认启用JSON5支持
@@ -24,9 +30,13 @@ func NewJsonDecoder() *JsonDecoder {
 }
 
 // NewJsonDecoderWithOptions 使用选项创建JSON解码器
-func NewJsonDecoderWithOptions(useJSON5 bool) *JsonDecoder {
+func NewJsonDecoderWithOptions(options *JsonDecoderOptions) *JsonDecoder {
+	if options == nil {
+		// 使用默认配置
+		return NewJsonDecoder()
+	}
 	return &JsonDecoder{
-		UseJSON5: useJSON5,
+		UseJSON5: options.UseJSON5,
 	}
 }
 

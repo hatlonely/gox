@@ -7,6 +7,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// YamlDecoderOptions YAML解码器配置选项
+type YamlDecoderOptions struct {
+	// Indent YAML缩进空格数，默认为2
+	Indent int
+}
+
 // YamlDecoder YAML格式编解码器
 // 支持标准YAML格式，自带注释支持
 type YamlDecoder struct {
@@ -14,17 +20,21 @@ type YamlDecoder struct {
 	Indent int
 }
 
-// NewYamlDecoder 创建新的YAML解码器
+// NewYamlDecoder 创建新的YAML解码器，使用默认配置
 func NewYamlDecoder() *YamlDecoder {
 	return &YamlDecoder{
 		Indent: 2, // 默认2个空格缩进
 	}
 }
 
-// NewYamlDecoderWithIndent 创建指定缩进的YAML解码器
-func NewYamlDecoderWithIndent(indent int) *YamlDecoder {
+// NewYamlDecoderWithOptions 使用选项创建YAML解码器
+func NewYamlDecoderWithOptions(options *YamlDecoderOptions) *YamlDecoder {
+	if options == nil {
+		// 使用默认配置
+		return NewYamlDecoder()
+	}
 	return &YamlDecoder{
-		Indent: indent,
+		Indent: options.Indent,
 	}
 }
 
