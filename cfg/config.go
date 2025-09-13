@@ -406,10 +406,24 @@ func (c *Config) OnKeyChange(key string, fn func(*Config) error) {
 // Watch 启动配置变更监听
 // 只有调用此方法后，OnChange 和 OnKeyChange 注册的回调函数才会被触发
 // 对于不支持监听的 Provider，此方法静默处理不返回错误
+// 为了防止在 NewConfig 和 Watch 之间丢失配置变更，会主动检查一次配置
 func (c *Config) Watch() error {
 	root := c.getRoot()
 	if root.provider != nil {
-		return root.provider.Watch()
+		// 先启动 Provider 的监听
+		err := root.provider.Watch()
+		if err != nil {
+			return err
+		}
+
+		// 主动检查一次配置变更，防止在初始化和 Watch 之间丢失变更
+		newData, loadErr := root.provider.Load()
+		if loadErr == nil {
+			// 触发变更检查和处理，由于 handleProviderChange 内部有变更检测逻辑，
+			// 如果没有实际变更就不会触发 handler
+			root.handleProviderChange(newData)
+		}
+		// 即使 Load 失败也不影响 Watch 的成功，因为可能是网络问题等临时错误
 	}
 	return nil
 }

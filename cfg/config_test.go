@@ -1309,4 +1309,59 @@ func TestConfig_Watch(t *testing.T) {
 			t.Errorf("Watch() should not return error with nil provider, got: %v", err)
 		}
 	})
+
+	t.Run("Watch detects changes between NewConfig and Watch", func(t *testing.T) {
+		// 测试在 NewConfig 和 Watch 之间的配置变更能否被正确检测到
+		tempDir := t.TempDir()
+		configFile := filepath.Join(tempDir, "race_test.yaml")
+		initialData := `version: 1
+app: test`
+
+		if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+			t.Fatalf("Failed to write config file: %v", err)
+		}
+
+		// 创建配置对象
+		config, err := NewConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 在没有 Watch 的情况下修改文件（模拟竞态条件）
+		updatedData := `version: 2
+app: test_updated`
+		if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 注册回调函数
+		callbackTriggered := false
+		var receivedVersion interface{}
+		config.OnChange(func(c *Config) error {
+			callbackTriggered = true
+			var data map[string]interface{}
+			c.ConvertTo(&data)
+			receivedVersion = data["version"]
+			return nil
+		})
+
+		// 调用 Watch，应该能检测到之前的变更
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Failed to start watching: %v", err)
+		}
+
+		// 等待回调执行
+		time.Sleep(100 * time.Millisecond)
+
+		// 验证回调被触发且收到最新的配置
+		if !callbackTriggered {
+			t.Error("Callback should be triggered when Watch detects the change made between NewConfig and Watch")
+		}
+
+		if receivedVersion != 2 {
+			t.Errorf("Expected version 2, got %v", receivedVersion)
+		}
+	})
 }
