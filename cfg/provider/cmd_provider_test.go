@@ -119,11 +119,11 @@ func TestCmdProvider_Load(t *testing.T) {
 			prefix:   "",
 			testArgs: []string{"--redis-password", "123456", "--database-url=postgres://localhost:5432/db", "--jwt-secret=mysecret", "--api-timeout", "30s", "--cache-redis-addr=localhost:6379"},
 			want: map[string]string{
-				"redis-password":    "123456",
-				"database-url":      "postgres://localhost:5432/db",
-				"jwt-secret":        "mysecret",
-				"api-timeout":       "30s",
-				"cache-redis-addr":  "localhost:6379",
+				"redis-password":   "123456",
+				"database-url":     "postgres://localhost:5432/db",
+				"jwt-secret":       "mysecret",
+				"api-timeout":      "30s",
+				"cache-redis-addr": "localhost:6379",
 			},
 		},
 		{
@@ -131,10 +131,10 @@ func TestCmdProvider_Load(t *testing.T) {
 			prefix:   "app-",
 			testArgs: []string{"--app-redis-host=localhost", "--app-redis-port", "6379", "--app-db-mysql-host=127.0.0.1", "--other-key=ignored", "--app-log-level=debug"},
 			want: map[string]string{
-				"redis-host":     "localhost",
-				"redis-port":     "6379",
-				"db-mysql-host":  "127.0.0.1",
-				"log-level":      "debug",
+				"redis-host":    "localhost",
+				"redis-port":    "6379",
+				"db-mysql-host": "127.0.0.1",
+				"log-level":     "debug",
 			},
 		},
 		{
@@ -156,32 +156,32 @@ func TestCmdProvider_Load(t *testing.T) {
 			},
 		},
 		{
-			name:     "complex nested configuration keys",
-			prefix:   "",
+			name:   "complex nested configuration keys",
+			prefix: "",
 			testArgs: []string{
-				"--server-http-port=8080", 
+				"--server-http-port=8080",
 				"--server-grpc-port", "9090",
 				"--database-mysql-master-host=db1.example.com",
 				"--database-mysql-slave-host", "db2.example.com",
 				"--redis-cluster-node-1-addr=redis1:6379",
-				"--redis-cluster-node-2-addr=redis2:6379", 
+				"--redis-cluster-node-2-addr=redis2:6379",
 				"--oauth2-google-client-id=12345",
 				"--feature-flag-new-ui-enabled",
 			},
 			want: map[string]string{
-				"server-http-port":               "8080",
-				"server-grpc-port":               "9090", 
-				"database-mysql-master-host":     "db1.example.com",
-				"database-mysql-slave-host":      "db2.example.com",
-				"redis-cluster-node-1-addr":      "redis1:6379",
-				"redis-cluster-node-2-addr":      "redis2:6379",
-				"oauth2-google-client-id":        "12345",
-				"feature-flag-new-ui-enabled":    "true",
+				"server-http-port":            "8080",
+				"server-grpc-port":            "9090",
+				"database-mysql-master-host":  "db1.example.com",
+				"database-mysql-slave-host":   "db2.example.com",
+				"redis-cluster-node-1-addr":   "redis1:6379",
+				"redis-cluster-node-2-addr":   "redis2:6379",
+				"oauth2-google-client-id":     "12345",
+				"feature-flag-new-ui-enabled": "true",
 			},
 		},
 		{
-			name:     "kubernetes style configuration",
-			prefix:   "k8s-",
+			name:   "kubernetes style configuration",
+			prefix: "k8s-",
 			testArgs: []string{
 				"--k8s-namespace=default",
 				"--k8s-service-account", "myapp",
@@ -191,11 +191,11 @@ func TestCmdProvider_Load(t *testing.T) {
 				"--k8s-ingress-class-name", "nginx",
 			},
 			want: map[string]string{
-				"namespace":             "default",
-				"service-account":       "myapp", 
-				"config-map-name":       "app-config",
-				"secret-tls-cert-path":  "/etc/ssl/certs/tls.crt",
-				"ingress-class-name":    "nginx",
+				"namespace":            "default",
+				"service-account":      "myapp",
+				"config-map-name":      "app-config",
+				"secret-tls-cert-path": "/etc/ssl/certs/tls.crt",
+				"ingress-class-name":   "nginx",
 			},
 		},
 	}
@@ -246,11 +246,9 @@ func TestCmdProvider_Save(t *testing.T) {
 		t.Errorf("CmdProvider.Save() expected error, got nil")
 	}
 
-	// 检查错误类型
-	if providerErr, ok := err.(*ProviderError); !ok {
-		t.Errorf("CmdProvider.Save() error type = %T, want *ProviderError", err)
-	} else if !strings.Contains(providerErr.Error(), "does not support save") {
-		t.Errorf("CmdProvider.Save() error message = %v, want contains 'does not support save'", providerErr.Error())
+	// 检查错误信息
+	if !strings.Contains(err.Error(), "does not support save") {
+		t.Errorf("CmdProvider.Save() error message = %v, want contains 'does not support save'", err.Error())
 	}
 }
 

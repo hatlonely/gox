@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -53,19 +54,19 @@ type GormProviderOptions struct {
 // NewGormProviderWithOptions 创建 GORM Provider
 func NewGormProviderWithOptions(options *GormProviderOptions) (*GormProvider, error) {
 	if options == nil {
-		return nil, &ProviderError{Msg: "gorm provider options is required"}
+		return nil, errors.New("gorm provider options is required")
 	}
 
 	if options.ConfigID == "" {
-		return nil, &ProviderError{Msg: "config ID is required"}
+		return nil, errors.New("config ID is required")
 	}
 
 	if options.Driver == "" {
-		return nil, &ProviderError{Msg: "database driver is required"}
+		return nil, errors.New("database driver is required")
 	}
 
 	if options.DSN == "" {
-		return nil, &ProviderError{Msg: "database DSN is required"}
+		return nil, errors.New("database DSN is required")
 	}
 
 	if options.TableName == "" {
@@ -92,11 +93,11 @@ func NewGormProviderWithOptions(options *GormProviderOptions) (*GormProvider, er
 	case "mysql":
 		db, err = gorm.Open(mysql.Open(options.DSN), options.GormConfig)
 	default:
-		return nil, &ProviderError{Msg: "unsupported database driver: " + options.Driver}
+		return nil, errors.Errorf("unsupported database driver: %s", options.Driver)
 	}
 
 	if err != nil {
-		return nil, &ProviderError{Msg: "failed to connect database", Err: err}
+		return nil, errors.Wrap(err, "failed to connect database")
 	}
 
 	provider := &GormProvider{
@@ -121,12 +122,12 @@ func (p *GormProvider) autoMigrate() error {
 	if p.tableName != "config_data" {
 		err := p.db.Table(p.tableName).AutoMigrate(&ConfigData{})
 		if err != nil {
-			return &ProviderError{Msg: "failed to auto migrate table", Err: err}
+			return errors.Wrap(err, "failed to auto migrate table")
 		}
 	} else {
 		err := p.db.AutoMigrate(&ConfigData{})
 		if err != nil {
-			return &ProviderError{Msg: "failed to auto migrate table", Err: err}
+			return errors.Wrap(err, "failed to auto migrate table")
 		}
 	}
 	return nil
@@ -142,9 +143,9 @@ func (p *GormProvider) Load() ([]byte, error) {
 
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			return nil, &ProviderError{Msg: "config not found: " + p.configID}
+			return nil, errors.Errorf("config not found: %s", p.configID)
 		}
-		return nil, &ProviderError{Msg: "failed to load config", Err: result.Error}
+		return nil, errors.Wrap(result.Error, "failed to load config")
 	}
 
 	p.lastVersion = config.Version
@@ -161,7 +162,7 @@ func (p *GormProvider) Save(data []byte) error {
 	result := p.db.Table(p.tableName).Where("id = ?", p.configID).First(&existingConfig)
 
 	if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
-		return &ProviderError{Msg: "failed to check existing config", Err: result.Error}
+		return errors.Wrap(result.Error, "failed to check existing config")
 	}
 
 	if result.Error == gorm.ErrRecordNotFound {
@@ -181,7 +182,7 @@ func (p *GormProvider) Save(data []byte) error {
 	}
 
 	if result.Error != nil {
-		return &ProviderError{Msg: "failed to save config", Err: result.Error}
+		return errors.Wrap(result.Error, "failed to save config")
 	}
 
 	return nil
@@ -263,7 +264,7 @@ func (p *GormProvider) Close() error {
 
 	sqlDB, err := p.db.DB()
 	if err != nil {
-		return &ProviderError{Msg: "failed to get underlying sql.DB", Err: err}
+		return errors.Wrap(err, "failed to get underlying sql.DB")
 	}
 
 	return sqlDB.Close()

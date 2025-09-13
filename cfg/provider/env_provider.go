@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type EnvProvider struct {
@@ -26,7 +28,7 @@ func NewEnvProviderWithOptions(options *EnvProviderOptions) (*EnvProvider, error
 		if file != "" {
 			absPath, err := filepath.Abs(file)
 			if err != nil {
-				return nil, &ProviderError{Msg: fmt.Sprintf("invalid env file path: %s", file), Err: err}
+				return nil, errors.Wrapf(err, "invalid env file path: %s", file)
 			}
 			envFiles = append(envFiles, absPath)
 		}
@@ -53,10 +55,7 @@ func (p *EnvProvider) Load() ([]byte, error) {
 		if err := p.loadEnvFile(envFile, envVars); err != nil {
 			// 文件不存在时不报错，继续处理其他文件
 			if !os.IsNotExist(err) {
-				return nil, &ProviderError{
-					Msg: fmt.Sprintf("failed to load env file: %s", envFile),
-					Err: err,
-				}
+				return nil, errors.Wrapf(err, "failed to load env file: %s", envFile)
 			}
 		}
 	}
@@ -108,7 +107,7 @@ func (p *EnvProvider) loadEnvFile(filename string, envVars map[string]string) er
 }
 
 func (p *EnvProvider) Save(data []byte) error {
-	return &ProviderError{Msg: "env provider does not support save operation"}
+	return errors.New("env provider does not support save operation")
 }
 
 func (p *EnvProvider) OnChange(fn func(data []byte) error) {

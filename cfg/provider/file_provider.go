@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
 )
 
 type FileProvider struct {
@@ -22,12 +23,12 @@ type FileProviderOptions struct {
 
 func NewFileProviderWithOptions(options *FileProviderOptions) (*FileProvider, error) {
 	if options == nil || options.FilePath == "" {
-		return nil, &ProviderError{Msg: "file path is required"}
+		return nil, errors.New("file path is required")
 	}
 
 	absPath, err := filepath.Abs(options.FilePath)
 	if err != nil {
-		return nil, &ProviderError{Msg: "invalid file path", Err: err}
+		return nil, errors.Wrap(err, "invalid file path")
 	}
 
 	return &FileProvider{
@@ -41,7 +42,7 @@ func (p *FileProvider) Load() ([]byte, error) {
 
 	data, err := os.ReadFile(p.filePath)
 	if err != nil {
-		return nil, &ProviderError{Msg: "failed to read file", Err: err}
+		return nil, errors.Wrap(err, "failed to read file")
 	}
 
 	return data, nil
@@ -53,7 +54,7 @@ func (p *FileProvider) Save(data []byte) error {
 
 	err := os.WriteFile(p.filePath, data, 0644)
 	if err != nil {
-		return &ProviderError{Msg: "failed to write file", Err: err}
+		return errors.Wrap(err, "failed to write file")
 	}
 
 	return nil
@@ -123,20 +124,4 @@ func (p *FileProvider) Close() error {
 		return p.watcher.Close()
 	}
 	return nil
-}
-
-type ProviderError struct {
-	Msg string
-	Err error
-}
-
-func (e *ProviderError) Error() string {
-	if e.Err != nil {
-		return e.Msg + ": " + e.Err.Error()
-	}
-	return e.Msg
-}
-
-func (e *ProviderError) Unwrap() error {
-	return e.Err
 }

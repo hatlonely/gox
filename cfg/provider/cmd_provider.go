@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type CmdProvider struct {
@@ -96,7 +98,7 @@ func (p *CmdProvider) Load() ([]byte, error) {
 }
 
 func (p *CmdProvider) Save(data []byte) error {
-	return &ProviderError{Msg: "cmd provider does not support save operation"}
+	return errors.New("cmd provider does not support save operation")
 }
 
 func (p *CmdProvider) OnChange(fn func(data []byte) error) {

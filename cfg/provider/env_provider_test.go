@@ -194,11 +194,9 @@ func TestEnvProvider_Save(t *testing.T) {
 		t.Errorf("EnvProvider.Save() expected error, got nil")
 	}
 
-	// 检查错误类型
-	if providerErr, ok := err.(*ProviderError); !ok {
-		t.Errorf("EnvProvider.Save() error type = %T, want *ProviderError", err)
-	} else if !strings.Contains(providerErr.Error(), "does not support save") {
-		t.Errorf("EnvProvider.Save() error message = %v, want contains 'does not support save'", providerErr.Error())
+	// 检查错误信息
+	if !strings.Contains(err.Error(), "does not support save") {
+		t.Errorf("EnvProvider.Save() error message = %v, want contains 'does not support save'", err.Error())
 	}
 }
 
