@@ -1,9 +1,11 @@
 package cfg
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -492,4 +494,574 @@ func TestConfig_Close(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestConfig_ErrorPolicyStop(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	initialData := `database:
+  host: localhost
+  port: 3306
+`
+
+	if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// 创建 mock writer 来捕获日志
+	mockWriter := &MockWriter{}
+	mockLogger := &mockLogger{writer: mockWriter}
+
+	// 创建配置，使用 stop 错误策略
+	options := &Options{
+		Provider: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/provider",
+			Type:      "FileProvider",
+			Options: &provider.FileProviderOptions{
+				FilePath: configFile,
+			},
+		},
+		Decoder: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/decoder",
+			Type:      "YamlDecoder",
+			Options:   &decoder.YamlDecoderOptions{Indent: 2},
+		},
+		HandlerExecution: &HandlerExecutionOptions{
+			Timeout:     1 * time.Second,
+			Async:       false,  // 同步执行以便测试顺序
+			ErrorPolicy: "stop", // 遇到错误就停止
+		},
+	}
+
+	config, err := NewConfigWithOptions(options)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+	defer config.Close()
+
+	// 设置 mock logger
+	config.SetLogger(mockLogger)
+
+	// 清空之前的日志
+	mockWriter.logs = []string{}
+
+	// 记录执行顺序
+	var mu sync.Mutex
+	executionOrder := []string{}
+
+	// 注册多个 handler：第二个会失败，第三个不应该被执行
+	config.OnChange(func(c *Config) error {
+		mu.Lock()
+		executionOrder = append(executionOrder, "handler1_success")
+		mu.Unlock()
+		return nil // 成功
+	})
+
+	config.OnChange(func(c *Config) error {
+		mu.Lock()
+		executionOrder = append(executionOrder, "handler2_fail")
+		mu.Unlock()
+		return fmt.Errorf("intentional failure") // 失败
+	})
+
+	config.OnChange(func(c *Config) error {
+		mu.Lock()
+		executionOrder = append(executionOrder, "handler3_should_not_execute")
+		mu.Unlock()
+		return nil // 这个不应该被执行
+	})
+
+	// 等待监听器设置完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 触发配置变更
+	updatedData := `database:
+  host: newhost
+  port: 3307
+`
+	if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+		t.Fatalf("Failed to update config file: %v", err)
+	}
+
+	// 等待执行完成
+	time.Sleep(300 * time.Millisecond)
+
+	// 验证执行顺序
+	mu.Lock()
+	if len(executionOrder) != 2 {
+		t.Errorf("Expected 2 handlers to execute (stopped at failure), got %d: %v", len(executionOrder), executionOrder)
+	}
+	if len(executionOrder) >= 1 && executionOrder[0] != "handler1_success" {
+		t.Error("First handler should have executed successfully")
+	}
+	if len(executionOrder) >= 2 && executionOrder[1] != "handler2_fail" {
+		t.Error("Second handler should have failed")
+	}
+
+	// 确保第三个 handler 没有被执行
+	for _, order := range executionOrder {
+		if order == "handler3_should_not_execute" {
+			t.Error("Third handler should not have been executed due to stop policy")
+		}
+	}
+	mu.Unlock()
+
+	// 验证日志内容
+	logContent := strings.Join(mockWriter.logs, "\n")
+
+	// 应该包含成功日志
+	if !strings.Contains(logContent, "onChange handler succeeded") {
+		t.Error("Expected success log for first handler")
+	}
+
+	// 应该包含失败日志（ERROR 级别）
+	if !strings.Contains(logContent, "ERROR: onChange handler failed") {
+		t.Error("Expected ERROR level failure log for second handler")
+	}
+
+	// 应该包含停止执行的日志
+	if !strings.Contains(logContent, "handler execution stopped due to error policy") {
+		t.Error("Expected log about execution being stopped due to error policy")
+	}
+
+	// 验证日志中包含正确的 remainingHandlers 数量
+	if !strings.Contains(logContent, "remainingHandlers 1") {
+		t.Error("Expected log to show 1 remaining handler was skipped")
+	}
+
+	t.Logf("Execution order: %v", executionOrder)
+	t.Logf("Log content: %s", logContent)
+}
+
+func TestConfig_ErrorPolicyContinue(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	initialData := `test: value1`
+
+	if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// 创建 mock writer 来捕获日志
+	mockWriter := &MockWriter{}
+	mockLogger := &mockLogger{writer: mockWriter}
+
+	// 创建配置，使用 continue 错误策略
+	options := &Options{
+		Provider: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/provider",
+			Type:      "FileProvider",
+			Options: &provider.FileProviderOptions{
+				FilePath: configFile,
+			},
+		},
+		Decoder: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/decoder",
+			Type:      "YamlDecoder",
+			Options:   &decoder.YamlDecoderOptions{Indent: 2},
+		},
+		HandlerExecution: &HandlerExecutionOptions{
+			Timeout:     1 * time.Second,
+			Async:       false,      // 同步执行以便测试顺序
+			ErrorPolicy: "continue", // 遇到错误继续执行
+		},
+	}
+
+	config, err := NewConfigWithOptions(options)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+	defer config.Close()
+
+	// 设置 mock logger
+	config.SetLogger(mockLogger)
+
+	// 清空之前的日志
+	mockWriter.logs = []string{}
+
+	// 记录执行顺序
+	var mu sync.Mutex
+	executionOrder := []string{}
+
+	// 注册多个 handler：第二个会失败，但第三个应该继续执行
+	config.OnChange(func(c *Config) error {
+		mu.Lock()
+		executionOrder = append(executionOrder, "handler1_success")
+		mu.Unlock()
+		return nil // 成功
+	})
+
+	config.OnChange(func(c *Config) error {
+		mu.Lock()
+		executionOrder = append(executionOrder, "handler2_fail")
+		mu.Unlock()
+		return fmt.Errorf("intentional failure") // 失败
+	})
+
+	config.OnChange(func(c *Config) error {
+		mu.Lock()
+		executionOrder = append(executionOrder, "handler3_success")
+		mu.Unlock()
+		return nil // 应该被执行
+	})
+
+	// 等待监听器设置完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 触发配置变更
+	updatedData := `test: value2`
+	if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+		t.Fatalf("Failed to update config file: %v", err)
+	}
+
+	// 等待执行完成
+	time.Sleep(300 * time.Millisecond)
+
+	// 验证执行顺序
+	mu.Lock()
+	if len(executionOrder) != 3 {
+		t.Errorf("Expected 3 handlers to execute (continue policy), got %d: %v", len(executionOrder), executionOrder)
+	}
+	if len(executionOrder) >= 1 && executionOrder[0] != "handler1_success" {
+		t.Error("First handler should have executed successfully")
+	}
+	if len(executionOrder) >= 2 && executionOrder[1] != "handler2_fail" {
+		t.Error("Second handler should have failed")
+	}
+	if len(executionOrder) >= 3 && executionOrder[2] != "handler3_success" {
+		t.Error("Third handler should have executed successfully despite previous failure")
+	}
+	mu.Unlock()
+
+	// 验证日志内容
+	logContent := strings.Join(mockWriter.logs, "\n")
+
+	// 应该包含两个成功日志
+	successCount := strings.Count(logContent, "onChange handler succeeded")
+	if successCount != 2 {
+		t.Errorf("Expected 2 success logs, got %d", successCount)
+	}
+
+	// 应该包含一个失败日志
+	if !strings.Contains(logContent, "ERROR: onChange handler failed") {
+		t.Error("Expected ERROR level failure log for second handler")
+	}
+
+	// 不应该包含停止执行的日志（因为是 continue 策略）
+	if strings.Contains(logContent, "handler execution stopped") {
+		t.Error("Should not have stop message with continue policy")
+	}
+
+	t.Logf("Execution order: %v", executionOrder)
+}
+
+// TestConfig_AdvancedHandlerExecution 测试高级的 handler 执行功能
+func TestConfig_AdvancedHandlerExecution(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	initialData := `database:
+  host: localhost
+  port: 3306
+`
+
+	if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// 创建 mock writer 来捕获日志
+	mockWriter := &MockWriter{}
+	mockLogger := &mockLogger{writer: mockWriter}
+
+	t.Run("AsyncExecution", func(t *testing.T) {
+		// 创建配置，启用异步执行
+		options := &Options{
+			Provider: refx.TypeOptions{
+				Namespace: "github.com/hatlonely/gox/cfg/provider",
+				Type:      "FileProvider",
+				Options: &provider.FileProviderOptions{
+					FilePath: configFile,
+				},
+			},
+			Decoder: refx.TypeOptions{
+				Namespace: "github.com/hatlonely/gox/cfg/decoder",
+				Type:      "YamlDecoder",
+				Options:   &decoder.YamlDecoderOptions{Indent: 2},
+			},
+			HandlerExecution: &HandlerExecutionOptions{
+				Timeout:     2 * time.Second,
+				Async:       true,
+				ErrorPolicy: "continue",
+			},
+		}
+
+		config, err := NewConfigWithOptions(options)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 设置 mock logger
+		config.SetLogger(mockLogger)
+
+		// 清空之前的日志
+		mockWriter.logs = []string{}
+
+		// 注册多个 handler，包括快速和慢速的
+		var mu sync.Mutex
+		executionOrder := []string{}
+
+		config.OnChange(func(c *Config) error {
+			mu.Lock()
+			executionOrder = append(executionOrder, "fast")
+			mu.Unlock()
+			return nil
+		})
+
+		config.OnChange(func(c *Config) error {
+			time.Sleep(100 * time.Millisecond) // 慢速 handler
+			mu.Lock()
+			executionOrder = append(executionOrder, "slow")
+			mu.Unlock()
+			return nil
+		})
+
+		config.OnChange(func(c *Config) error {
+			mu.Lock()
+			executionOrder = append(executionOrder, "fast2")
+			mu.Unlock()
+			return nil
+		})
+
+		// 等待监听器设置完成
+		time.Sleep(100 * time.Millisecond)
+
+		// 触发配置变更
+		updatedData := `database:
+  host: newhost
+  port: 3307
+`
+		if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待所有 handler 执行完成
+		time.Sleep(300 * time.Millisecond)
+
+		// 验证异步执行：由于是并行执行，快速的 handler 可能先完成
+		mu.Lock()
+		if len(executionOrder) != 3 {
+			t.Errorf("Expected 3 handlers to execute, got %d", len(executionOrder))
+		}
+		mu.Unlock()
+
+		// 验证日志中包含所有 handler 的执行记录
+		logContent := strings.Join(mockWriter.logs, "\n")
+		if !strings.Contains(logContent, "onChange handler succeeded") {
+			t.Error("Expected successful handler logs")
+		}
+
+		// 验证包含 index 信息
+		if !strings.Contains(logContent, "index") {
+			t.Error("Expected index information in logs")
+		}
+	})
+
+	t.Run("TimeoutControl", func(t *testing.T) {
+		// 创建配置，设置较短的超时时间
+		options := &Options{
+			Provider: refx.TypeOptions{
+				Namespace: "github.com/hatlonely/gox/cfg/provider",
+				Type:      "FileProvider",
+				Options: &provider.FileProviderOptions{
+					FilePath: configFile,
+				},
+			},
+			Decoder: refx.TypeOptions{
+				Namespace: "github.com/hatlonely/gox/cfg/decoder",
+				Type:      "YamlDecoder",
+				Options:   &decoder.YamlDecoderOptions{Indent: 2},
+			},
+			HandlerExecution: &HandlerExecutionOptions{
+				Timeout:     50 * time.Millisecond, // 很短的超时时间
+				Async:       false,                 // 同步执行便于测试
+				ErrorPolicy: "continue",
+			},
+		}
+
+		config, err := NewConfigWithOptions(options)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 设置 mock logger
+		config.SetLogger(mockLogger)
+
+		// 清空之前的日志
+		mockWriter.logs = []string{}
+
+		// 注册一个会超时的 handler
+		config.OnChange(func(c *Config) error {
+			time.Sleep(200 * time.Millisecond) // 超过超时时间
+			return nil
+		})
+
+		// 等待监听器设置完成
+		time.Sleep(100 * time.Millisecond)
+
+		// 触发配置变更
+		updatedData := `database:
+  host: timeouttest
+  port: 3308
+`
+		if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待超时处理完成
+		time.Sleep(400 * time.Millisecond)
+
+		// 验证超时日志
+		logContent := strings.Join(mockWriter.logs, "\n")
+		if !strings.Contains(logContent, "onChange handler timeout") {
+			t.Errorf("Expected timeout log, got: %s", logContent)
+		}
+		if !strings.Contains(logContent, "handler execution timeout") {
+			t.Error("Expected timeout error message in logs")
+		}
+	})
+
+	t.Run("SyncExecution", func(t *testing.T) {
+		// 创建配置，使用同步执行
+		options := &Options{
+			Provider: refx.TypeOptions{
+				Namespace: "github.com/hatlonely/gox/cfg/provider",
+				Type:      "FileProvider",
+				Options: &provider.FileProviderOptions{
+					FilePath: configFile,
+				},
+			},
+			Decoder: refx.TypeOptions{
+				Namespace: "github.com/hatlonely/gox/cfg/decoder",
+				Type:      "YamlDecoder",
+				Options:   &decoder.YamlDecoderOptions{Indent: 2},
+			},
+			HandlerExecution: &HandlerExecutionOptions{
+				Timeout:     1 * time.Second,
+				Async:       false, // 同步执行
+				ErrorPolicy: "continue",
+			},
+		}
+
+		config, err := NewConfigWithOptions(options)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 设置 mock logger
+		config.SetLogger(mockLogger)
+
+		// 清空之前的日志
+		mockWriter.logs = []string{}
+
+		// 注册多个 handler，测试顺序执行
+		var mu sync.Mutex
+		executionOrder := []string{}
+
+		config.OnChange(func(c *Config) error {
+			mu.Lock()
+			executionOrder = append(executionOrder, "first")
+			mu.Unlock()
+			time.Sleep(50 * time.Millisecond)
+			return nil
+		})
+
+		config.OnChange(func(c *Config) error {
+			mu.Lock()
+			executionOrder = append(executionOrder, "second")
+			mu.Unlock()
+			return nil
+		})
+
+		// 等待监听器设置完成
+		time.Sleep(100 * time.Millisecond)
+
+		// 触发配置变更
+		updatedData := `database:
+  host: synctest
+  port: 3309
+`
+		if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待同步执行完成
+		time.Sleep(300 * time.Millisecond)
+
+		// 验证同步执行：handler 应该按顺序执行
+		mu.Lock()
+		if len(executionOrder) != 2 {
+			t.Errorf("Expected 2 handlers to execute, got %d", len(executionOrder))
+		}
+		if len(executionOrder) >= 2 && executionOrder[0] != "first" {
+			t.Error("Expected first handler to execute first")
+		}
+		if len(executionOrder) >= 2 && executionOrder[1] != "second" {
+			t.Error("Expected second handler to execute second")
+		}
+		mu.Unlock()
+	})
+}
+
+func TestConfig_DefaultHandlerExecution(t *testing.T) {
+	// 测试不提供 HandlerExecution 配置时的默认行为
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	initialData := `test: value`
+
+	if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	options := &Options{
+		Provider: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/provider",
+			Type:      "FileProvider",
+			Options: &provider.FileProviderOptions{
+				FilePath: configFile,
+			},
+		},
+		Decoder: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/decoder",
+			Type:      "YamlDecoder",
+			Options:   &decoder.YamlDecoderOptions{Indent: 2},
+		},
+		// 不设置 HandlerExecution，使用默认值
+	}
+
+	config, err := NewConfigWithOptions(options)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+	defer config.Close()
+
+	// 验证默认配置
+	if config.handlerExecution == nil {
+		t.Error("Expected default handler execution config to be created")
+	}
+	if config.handlerExecution.Timeout != 5*time.Second {
+		t.Errorf("Expected default timeout 5s, got %v", config.handlerExecution.Timeout)
+	}
+	if !config.handlerExecution.Async {
+		t.Error("Expected default async to be true")
+	}
+	if config.handlerExecution.ErrorPolicy != "continue" {
+		t.Errorf("Expected default error policy 'continue', got %s", config.handlerExecution.ErrorPolicy)
+	}
+
+	t.Log("Default handler execution config test completed successfully")
 }
