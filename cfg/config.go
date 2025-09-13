@@ -231,13 +231,9 @@ func (c *Config) handleProviderChange(newData []byte) error {
 		if c.isKeyChanged(oldStorage, newStorage, key) {
 			// 统一使用 Sub 方法获取目标配置，Sub("")会返回自身
 			targetConfig := c.Sub(key)
-			
-			// 执行 handlers，为日志显示友好的key名
-			displayKey := key
-			if key == "" {
-				displayKey = "root"
-			}
-			c.executeHandlers(displayKey, handlers, targetConfig)
+
+			// 执行 handlers，直接使用原始的 key
+			c.executeHandlers(key, handlers, targetConfig)
 		}
 	}
 
@@ -347,7 +343,7 @@ func (c *Config) Sub(key string) *Config {
 	if key == "" {
 		return c
 	}
-	
+
 	root := c.getRoot()
 	var fullPrefix string
 	if c.parent != nil {
@@ -357,7 +353,7 @@ func (c *Config) Sub(key string) *Config {
 		// 如果当前配置是根配置，直接使用key作为前缀
 		fullPrefix = key
 	}
-	
+
 	return &Config{
 		parent: root,
 		prefix: fullPrefix,
@@ -370,7 +366,7 @@ func (c *Config) ConvertTo(object any) error {
 		// 根配置直接使用自己的存储
 		return c.storage.ConvertTo(object)
 	}
-	
+
 	// 子配置从父配置获取对应的子存储
 	subStorage := c.parent.storage.Sub(c.prefix)
 	return subStorage.ConvertTo(object)
@@ -421,7 +417,7 @@ func (c *Config) getFullKey() string {
 	if c.parent == nil {
 		return ""
 	}
-	
+
 	// 优化后的实现：直接返回存储的完整前缀
 	return c.prefix
 }
