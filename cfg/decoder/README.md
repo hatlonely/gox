@@ -99,7 +99,6 @@ decoder := NewEnvDecoder()  // 使用固定的默认配置
 
 ```go
 decoder := NewCmdDecoder()  // 使用固定的默认配置
-decoder := NewCmdDecoderWithOptions(nil)  // 兼容性方法，忽略配置
 ```
 
 ## 使用示例

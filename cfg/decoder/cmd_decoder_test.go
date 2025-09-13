@@ -6,36 +6,10 @@ import (
 	"github.com/hatlonely/gox/cfg/storage"
 )
 
-func TestNewCmdDecoderWithOptions(t *testing.T) {
-	tests := []struct {
-		name    string
-		options *CmdDecoderOptions
-		wantErr bool
-	}{
-		{
-			name:    "nil options",
-			options: nil,
-			wantErr: false,
-		},
-		{
-			name:    "empty options",
-			options: &CmdDecoderOptions{},
-			wantErr: false,
-		},
-		{
-			name: "custom options",
-			options: &CmdDecoderOptions{},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			decoder := NewCmdDecoderWithOptions(tt.options)
-			if decoder == nil && !tt.wantErr {
-				t.Errorf("NewCmdDecoderWithOptions() returned nil")
-			}
-		})
+func TestNewCmdDecoder(t *testing.T) {
+	decoder := NewCmdDecoder()
+	if decoder == nil {
+		t.Errorf("NewCmdDecoder() returned nil")
 	}
 }
 

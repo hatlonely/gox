@@ -10,11 +10,6 @@ import (
 	"github.com/hatlonely/gox/cfg/storage"
 )
 
-// CmdDecoderOptions 命令行参数解码器配置选项
-type CmdDecoderOptions struct {
-	// 保留结构体以兼容现有代码，但不再使用字段
-}
-
 // CmdDecoder 命令行参数格式编解码器
 // 支持命令行参数格式，使用FlatStorage进行智能字段匹配
 // 使用固定的默认配置：分隔符"-"，数组格式"-%d"，支持注释和空行
@@ -25,11 +20,6 @@ func NewCmdDecoder() *CmdDecoder {
 	return &CmdDecoder{}
 }
 
-// NewCmdDecoderWithOptions 使用选项创建命令行参数解码器
-// 为了兼容性保留，忽略 options 参数，始终使用默认配置
-func NewCmdDecoderWithOptions(options *CmdDecoderOptions) *CmdDecoder {
-	return NewCmdDecoder()
-}
 
 // Decode 将命令行参数数据解码为FlatStorage对象
 func (c *CmdDecoder) Decode(data []byte) (storage.Storage, error) {
