@@ -110,6 +110,18 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 
 // Equals 比较两个 FlatStorage 是否包含相同的数据内容
 func (fs *FlatStorage) Equals(other Storage) bool {
+	// 处理自身为 nil 的情况
+	if fs == nil {
+		if other == nil {
+			return false // nil FlatStorage != nil interface
+		}
+		// 检查 other 是否是 nil FlatStorage
+		if otherFlatStorage, ok := other.(*FlatStorage); ok && otherFlatStorage == nil {
+			return true // nil FlatStorage == nil FlatStorage
+		}
+		return false
+	}
+
 	if other == nil {
 		return false
 	}
@@ -118,6 +130,11 @@ func (fs *FlatStorage) Equals(other Storage) bool {
 	otherFlatStorage, ok := other.(*FlatStorage)
 	if !ok {
 		return false
+	}
+
+	// 处理 other 为 nil FlatStorage 的情况
+	if otherFlatStorage == nil {
+		return false // non-nil != nil
 	}
 
 	// 直接比较 data 字段

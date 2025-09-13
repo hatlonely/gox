@@ -895,3 +895,48 @@ func TestMapStorage_NilHandling(t *testing.T) {
 		t.Errorf("Expected valid config conversion, got host=%v port=%v", validConfig.Host, validConfig.Port)
 	}
 }
+
+func TestMapStorage_NilEquals(t *testing.T) {
+	// 测试 nil MapStorage 的 Equals 行为
+	data := map[string]interface{}{
+		"key": "value",
+	}
+	
+	normalStorage := NewMapStorage(data)
+	var nilStorage1 *MapStorage = nil
+	var nilStorage2 *MapStorage = nil
+	
+	// 获取一个 nil storage（通过 Sub 方法返回）
+	nilFromSub := normalStorage.Sub("nonexistent")
+	
+	// 测试 1: nil storage 与 nil storage 比较
+	if !nilStorage1.Equals(nilStorage2) {
+		t.Error("Expected nil MapStorage to equal nil MapStorage")
+	}
+	
+	// 测试 2: nil storage 与从 Sub 返回的 nil storage 比较
+	if !nilStorage1.Equals(nilFromSub) {
+		t.Error("Expected nil MapStorage to equal nil MapStorage from Sub")
+	}
+	
+	// 测试 3: 从 Sub 返回的 nil storage 与另一个从 Sub 返回的 nil storage 比较
+	nilFromSub2 := normalStorage.Sub("another_nonexistent")
+	if !nilFromSub.Equals(nilFromSub2) {
+		t.Error("Expected nil MapStorage from Sub to equal nil MapStorage from Sub")
+	}
+	
+	// 测试 4: nil storage 与正常 storage 比较
+	if nilStorage1.Equals(normalStorage) {
+		t.Error("Expected nil MapStorage to not equal normal MapStorage")
+	}
+	
+	// 测试 5: 正常 storage 与 nil storage 比较
+	if normalStorage.Equals(nilStorage1) {
+		t.Error("Expected normal MapStorage to not equal nil MapStorage")
+	}
+	
+	// 测试 6: nil storage 与 nil 接口比较
+	if nilStorage1.Equals(nil) {
+		t.Error("Expected nil MapStorage to not equal nil interface")
+	}
+}

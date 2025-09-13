@@ -51,6 +51,18 @@ func (ms *MapStorage) ConvertTo(object interface{}) error {
 
 // Equals 比较两个 MapStorage 是否包含相同的数据内容
 func (ms *MapStorage) Equals(other Storage) bool {
+	// 处理自身为 nil 的情况
+	if ms == nil {
+		if other == nil {
+			return false // nil MapStorage != nil interface
+		}
+		// 检查 other 是否是 nil MapStorage
+		if otherMapStorage, ok := other.(*MapStorage); ok && otherMapStorage == nil {
+			return true // nil MapStorage == nil MapStorage
+		}
+		return false
+	}
+
 	if other == nil {
 		return false
 	}
@@ -59,6 +71,11 @@ func (ms *MapStorage) Equals(other Storage) bool {
 	otherMapStorage, ok := other.(*MapStorage)
 	if !ok {
 		return false
+	}
+
+	// 处理 other 为 nil MapStorage 的情况
+	if otherMapStorage == nil {
+		return false // non-nil != nil
 	}
 
 	// 直接比较 data 字段
