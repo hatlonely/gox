@@ -28,8 +28,8 @@ type FileWriter struct {
 	mu      sync.Mutex
 }
 
-// NewFileWriter 创建文件输出器
-func NewFileWriter(options *FileWriterOptions) (*FileWriter, error) {
+// NewFileWriterWithOptions 创建文件输出器
+func NewFileWriterWithOptions(options *FileWriterOptions) (*FileWriter, error) {
 	if options == nil || options.Path == "" {
 		return nil, fmt.Errorf("file path is required")
 	}

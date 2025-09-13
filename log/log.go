@@ -57,7 +57,6 @@ type Logger interface {
 	Handler() slog.Handler
 }
 
-
 // logger 实现 Logger 接口
 type logger struct {
 	slogger *slog.Logger
@@ -103,7 +102,7 @@ func NewLogWithOptions(options *Options) (Logger, error) {
 	} else {
 		// 默认使用控制台输出
 		var err error
-		w, err = writer.NewConsoleWriter(&writer.ConsoleWriterOptions{
+		w, err = writer.NewConsoleWriterWithOptions(&writer.ConsoleWriterOptions{
 			Color:  true,
 			Target: "stdout",
 		})

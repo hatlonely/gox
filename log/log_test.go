@@ -101,7 +101,7 @@ func TestParseLevel(t *testing.T) {
 }
 
 func TestConsoleWriter(t *testing.T) {
-	w, err := writer.NewConsoleWriter(&writer.ConsoleWriterOptions{
+	w, err := writer.NewConsoleWriterWithOptions(&writer.ConsoleWriterOptions{
 		Color:  true,
 		Target: "stdout",
 	})
@@ -129,7 +129,7 @@ func TestFileWriter(t *testing.T) {
 	tempDir := t.TempDir()
 	logFile := tempDir + "/test.log"
 
-	w, err := writer.NewFileWriter(&writer.FileWriterOptions{
+	w, err := writer.NewFileWriterWithOptions(&writer.FileWriterOptions{
 		Path: logFile,
 	})
 	if err != nil {
@@ -160,7 +160,7 @@ func TestMultiWriter(t *testing.T) {
 	tempDir := t.TempDir()
 	logFile := tempDir + "/multi_test.log"
 
-	w, err := writer.NewMultiWriter(&writer.MultiWriterOptions{
+	w, err := writer.NewMultiWriterWithOptions(&writer.MultiWriterOptions{
 		Writers: []refx.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",

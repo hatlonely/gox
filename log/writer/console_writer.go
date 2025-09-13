@@ -19,8 +19,8 @@ type ConsoleWriter struct {
 	color  bool
 }
 
-// NewConsoleWriter 创建控制台输出器
-func NewConsoleWriter(options *ConsoleWriterOptions) (*ConsoleWriter, error) {
+// NewConsoleWriterWithOptions 创建控制台输出器
+func NewConsoleWriterWithOptions(options *ConsoleWriterOptions) (*ConsoleWriter, error) {
 	if options == nil {
 		options = &ConsoleWriterOptions{
 			Color:  true,

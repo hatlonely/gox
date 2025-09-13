@@ -18,8 +18,8 @@ type MultiWriter struct {
 	writers []Writer
 }
 
-// NewMultiWriter 创建多输出器
-func NewMultiWriter(options *MultiWriterOptions) (*MultiWriter, error) {
+// NewMultiWriterWithOptions 创建多输出器
+func NewMultiWriterWithOptions(options *MultiWriterOptions) (*MultiWriter, error) {
 	if options == nil || len(options.Writers) == 0 {
 		return nil, fmt.Errorf("at least one writer is required")
 	}
