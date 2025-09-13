@@ -26,17 +26,26 @@ func NewMapStorage(data interface{}) *MapStorage {
 // Sub 获取子配置存储对象
 // key 可以包含点号（.）表示多级嵌套，[]表示数组索引
 // 例如 "database.connections[0].host"
+// 如果 key 不存在，返回 nil MapStorage
 func (ms *MapStorage) Sub(key string) Storage {
 	if key == "" {
 		return ms
 	}
 
 	result := ms.getValue(key)
+	if result == nil {
+		var nilStorage *MapStorage = nil
+		return nilStorage
+	}
 	return NewMapStorage(result)
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
+// 如果 MapStorage 是 nil，则不做任何修改
 func (ms *MapStorage) ConvertTo(object interface{}) error {
+	if ms == nil {
+		return nil
+	}
 	return ms.convertValue(ms.data, reflect.ValueOf(object))
 }
 
