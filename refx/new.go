@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+
+	"github.com/hatlonely/gox/cfg/storage"
 )
 
 type constructor struct {
@@ -61,7 +63,14 @@ func (c *constructor) new(options any) (any, error) {
 		if options == nil {
 			return nil, fmt.Errorf("constructor requires options but got nil")
 		}
-		args = []reflect.Value{reflect.ValueOf(options)}
+
+		// 检查是否需要进行 Storage 转换
+		processedOptions, err := c.processStorageOptions(options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to process storage options: %w", err)
+		}
+
+		args = []reflect.Value{reflect.ValueOf(processedOptions)}
 	} else {
 		args = []reflect.Value{}
 	}
@@ -87,6 +96,45 @@ func (c *constructor) new(options any) (any, error) {
 		// 只有对象返回值的情况
 		return results[0].Interface(), nil
 	}
+}
+
+// processStorageOptions 处理 Storage 类型的 options，如果是 Storage 类型则转换为目标类型
+func (c *constructor) processStorageOptions(options any) (any, error) {
+	// 检查 options 是否实现了 storage.Storage 接口
+	if store, ok := options.(storage.Storage); ok {
+		// 获取构造函数的参数类型
+		funcType := c.newFunc.Type()
+		if funcType.NumIn() != 1 {
+			return nil, fmt.Errorf("unexpected constructor parameter count: %d", funcType.NumIn())
+		}
+
+		// 获取目标参数类型
+		paramType := funcType.In(0)
+
+		// 创建目标类型的实例
+		var targetValue reflect.Value
+		if paramType.Kind() == reflect.Ptr {
+			// 如果是指针类型，创建新实例
+			targetValue = reflect.New(paramType.Elem())
+			// 使用 storage.Storage.ConvertTo 进行转换，传入指针
+			if err := store.ConvertTo(targetValue.Interface()); err != nil {
+				return nil, fmt.Errorf("failed to convert storage to target type %v: %w", paramType, err)
+			}
+			return targetValue.Interface(), nil
+		} else {
+			// 如果是值类型，创建零值并获取其指针进行转换
+			targetValue = reflect.New(paramType)
+			// 使用 storage.Storage.ConvertTo 进行转换，传入指针
+			if err := store.ConvertTo(targetValue.Interface()); err != nil {
+				return nil, fmt.Errorf("failed to convert storage to target type %v: %w", paramType, err)
+			}
+			// 返回解引用后的值
+			return targetValue.Elem().Interface(), nil
+		}
+	}
+
+	// 如果不是 Storage 类型，直接返回原始 options
+	return options, nil
 }
 
 var nameConstructorMap sync.Map
