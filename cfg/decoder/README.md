@@ -96,6 +96,24 @@ decoder := NewEnvDecoderWithOptions(&EnvDecoderOptions{
 })
 ```
 
+### 命令行参数解码器 (`CmdDecoder`)
+- 支持命令行参数格式
+- 使用 `FlatStorage` 进行智能字段映射
+- 支持 kebab-case 键名（`server-http-port`）
+- 自动类型转换（布尔值、数字）
+- 支持引号包围的字符串和转义字符
+- 可配置键分隔符和数组格式
+
+```go
+decoder := NewCmdDecoder()  // 默认使用 "-" 分隔符
+decoder := NewCmdDecoderWithOptions(&CmdDecoderOptions{
+    Separator:     "_",
+    ArrayFormat:   "_%d", 
+    AllowComments: true,
+    AllowEmpty:    true,
+})
+```
+
 ## 使用示例
 
 ### 基本使用
@@ -107,6 +125,7 @@ yamlDecoder := decoder.NewYamlDecoder()
 tomlDecoder := decoder.NewTomlDecoder()
 iniDecoder := decoder.NewIniDecoder()
 envDecoder := decoder.NewEnvDecoder()
+cmdDecoder := decoder.NewCmdDecoder()
 
 // 解码数据
 storage, err := jsonDecoder.Decode([]byte(`{"key": "value"}`))
@@ -114,6 +133,7 @@ storage, err := yamlDecoder.Decode([]byte(`key: value`))
 storage, err := tomlDecoder.Decode([]byte(`key = "value"`))
 storage, err := iniDecoder.Decode([]byte(`key=value`))
 storage, err := envDecoder.Decode([]byte(`KEY=value`))
+storage, err := cmdDecoder.Decode([]byte(`server-port=8080`))
 ```
 
 ### 自定义配置
@@ -133,6 +153,13 @@ envDecoder := decoder.NewEnvDecoderWithOptions(&decoder.EnvDecoderOptions{
     ArrayFormat:   "[%d]",
     AllowComments: true,
     AllowEmpty:    true,
+})
+
+cmdDecoder := decoder.NewCmdDecoderWithOptions(&decoder.CmdDecoderOptions{
+    Separator:     "_",
+    ArrayFormat:   "_%d",
+    AllowComments: false,
+    AllowEmpty:    false,
 })
 
 // 传递 nil 使用默认配置
