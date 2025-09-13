@@ -13,51 +13,23 @@ import (
 
 // EnvDecoderOptions 环境变量解码器配置选项
 type EnvDecoderOptions struct {
-	// Separator 键分隔符，默认为"_"
-	Separator string
-	// ArrayFormat 数组格式，默认为"_%d"
-	ArrayFormat string
-	// AllowComments 是否允许注释，默认为true
-	AllowComments bool
-	// AllowEmpty 是否允许空行，默认为true
-	AllowEmpty bool
+	// 保留结构体以兼容现有代码，但不再使用字段
 }
 
 // EnvDecoder .env格式编解码器
 // 支持环境变量格式，使用FlatStorage进行智能字段匹配
-type EnvDecoder struct {
-	// Separator 键分隔符，默认为"_"
-	Separator string
-	// ArrayFormat 数组格式，默认为"_%d"
-	ArrayFormat string
-	// AllowComments 是否允许注释，默认为true
-	AllowComments bool
-	// AllowEmpty 是否允许空行，默认为true
-	AllowEmpty bool
-}
+// 使用固定的默认配置：分隔符"_"，数组格式"_%d"，支持注释和空行
+type EnvDecoder struct {}
 
 // NewEnvDecoder 创建新的环境变量解码器，使用默认配置
 func NewEnvDecoder() *EnvDecoder {
-	return &EnvDecoder{
-		Separator:     "_",
-		ArrayFormat:   "_%d",
-		AllowComments: true,
-		AllowEmpty:    true,
-	}
+	return &EnvDecoder{}
 }
 
 // NewEnvDecoderWithOptions 使用选项创建环境变量解码器
+// 为了兼容性保留，忽略 options 参数，始终使用默认配置
 func NewEnvDecoderWithOptions(options *EnvDecoderOptions) *EnvDecoder {
-	if options == nil {
-		// 使用默认配置
-		return NewEnvDecoder()
-	}
-	return &EnvDecoder{
-		Separator:     options.Separator,
-		ArrayFormat:   options.ArrayFormat,
-		AllowComments: options.AllowComments,
-		AllowEmpty:    options.AllowEmpty,
-	}
+	return NewEnvDecoder()
 }
 
 // Decode 将.env数据解码为FlatStorage对象
@@ -72,12 +44,12 @@ func (e *EnvDecoder) Decode(data []byte) (storage.Storage, error) {
 		line := strings.TrimSpace(scanner.Text())
 		
 		// 跳过空行
-		if line == "" && e.AllowEmpty {
+		if line == "" {
 			continue
 		}
 		
 		// 跳过注释行
-		if e.AllowComments && (strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//")) {
+		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
 			continue
 		}
 		
@@ -91,8 +63,8 @@ func (e *EnvDecoder) Decode(data []byte) (storage.Storage, error) {
 		return nil, fmt.Errorf("failed to scan .env data: %w", err)
 	}
 	
-	// 创建FlatStorage
-	return storage.NewFlatStorageWithOptions(result, e.Separator, e.ArrayFormat), nil
+	// 创建FlatStorage，使用固定的默认配置
+	return storage.NewFlatStorageWithOptions(result, "_", "_%d"), nil
 }
 
 // parseLine 解析单行数据

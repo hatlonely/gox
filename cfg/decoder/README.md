@@ -81,19 +81,13 @@ decoder := NewIniDecoderWithOptions(&IniDecoderOptions{
 ### 环境变量解码器 (`EnvDecoder`)
 - 支持 .env 文件格式
 - 使用 `FlatStorage` 进行智能字段映射
-- 支持注释和空行
+- 固定配置：键分隔符 `_`，数组格式 `_%d`，支持注释和空行
 - 自动类型转换（布尔值、数字）
 - 支持引号包围的字符串
-- 可配置键分隔符和数组格式
 
 ```go
-decoder := NewEnvDecoder()  // 默认使用 "_" 分隔符
-decoder := NewEnvDecoderWithOptions(&EnvDecoderOptions{
-    Separator:   ".",
-    ArrayFormat: "[%d]",
-    AllowComments: true,
-    AllowEmpty:    true,
-})
+decoder := NewEnvDecoder()  // 使用固定的默认配置
+decoder := NewEnvDecoderWithOptions(nil)  // 兼容性方法，忽略配置
 ```
 
 ### 命令行参数解码器 (`CmdDecoder`)
@@ -148,12 +142,8 @@ yamlDecoder := decoder.NewYamlDecoderWithOptions(&decoder.YamlDecoderOptions{
     Indent: 4,
 })
 
-envDecoder := decoder.NewEnvDecoderWithOptions(&decoder.EnvDecoderOptions{
-    Separator:     ".",
-    ArrayFormat:   "[%d]",
-    AllowComments: true,
-    AllowEmpty:    true,
-})
+// EnvDecoder 已简化，不再需要配置选项
+envDecoder := decoder.NewEnvDecoder()
 
 cmdDecoder := decoder.NewCmdDecoderWithOptions(&decoder.CmdDecoderOptions{
     Separator:     "_",
