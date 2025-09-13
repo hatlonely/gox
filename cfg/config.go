@@ -231,15 +231,10 @@ func (c *Config) handleProviderChange(newData []byte) error {
 	// 检查并触发特定 key 的变更监听器
 	for key, handlers := range c.onKeyChangeHandlers {
 		if c.isKeyChanged(oldStorage, newStorage, key) {
-			// 创建对应的 Sub Config 对象
+			// 创建对应的 Sub Config 对象，使用优化后的结构
 			subConfig := &Config{
-				provider:         c.provider,
-				decoder:          c.decoder,
-				storage:          newStorage.Sub(key),
-				logger:           c.logger,
-				handlerExecution: c.handlerExecution,
-				parent:           c,
-				prefix:           key,
+				parent: c,
+				prefix: key,
 			}
 
 			// 执行 handlers
@@ -347,22 +342,34 @@ func (c *Config) isKeyChanged(oldStorage, newStorage storage.Storage, key string
 }
 
 // Sub 获取子配置对象
+// 优化后的实现：所有子配置共享同一个根配置，只存储父配置引用和前缀
 func (c *Config) Sub(key string) *Config {
 	root := c.getRoot()
+	var fullPrefix string
+	if c.parent != nil {
+		// 如果当前配置是子配置，构建完整的前缀路径
+		fullPrefix = c.getFullKey() + "." + key
+	} else {
+		// 如果当前配置是根配置，直接使用key作为前缀
+		fullPrefix = key
+	}
+	
 	return &Config{
-		provider:         root.provider,
-		decoder:          root.decoder,
-		storage:          c.storage.Sub(key),
-		logger:           root.logger,
-		handlerExecution: root.handlerExecution,
-		parent:           c,
-		prefix:           key,
+		parent: root,
+		prefix: fullPrefix,
 	}
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
 func (c *Config) ConvertTo(object any) error {
-	return c.storage.ConvertTo(object)
+	if c.parent == nil {
+		// 根配置直接使用自己的存储
+		return c.storage.ConvertTo(object)
+	}
+	
+	// 子配置从父配置获取对应的子存储
+	subStorage := c.parent.storage.Sub(c.prefix)
+	return subStorage.ConvertTo(object)
 }
 
 // SetLogger 设置日志记录器（只有根配置才能设置）
@@ -410,16 +417,9 @@ func (c *Config) getFullKey() string {
 	if c.parent == nil {
 		return ""
 	}
-
-	keys := []string{c.prefix}
-	current := c.parent
-
-	for current.parent != nil {
-		keys = append([]string{current.prefix}, keys...)
-		current = current.parent
-	}
-
-	return strings.Join(keys, ".")
+	
+	// 优化后的实现：直接返回存储的完整前缀
+	return c.prefix
 }
 
 // Close 关闭配置对象，释放相关资源
