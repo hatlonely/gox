@@ -1002,3 +1002,86 @@ func TestFlatStorage_TimeInNestedStructure(t *testing.T) {
 		t.Errorf("Expected database backup interval 24h, got %v", config.Database.BackupInterval)
 	}
 }
+
+func TestFlatStorage_NilHandling(t *testing.T) {
+	// 测试 nil 处理特性：
+	// 1. Sub 方法在没有相关 key 时返回 nil
+	// 2. 对于 nil Storage，ConvertTo 不修改空指针
+
+	data := map[string]interface{}{
+		"database.host": "localhost",
+		"database.port": 3306,
+	}
+
+	storage := NewFlatStorage(data)
+
+	// 测试 Sub 方法返回 nil FlatStorage 当 key 不存在时
+	nonExistentSub := storage.Sub("nonexistent")
+	if nonExistentSub == nil {
+		t.Error("Sub should return a nil FlatStorage, not nil interface")
+	}
+	if fs, ok := nonExistentSub.(*FlatStorage); !ok || fs != nil {
+		t.Errorf("Expected Sub to return nil *FlatStorage for non-existent key, got %T: %v", nonExistentSub, fs)
+	}
+
+	// 测试嵌套路径不存在的情况
+	nonExistentNestedSub := storage.Sub("database.nonexistent")
+	if nonExistentNestedSub == nil {
+		t.Error("Sub should return a nil FlatStorage, not nil interface")
+	}
+	if fs, ok := nonExistentNestedSub.(*FlatStorage); !ok || fs != nil {
+		t.Errorf("Expected Sub to return nil *FlatStorage for non-existent nested key, got %T: %v", nonExistentNestedSub, fs)
+	}
+
+	// 测试数组索引不存在的情况
+	nonExistentArraySub := storage.Sub("servers[0]")
+	if nonExistentArraySub == nil {
+		t.Error("Sub should return a nil FlatStorage, not nil interface")
+	}
+	if fs, ok := nonExistentArraySub.(*FlatStorage); !ok || fs != nil {
+		t.Errorf("Expected Sub to return nil *FlatStorage for non-existent array index, got %T: %v", nonExistentArraySub, fs)
+	}
+
+	// 测试对 nil Storage 调用 ConvertTo 的行为
+	type DatabaseConfig struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	}
+
+	// 测试 1: 空指针应该保持为 nil
+	var nilConfig *DatabaseConfig = nil
+	err := nonExistentSub.ConvertTo(&nilConfig)
+	if err != nil {
+		t.Errorf("ConvertTo should not fail for nil storage, got error: %v", err)
+	}
+	if nilConfig != nil {
+		t.Error("Expected nil pointer to remain nil when converting from nil storage")
+	}
+
+	// 测试 2: 非空指针结构的情况
+	existingConfig := &DatabaseConfig{Host: "existing", Port: 5432}
+	err = nonExistentSub.ConvertTo(&existingConfig)
+	if err != nil {
+		t.Errorf("ConvertTo should not fail for nil storage, got error: %v", err)
+	}
+	// 对于非空指针，行为应该是保持不变
+	if existingConfig.Host != "existing" || existingConfig.Port != 5432 {
+		t.Error("Expected non-nil pointer values to remain unchanged when converting from nil storage")
+	}
+
+	// 测试 3: 验证正常情况仍然工作
+	validSub := storage.Sub("database")
+	if validSub == nil {
+		t.Error("Expected Sub to return non-nil for existing key")
+	}
+
+	var validConfig DatabaseConfig
+	err = validSub.ConvertTo(&validConfig)
+	if err != nil {
+		t.Fatalf("ConvertTo failed for valid storage: %v", err)
+	}
+
+	if validConfig.Host != "localhost" || validConfig.Port != 3306 {
+		t.Errorf("Expected valid config conversion, got host=%v port=%v", validConfig.Host, validConfig.Port)
+	}
+}

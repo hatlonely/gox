@@ -87,15 +87,20 @@ func (fs *FlatStorage) Sub(key string) Storage {
 	}
 
 	if len(subData) == 0 {
-		// 没有找到匹配的键，返回空存储
-		return NewFlatStorageWithOptions(make(map[string]interface{}), fs.KeySeparator, fs.ArrayFormat)
+		// 没有找到匹配的键，返回 nil FlatStorage
+		var nilStorage *FlatStorage = nil
+		return nilStorage
 	}
 
 	return NewFlatStorageWithOptions(subData, fs.KeySeparator, fs.ArrayFormat)
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
+// 如果 FlatStorage 是 nil，则不做任何修改
 func (fs *FlatStorage) ConvertTo(object interface{}) error {
+	if fs == nil {
+		return nil
+	}
 	if len(fs.data) == 0 {
 		return nil
 	}
