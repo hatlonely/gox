@@ -372,3 +372,146 @@ func TestCmdDecoder_needsQuoting(t *testing.T) {
 		})
 	}
 }
+
+func TestCmdDecoder_ConvertToStruct(t *testing.T) {
+	// 定义测试用的配置结构体
+	type ServerConfig struct {
+		Http struct {
+			Port int    `cfg:"port"`
+			Host string `cfg:"host"`
+		} `cfg:"http"`
+		Grpc struct {
+			Port int `cfg:"port"`
+		} `cfg:"grpc"`
+	}
+
+	type DatabaseConfig struct {
+		Mysql struct {
+			Master struct {
+				Host string `cfg:"host"`
+				Port int    `cfg:"port"`
+			} `cfg:"master"`
+			Slave struct {
+				Host string `cfg:"host"`
+				Port int    `cfg:"port"`
+			} `cfg:"slave"`
+		} `cfg:"mysql"`
+		Url string `cfg:"url"`
+	}
+
+	type AppConfig struct {
+		Name     string         `cfg:"name"`
+		Debug    bool           `cfg:"debug"`
+		Server   ServerConfig   `cfg:"server"`
+		Database DatabaseConfig `cfg:"database"`
+		Redis    struct {
+			Password string `cfg:"password"`
+		} `cfg:"redis"`
+		Features struct {
+			NewUI struct {
+				Enabled bool `cfg:"enabled"`
+			} `cfg:"new-ui"`
+		} `cfg:"features"`
+	}
+
+	// 测试数据 - 使用命令行参数风格的键名
+	data := `name=MyApp
+debug=true
+server-http-port=8080
+server-http-host=localhost
+server-grpc-port=9090
+database-mysql-master-host=db1.example.com
+database-mysql-master-port=3306
+database-mysql-slave-host=db2.example.com
+database-mysql-slave-port=3306
+database-url=postgres://localhost:5432/mydb
+redis-password="123456"
+features-new-ui-enabled=true`
+
+	decoder := NewCmdDecoder()
+	storage, err := decoder.Decode([]byte(data))
+	if err != nil {
+		t.Fatalf("CmdDecoder.Decode() error = %v", err)
+	}
+
+	// 转换为结构体
+	var config AppConfig
+	err = storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("storage.ConvertTo() error = %v", err)
+	}
+
+	// 验证转换结果
+	tests := []struct {
+		name     string
+		got      interface{}
+		expected interface{}
+	}{
+		{"app name", config.Name, "MyApp"},
+		{"debug flag", config.Debug, true},
+		{"server http port", config.Server.Http.Port, 8080},
+		{"server http host", config.Server.Http.Host, "localhost"},
+		{"server grpc port", config.Server.Grpc.Port, 9090},
+		{"database mysql master host", config.Database.Mysql.Master.Host, "db1.example.com"},
+		{"database mysql master port", config.Database.Mysql.Master.Port, 3306},
+		{"database mysql slave host", config.Database.Mysql.Slave.Host, "db2.example.com"},
+		{"database mysql slave port", config.Database.Mysql.Slave.Port, 3306},
+		{"database url", config.Database.Url, "postgres://localhost:5432/mydb"},
+		{"redis password", config.Redis.Password, "123456"}, // 数字字符串会被解析为数字，然后转换回字符串
+		{"features new ui enabled", config.Features.NewUI.Enabled, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.expected {
+				t.Errorf("ConvertTo() %s = %v, want %v", tt.name, tt.got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCmdDecoder_ConvertToSimpleStruct(t *testing.T) {
+	// 简单结构体测试
+	type SimpleConfig struct {
+		AppName        string `cfg:"app-name"`
+		MaxConnections int    `cfg:"max-connections"`
+		EnableLogging  bool   `cfg:"enable-logging"`
+		Timeout        float64 `cfg:"timeout"`
+		EmptyValue     string  `cfg:"empty-value"`
+	}
+
+	data := `app-name=MyService
+max-connections=100
+enable-logging=true
+timeout=30.5
+empty-value=""`
+
+	decoder := NewCmdDecoder()
+	storage, err := decoder.Decode([]byte(data))
+	if err != nil {
+		t.Fatalf("CmdDecoder.Decode() error = %v", err)
+	}
+
+	var config SimpleConfig
+	err = storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("storage.ConvertTo() error = %v", err)
+	}
+
+	// 验证结果
+	if config.AppName != "MyService" {
+		t.Errorf("AppName = %v, want MyService", config.AppName)
+	}
+	if config.MaxConnections != 100 {
+		t.Errorf("MaxConnections = %v, want 100", config.MaxConnections)
+	}
+	if config.EnableLogging != true {
+		t.Errorf("EnableLogging = %v, want true", config.EnableLogging)
+	}
+	if config.Timeout != 30.5 {
+		t.Errorf("Timeout = %v, want 30.5", config.Timeout)
+	}
+	if config.EmptyValue != "" {
+		t.Errorf("EmptyValue = %v, want empty string", config.EmptyValue)
+	}
+}
