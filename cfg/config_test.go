@@ -195,9 +195,9 @@ redis:
 			return nil
 		})
 
-		// 验证监听器已注册
-		if len(config.onChangeHandlers) != 1 {
-			t.Errorf("Expected 1 root change handler, got %d", len(config.onChangeHandlers))
+		// 验证监听器已注册（根配置变更监听器现在使用空字符串key）
+		if len(config.onKeyChangeHandlers[""]) != 1 {
+			t.Errorf("Expected 1 root change handler, got %d", len(config.onKeyChangeHandlers[""]))
 		}
 
 		if len(config.onKeyChangeHandlers["database"]) != 1 {

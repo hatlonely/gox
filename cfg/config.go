@@ -46,7 +46,7 @@ type Config struct {
 	prefix string
 
 	// 只有根配置才使用这些字段
-	onChangeHandlers    []func(*Config) error
+	// 统一的变更处理器映射，使用空字符串作为根配置变更的特殊key
 	onKeyChangeHandlers map[string][]func(*Config) error
 
 	// Close 状态管理（只有根配置使用）
@@ -225,20 +225,29 @@ func (c *Config) handleProviderChange(newData []byte) error {
 	}
 	c.storage = newStorage
 
-	// 触发根配置的全局变更监听器
-	c.executeHandlers("root", c.onChangeHandlers, c)
-
-	// 检查并触发特定 key 的变更监听器
+	// 检查并触发变更监听器（统一处理根配置和特定key）
 	for key, handlers := range c.onKeyChangeHandlers {
+		// 统一使用 isKeyChanged 检查，空字符串key会让Storage.Sub("")返回自己
 		if c.isKeyChanged(oldStorage, newStorage, key) {
-			// 创建对应的 Sub Config 对象，使用优化后的结构
-			subConfig := &Config{
-				parent: c,
-				prefix: key,
+			// 统一创建目标配置对象
+			var targetConfig *Config
+			if key == "" {
+				// 根配置变更
+				targetConfig = c
+			} else {
+				// 子配置变更
+				targetConfig = &Config{
+					parent: c,
+					prefix: key,
+				}
 			}
-
-			// 执行 handlers
-			c.executeHandlers(key, handlers, subConfig)
+			
+			// 执行 handlers，为日志显示友好的key名
+			displayKey := key
+			if key == "" {
+				displayKey = "root"
+			}
+			c.executeHandlers(displayKey, handlers, targetConfig)
 		}
 	}
 
@@ -386,8 +395,8 @@ func (c *Config) OnChange(fn func(*Config) error) {
 		fullKey := c.getFullKey()
 		root.OnKeyChange(fullKey, fn)
 	} else {
-		// 根配置：直接添加到全局变更监听器
-		c.onChangeHandlers = append(c.onChangeHandlers, fn)
+		// 根配置：使用空字符串作为根配置变更的特殊key
+		c.OnKeyChange("", fn)
 	}
 }
 
