@@ -12,7 +12,8 @@ type FileProvider struct {
 	filePath string
 	watcher  *fsnotify.Watcher
 	mu       sync.RWMutex
-	onChange func(data []byte) error
+	onChange []func(data []byte) error
+	watching bool
 }
 
 type FileProviderOptions struct {
@@ -62,18 +63,22 @@ func (p *FileProvider) OnChange(fn func(data []byte) error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.onChange = fn
+	// 将新的回调函数添加到队列中
+	p.onChange = append(p.onChange, fn)
 
-	if p.watcher != nil {
-		p.watcher.Close()
+	// 如果已经在监听，直接返回
+	if p.watching {
+		return
 	}
 
+	// 第一次调用时创建监听
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return
 	}
 
 	p.watcher = watcher
+	p.watching = true
 
 	go func() {
 		for {
@@ -84,8 +89,16 @@ func (p *FileProvider) OnChange(fn func(data []byte) error) {
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					if data, err := os.ReadFile(p.filePath); err == nil {
-						if p.onChange != nil {
-							p.onChange(data)
+						// 调用所有注册的回调函数
+						p.mu.RLock()
+						handlers := make([]func(data []byte) error, len(p.onChange))
+						copy(handlers, p.onChange)
+						p.mu.RUnlock()
+
+						for _, handler := range handlers {
+							if handler != nil {
+								handler(data)
+							}
 						}
 					}
 				}

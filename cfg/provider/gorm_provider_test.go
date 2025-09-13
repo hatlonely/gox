@@ -115,6 +115,93 @@ func TestGormProvider_OnChange(t *testing.T) {
 	}
 }
 
+func TestGormProvider_MultipleOnChange(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbFile := filepath.Join(tmpDir, "test.db")
+
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
+		ConfigID:     "test_config",
+		Driver:       "sqlite",
+		DSN:          dbFile,
+		PollInterval: 100 * time.Millisecond, // 快速轮询用于测试
+	})
+	if err != nil {
+		t.Fatalf("Failed to create GormProvider: %v", err)
+	}
+	defer provider.Close()
+
+	// 保存初始配置
+	initialData := []byte(`{"key": "value1"}`)
+	err = provider.Save(initialData)
+	if err != nil {
+		t.Fatalf("Failed to save initial config: %v", err)
+	}
+
+	// 读取一次以设置 lastVersion
+	_, err = provider.Load()
+	if err != nil {
+		t.Fatalf("Failed to load initial config: %v", err)
+	}
+
+	// 注册多个回调函数
+	changeChan1 := make(chan []byte, 1)
+	changeChan2 := make(chan []byte, 1)
+	changeChan3 := make(chan []byte, 1)
+
+	provider.OnChange(func(data []byte) error {
+		changeChan1 <- data
+		return nil
+	})
+
+	provider.OnChange(func(data []byte) error {
+		changeChan2 <- data
+		return nil
+	})
+
+	provider.OnChange(func(data []byte) error {
+		changeChan3 <- data
+		return nil
+	})
+
+	// 等待一小段时间让轮询启动
+	time.Sleep(200 * time.Millisecond)
+
+	// 更新配置
+	updatedData := []byte(`{"key": "value2"}`)
+	err = provider.Save(updatedData)
+	if err != nil {
+		t.Fatalf("Failed to update config: %v", err)
+	}
+
+	// 验证所有回调都被调用
+	select {
+	case data := <-changeChan1:
+		if string(data) != string(updatedData) {
+			t.Errorf("Callback 1: Expected %s, got %s", string(updatedData), string(data))
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("Timeout waiting for callback 1")
+	}
+
+	select {
+	case data := <-changeChan2:
+		if string(data) != string(updatedData) {
+			t.Errorf("Callback 2: Expected %s, got %s", string(updatedData), string(data))
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("Timeout waiting for callback 2")
+	}
+
+	select {
+	case data := <-changeChan3:
+		if string(data) != string(updatedData) {
+			t.Errorf("Callback 3: Expected %s, got %s", string(updatedData), string(data))
+		}
+	case <-time.After(2 * time.Second):
+		t.Error("Timeout waiting for callback 3")
+	}
+}
+
 func TestGormProvider_CustomTableName(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbFile := filepath.Join(tmpDir, "test.db")

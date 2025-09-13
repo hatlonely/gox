@@ -30,12 +30,13 @@ type GormProvider struct {
 	db          *gorm.DB
 	tableName   string
 	mu          sync.RWMutex
-	onChange    func(data []byte) error
+	onChange    []func(data []byte) error
 	lastVersion int64
 
 	// 变更监听
 	stopChan     chan struct{}
 	pollInterval time.Duration
+	watching     bool
 }
 
 // GormProviderOptions GORM Provider 配置选项
@@ -191,9 +192,16 @@ func (p *GormProvider) OnChange(fn func(data []byte) error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.onChange = fn
+	// 将新的回调函数添加到队列中
+	p.onChange = append(p.onChange, fn)
 
-	// 启动轮询监听
+	// 如果已经在监听，直接返回
+	if p.watching {
+		return
+	}
+
+	// 第一次调用时启动轮询监听
+	p.watching = true
 	go p.startPolling()
 }
 
@@ -215,11 +223,12 @@ func (p *GormProvider) startPolling() {
 // checkForChanges 检查配置变更
 func (p *GormProvider) checkForChanges() {
 	p.mu.RLock()
-	onChange := p.onChange
+	handlers := make([]func(data []byte) error, len(p.onChange))
+	copy(handlers, p.onChange)
 	lastVersion := p.lastVersion
 	p.mu.RUnlock()
 
-	if onChange == nil {
+	if len(handlers) == 0 {
 		return
 	}
 
@@ -232,11 +241,19 @@ func (p *GormProvider) checkForChanges() {
 
 	if config.Version > lastVersion {
 		data := []byte(config.Content)
-		if err := onChange(data); err == nil {
-			p.mu.Lock()
-			p.lastVersion = config.Version
-			p.mu.Unlock()
+		// 调用所有注册的回调函数
+		for _, handler := range handlers {
+			if handler != nil {
+				if err := handler(data); err != nil {
+					// 如果某个回调失败，记录但不影响其他回调
+					continue
+				}
+			}
 		}
+		// 更新版本号
+		p.mu.Lock()
+		p.lastVersion = config.Version
+		p.mu.Unlock()
 	}
 }
 
