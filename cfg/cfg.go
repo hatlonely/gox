@@ -90,11 +90,12 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 
 // NewConfig 简单构造方法，从文件中加载配置
 // 根据文件后缀自动选择对应的解码器：
-//   .json/.json5 -> JsonDecoder
-//   .yaml/.yml -> YamlDecoder  
-//   .toml -> TomlDecoder
-//   .ini -> IniDecoder
-//   .env -> EnvDecoder
+//
+//	.json/.json5 -> JsonDecoder
+//	.yaml/.yml -> YamlDecoder
+//	.toml -> TomlDecoder
+//	.ini -> IniDecoder
+//	.env -> EnvDecoder
 func NewConfig(filename string) (*Config, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("filename cannot be empty")
@@ -270,4 +271,14 @@ func (c *Config) getFullKey() string {
 	}
 
 	return strings.Join(keys, ".")
+}
+
+// Close 关闭配置对象，释放相关资源
+// 只有根配置对象才能执行关闭操作，子配置对象会将关闭请求转发到根配置
+func (c *Config) Close() error {
+	root := c.getRoot()
+	if root.provider != nil {
+		return root.provider.Close()
+	}
+	return nil
 }

@@ -36,7 +36,7 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    defer config.provider.Close()
+    defer config.Close() // 确保资源释放
     
     // 读取配置到结构体
     type DatabaseConfig struct {
@@ -194,6 +194,22 @@ type Config struct {
 }
 ```
 
+### 5. 资源管理
+
+配置对象可能会持有一些资源（如文件监听器、数据库连接等），使用完毕后应该调用 Close 方法释放资源。
+
+```go
+config, err := cfg.NewConfig("config.yaml")
+if err != nil {
+    log.Fatal(err)
+}
+defer config.Close() // 释放资源
+
+// 子配置也可以调用 Close，会自动转发到根配置
+dbConfig := config.Sub("database")
+defer dbConfig.Close() // 等价于 config.Close()
+```
+
 ## 高级用法
 
 ### 自定义 Provider 和 Decoder
@@ -255,6 +271,7 @@ config, err := cfg.NewConfig("config.yaml")
 if err != nil {
     log.Fatal(err)
 }
+defer config.Close() // 确保资源释放
 
 var app AppConfig
 if err := config.ConvertTo(&app); err != nil {
