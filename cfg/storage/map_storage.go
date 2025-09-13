@@ -30,7 +30,7 @@ func (ms *MapStorage) Sub(key string) Storage {
 	if key == "" {
 		return ms
 	}
-	
+
 	result := ms.getValue(key)
 	return NewMapStorage(result)
 }
@@ -45,13 +45,13 @@ func (ms *MapStorage) Equals(other Storage) bool {
 	if other == nil {
 		return false
 	}
-	
+
 	// 只支持同类型比较
 	otherMapStorage, ok := other.(*MapStorage)
 	if !ok {
 		return false
 	}
-	
+
 	// 直接比较 data 字段
 	return reflect.DeepEqual(ms.data, otherMapStorage.data)
 }
@@ -60,14 +60,14 @@ func (ms *MapStorage) Equals(other Storage) bool {
 func (ms *MapStorage) getValue(key string) interface{} {
 	keys := ms.parseKey(key)
 	current := ms.data
-	
+
 	for _, k := range keys {
 		current = ms.getValueByKey(current, k)
 		if current == nil {
 			return nil
 		}
 	}
-	
+
 	return current
 }
 
@@ -76,7 +76,7 @@ func (ms *MapStorage) parseKey(key string) []string {
 	var keys []string
 	var current string
 	inBracket := false
-	
+
 	for _, char := range key {
 		switch char {
 		case '.':
@@ -108,12 +108,12 @@ func (ms *MapStorage) parseKey(key string) []string {
 			current += string(char)
 		}
 	}
-	
+
 	// 添加最后的部分
 	if current != "" {
 		keys = append(keys, current)
 	}
-	
+
 	return keys
 }
 
@@ -122,9 +122,9 @@ func (ms *MapStorage) getValueByKey(data interface{}, key string) interface{} {
 	if data == nil {
 		return nil
 	}
-	
+
 	rv := reflect.ValueOf(data)
-	
+
 	// 处理指针
 	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
@@ -132,7 +132,7 @@ func (ms *MapStorage) getValueByKey(data interface{}, key string) interface{} {
 		}
 		rv = rv.Elem()
 	}
-	
+
 	switch rv.Kind() {
 	case reflect.Map:
 		// 处理 map 访问
@@ -142,7 +142,7 @@ func (ms *MapStorage) getValueByKey(data interface{}, key string) interface{} {
 			return nil
 		}
 		return value.Interface()
-		
+
 	case reflect.Slice, reflect.Array:
 		// 处理数组/切片访问
 		index, err := strconv.Atoi(key)
@@ -153,7 +153,7 @@ func (ms *MapStorage) getValueByKey(data interface{}, key string) interface{} {
 			return nil
 		}
 		return rv.Index(index).Interface()
-		
+
 	case reflect.Struct:
 		// 处理结构体字段访问
 		field := rv.FieldByName(key)
@@ -176,7 +176,7 @@ func (ms *MapStorage) getValueByKey(data interface{}, key string) interface{} {
 		}
 		return field.Interface()
 	}
-	
+
 	return nil
 }
 
@@ -185,12 +185,12 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 	if !dst.CanSet() && dst.Kind() != reflect.Ptr {
 		return fmt.Errorf("destination is not settable")
 	}
-	
+
 	srcValue := reflect.ValueOf(src)
 	if !srcValue.IsValid() {
 		return nil
 	}
-	
+
 	// 处理目标为指针的情况
 	if dst.Kind() == reflect.Ptr {
 		if dst.IsNil() {
@@ -198,7 +198,7 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 		}
 		return ms.convertValue(src, dst.Elem())
 	}
-	
+
 	// 处理源为指针的情况
 	for srcValue.Kind() == reflect.Ptr {
 		if srcValue.IsNil() {
@@ -206,20 +206,20 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 		}
 		srcValue = srcValue.Elem()
 	}
-	
+
 	// 类型完全匹配
 	if srcValue.Type().AssignableTo(dst.Type()) {
 		dst.Set(srcValue)
 		return nil
 	}
-	
+
 	// 特殊类型转换：time.Duration 和 time.Time
 	if err := ms.convertTimeTypes(srcValue, dst); err == nil {
 		return nil
 	} else if err.Error() != "not a time type" {
 		return err
 	}
-	
+
 	// 类型转换
 	switch dst.Kind() {
 	case reflect.Map:
@@ -234,30 +234,30 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 			return nil
 		}
 	}
-	
+
 	// 尝试直接转换
 	if srcValue.Type().ConvertibleTo(dst.Type()) {
 		dst.Set(srcValue.Convert(dst.Type()))
 		return nil
 	}
-	
+
 	return fmt.Errorf("cannot convert %v to %v", srcValue.Type(), dst.Type())
 }
 
 // convertTimeTypes 处理时间相关类型的转换
 func (ms *MapStorage) convertTimeTypes(src, dst reflect.Value) error {
 	dstType := dst.Type()
-	
+
 	// 转换为 time.Duration
 	if dstType == reflect.TypeOf(time.Duration(0)) {
 		return ms.convertToDuration(src, dst)
 	}
-	
+
 	// 转换为 time.Time
 	if dstType == reflect.TypeOf(time.Time{}) {
 		return ms.convertToTime(src, dst)
 	}
-	
+
 	return fmt.Errorf("not a time type")
 }
 
@@ -272,21 +272,21 @@ func (ms *MapStorage) convertToDuration(src, dst reflect.Value) error {
 		}
 		dst.Set(reflect.ValueOf(duration))
 		return nil
-		
+
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		// 将整数视为纳秒
 		nanoseconds := src.Int()
 		duration := time.Duration(nanoseconds)
 		dst.Set(reflect.ValueOf(duration))
 		return nil
-		
+
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		// 将无符号整数视为纳秒
 		nanoseconds := src.Uint()
 		duration := time.Duration(nanoseconds)
 		dst.Set(reflect.ValueOf(duration))
 		return nil
-		
+
 	case reflect.Float32, reflect.Float64:
 		// 将浮点数视为秒
 		seconds := src.Float()
@@ -294,7 +294,7 @@ func (ms *MapStorage) convertToDuration(src, dst reflect.Value) error {
 		dst.Set(reflect.ValueOf(duration))
 		return nil
 	}
-	
+
 	return fmt.Errorf("cannot convert %v to time.Duration", src.Type())
 }
 
@@ -303,7 +303,7 @@ func (ms *MapStorage) convertToTime(src, dst reflect.Value) error {
 	switch src.Kind() {
 	case reflect.String:
 		str := src.String()
-		
+
 		// 尝试多种时间格式
 		formats := []string{
 			time.RFC3339,
@@ -314,30 +314,30 @@ func (ms *MapStorage) convertToTime(src, dst reflect.Value) error {
 			"2006-01-02",
 			"15:04:05",
 		}
-		
+
 		for _, format := range formats {
 			if t, err := time.Parse(format, str); err == nil {
 				dst.Set(reflect.ValueOf(t))
 				return nil
 			}
 		}
-		
+
 		return fmt.Errorf("failed to parse time %q", str)
-		
+
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		// Unix 时间戳（秒）
 		timestamp := src.Int()
 		t := time.Unix(timestamp, 0)
 		dst.Set(reflect.ValueOf(t))
 		return nil
-		
+
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		// Unix 时间戳（秒）
 		timestamp := int64(src.Uint())
 		t := time.Unix(timestamp, 0)
 		dst.Set(reflect.ValueOf(t))
 		return nil
-		
+
 	case reflect.Float32, reflect.Float64:
 		// Unix 时间戳（秒，支持小数）
 		timestamp := src.Float()
@@ -347,7 +347,7 @@ func (ms *MapStorage) convertToTime(src, dst reflect.Value) error {
 		dst.Set(reflect.ValueOf(t))
 		return nil
 	}
-	
+
 	return fmt.Errorf("cannot convert %v to time.Time", src.Type())
 }
 
@@ -356,19 +356,19 @@ func (ms *MapStorage) convertToMap(src, dst reflect.Value) error {
 	if src.Kind() != reflect.Map {
 		return fmt.Errorf("source is not a map")
 	}
-	
+
 	if dst.IsNil() {
 		dst.Set(reflect.MakeMap(dst.Type()))
 	}
-	
+
 	for _, key := range src.MapKeys() {
 		srcValue := src.MapIndex(key)
 		dstValue := reflect.New(dst.Type().Elem()).Elem()
-		
+
 		if err := ms.convertValue(srcValue.Interface(), dstValue); err != nil {
 			return err
 		}
-		
+
 		convertedKey := key
 		if !key.Type().AssignableTo(dst.Type().Key()) {
 			if key.Type().ConvertibleTo(dst.Type().Key()) {
@@ -377,10 +377,10 @@ func (ms *MapStorage) convertToMap(src, dst reflect.Value) error {
 				return fmt.Errorf("cannot convert key %v to %v", key.Type(), dst.Type().Key())
 			}
 		}
-		
+
 		dst.SetMapIndex(convertedKey, dstValue)
 	}
-	
+
 	return nil
 }
 
@@ -389,19 +389,19 @@ func (ms *MapStorage) convertToSlice(src, dst reflect.Value) error {
 	if src.Kind() != reflect.Slice && src.Kind() != reflect.Array {
 		return fmt.Errorf("source is not a slice or array")
 	}
-	
+
 	length := src.Len()
 	dst.Set(reflect.MakeSlice(dst.Type(), length, length))
-	
+
 	for i := 0; i < length; i++ {
 		srcItem := src.Index(i)
 		dstItem := dst.Index(i)
-		
+
 		if err := ms.convertValue(srcItem.Interface(), dstItem); err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -410,22 +410,22 @@ func (ms *MapStorage) convertToStruct(src, dst reflect.Value) error {
 	if src.Kind() != reflect.Map {
 		return fmt.Errorf("source is not a map")
 	}
-	
+
 	dstType := dst.Type()
-	
+
 	// 特殊处理 refx.TypeOptions 类型
 	if err := ms.convertToTypeOptions(src, dst); err == nil {
 		return nil
 	}
-	
+
 	for i := 0; i < dstType.NumField(); i++ {
 		field := dstType.Field(i)
 		fieldValue := dst.Field(i)
-		
+
 		if !fieldValue.CanSet() {
 			continue
 		}
-		
+
 		// 获取字段名，优先使用 cfg tag，然后是 json/yaml/toml/ini tag
 		fieldName := field.Name
 		if tag := field.Tag.Get("cfg"); tag != "" {
@@ -454,7 +454,7 @@ func (ms *MapStorage) convertToStruct(src, dst reflect.Value) error {
 				fieldName = tagName
 			}
 		}
-		
+
 		// 查找对应的源值
 		var srcFieldValue reflect.Value
 		for _, key := range src.MapKeys() {
@@ -463,14 +463,14 @@ func (ms *MapStorage) convertToStruct(src, dst reflect.Value) error {
 				break
 			}
 		}
-		
+
 		if srcFieldValue.IsValid() {
 			if err := ms.convertValue(srcFieldValue.Interface(), fieldValue); err != nil {
 				return err
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -478,43 +478,26 @@ func (ms *MapStorage) convertToStruct(src, dst reflect.Value) error {
 // 当目标类型是 TypeOptions 时，将当前 storage 的 Sub("options") 赋值给 Options 字段
 func (ms *MapStorage) convertToTypeOptions(src, dst reflect.Value) error {
 	dstType := dst.Type()
-	
-	// 检查是否是 TypeOptions 类型（通过类型名和字段结构判断）
+
+	// 使用类型名和包路径来判断是否是 TypeOptions 类型
 	if dstType.Kind() != reflect.Struct {
 		return fmt.Errorf("not a struct type")
 	}
-	
-	// 检查是否有 TypeOptions 的典型字段：Namespace, Type, Options
-	hasNamespace := false
-	hasType := false
-	hasOptions := false
-	
-	for i := 0; i < dstType.NumField(); i++ {
-		field := dstType.Field(i)
-		switch field.Name {
-		case "Namespace":
-			hasNamespace = true
-		case "Type":
-			hasType = true
-		case "Options":
-			hasOptions = true
-		}
-	}
-	
-	// 如果不是 TypeOptions 结构，返回错误
-	if !hasNamespace || !hasType || !hasOptions {
+
+	// 检查类型名和包路径
+	if dstType.Name() != "TypeOptions" || !strings.HasSuffix(dstType.PkgPath(), "refx") {
 		return fmt.Errorf("not a TypeOptions type")
 	}
-	
+
 	// 处理 TypeOptions 的转换
 	for i := 0; i < dstType.NumField(); i++ {
 		field := dstType.Field(i)
 		fieldValue := dst.Field(i)
-		
+
 		if !fieldValue.CanSet() {
 			continue
 		}
-		
+
 		if field.Name == "Options" {
 			// 对于 Options 字段，使用 storage.Sub("options")
 			optionsStorage := ms.Sub("options")
@@ -533,7 +516,7 @@ func (ms *MapStorage) convertToTypeOptions(src, dst reflect.Value) error {
 					fieldName = tagName
 				}
 			}
-			
+
 			// 查找对应的源值
 			var srcFieldValue reflect.Value
 			for _, key := range src.MapKeys() {
@@ -542,7 +525,7 @@ func (ms *MapStorage) convertToTypeOptions(src, dst reflect.Value) error {
 					break
 				}
 			}
-			
+
 			if srcFieldValue.IsValid() {
 				if err := ms.convertValue(srcFieldValue.Interface(), fieldValue); err != nil {
 					return err
@@ -550,6 +533,6 @@ func (ms *MapStorage) convertToTypeOptions(src, dst reflect.Value) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
