@@ -106,7 +106,8 @@ func (p *CmdProvider) OnChange(fn func(data []byte) error) {
 }
 
 func (p *CmdProvider) Watch() error {
-	return errors.New("cmd provider does not support watch operation")
+	// cmd provider 不支持变更监听，静默处理
+	return nil
 }
 
 func (p *CmdProvider) Close() error {

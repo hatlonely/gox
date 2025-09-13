@@ -389,13 +389,9 @@ func TestCmdProvider_Watch(t *testing.T) {
 	}
 	defer provider.Close()
 
-	// CmdProvider 不支持 Watch
+	// CmdProvider 不支持 Watch，但不应该返回错误
 	err = provider.Watch()
-	if err == nil {
-		t.Error("Expected error when calling Watch() on CmdProvider")
-	}
-
-	if !strings.Contains(err.Error(), "does not support watch operation") {
-		t.Errorf("Expected specific error message, got: %v", err)
+	if err != nil {
+		t.Errorf("CmdProvider.Watch() should not return error, got: %v", err)
 	}
 }

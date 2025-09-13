@@ -317,13 +317,9 @@ func TestEnvProvider_Watch(t *testing.T) {
 	}
 	defer provider.Close()
 
-	// EnvProvider 不支持 Watch
+	// EnvProvider 不支持 Watch，但不应该返回错误
 	err = provider.Watch()
-	if err == nil {
-		t.Error("Expected error when calling Watch() on EnvProvider")
-	}
-
-	if !strings.Contains(err.Error(), "does not support watch operation") {
-		t.Errorf("Expected specific error message, got: %v", err)
+	if err != nil {
+		t.Errorf("EnvProvider.Watch() should not return error, got: %v", err)
 	}
 }
