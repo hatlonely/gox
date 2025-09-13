@@ -3,12 +3,11 @@ package log
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/hatlonely/gox/log/writer"
 	"github.com/hatlonely/gox/refx"
 )
 
@@ -58,11 +57,6 @@ type Logger interface {
 	Handler() slog.Handler
 }
 
-// Writer 日志输出器接口
-type Writer interface {
-	io.Writer
-	io.Closer
-}
 
 // logger 实现 Logger 接口
 type logger struct {
@@ -93,7 +87,7 @@ func NewLogWithOptions(options *Options) (Logger, error) {
 	}
 
 	// 创建输出器
-	var writer Writer
+	var w writer.Writer
 	if options.Output.Type != "" {
 		// 使用 refx 创建输出器
 		writerObj, err := refx.New(options.Output.Namespace, options.Output.Type, options.Output.Options)
@@ -102,13 +96,20 @@ func NewLogWithOptions(options *Options) (Logger, error) {
 		}
 
 		var ok bool
-		writer, ok = writerObj.(Writer)
+		w, ok = writerObj.(writer.Writer)
 		if !ok {
 			return nil, fmt.Errorf("writer object does not implement Writer interface")
 		}
 	} else {
 		// 默认使用控制台输出
-		writer = &ConsoleWriter{writer: os.Stdout, color: true}
+		var err error
+		w, err = writer.NewConsoleWriter(&writer.ConsoleWriterOptions{
+			Color:  true,
+			Target: "stdout",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create default console writer: %w", err)
+		}
 	}
 
 	// 创建 handler
@@ -134,9 +135,9 @@ func NewLogWithOptions(options *Options) (Logger, error) {
 	// 根据格式创建不同的 handler
 	switch strings.ToLower(options.Format) {
 	case "json":
-		handler = slog.NewJSONHandler(writer, handlerOpts)
+		handler = slog.NewJSONHandler(w, handlerOpts)
 	case "text":
-		handler = slog.NewTextHandler(writer, handlerOpts)
+		handler = slog.NewTextHandler(w, handlerOpts)
 	default:
 		return nil, fmt.Errorf("unsupported format: %s", options.Format)
 	}

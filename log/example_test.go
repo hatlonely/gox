@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/writer"
 	"github.com/hatlonely/gox/refx"
 )
 
@@ -20,9 +21,9 @@ func ExampleNewLogWithOptions_console() {
 			"version": "1.0.0",
 		},
 		Output: refx.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log",
+			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "ConsoleWriter",
-			Options: &log.ConsoleWriterOptions{
+			Options: &writer.ConsoleWriterOptions{
 				Color:  true,
 				Target: "stdout",
 			},
@@ -61,9 +62,9 @@ func ExampleNewLogWithOptions_file() {
 		TimeFormat: "2006-01-02T15:04:05Z07:00",
 		AddSource:  true,
 		Output: refx.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log",
+			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "FileWriter",
-			Options: &log.FileWriterOptions{
+			Options: &writer.FileWriterOptions{
 				Path:       "./logs/app.log",
 				MaxSize:    10, // 10MB
 				MaxBackups: 3,
@@ -97,22 +98,22 @@ func ExampleNewLogWithOptions_multi() {
 		Level:  "info",
 		Format: "text",
 		Output: refx.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log",
+			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "MultiWriter",
-			Options: &log.MultiWriterOptions{
+			Options: &writer.MultiWriterOptions{
 				Writers: []refx.TypeOptions{
 					{
-						Namespace: "github.com/hatlonely/gox/log",
+						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "ConsoleWriter",
-						Options: &log.ConsoleWriterOptions{
+						Options: &writer.ConsoleWriterOptions{
 							Color:  true,
 							Target: "stdout",
 						},
 					},
 					{
-						Namespace: "github.com/hatlonely/gox/log",
+						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "FileWriter",
-						Options: &log.FileWriterOptions{
+						Options: &writer.FileWriterOptions{
 							Path: "./logs/multi.log",
 						},
 					},

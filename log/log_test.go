@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hatlonely/gox/log/writer"
 	"github.com/hatlonely/gox/refx"
 )
 
@@ -32,9 +33,9 @@ func TestNewLogWithOptions(t *testing.T) {
 				Level:  "debug",
 				Format: "json",
 				Output: refx.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/log",
+					Namespace: "github.com/hatlonely/gox/log/writer",
 					Type:      "ConsoleWriter",
-					Options: &ConsoleWriterOptions{
+					Options: &writer.ConsoleWriterOptions{
 						Color:  false,
 						Target: "stdout",
 					},
@@ -100,7 +101,7 @@ func TestParseLevel(t *testing.T) {
 }
 
 func TestConsoleWriter(t *testing.T) {
-	writer, err := NewConsoleWriter(&ConsoleWriterOptions{
+	w, err := writer.NewConsoleWriter(&writer.ConsoleWriterOptions{
 		Color:  true,
 		Target: "stdout",
 	})
@@ -109,7 +110,7 @@ func TestConsoleWriter(t *testing.T) {
 	}
 
 	testData := []byte("test log message\n")
-	n, err := writer.Write(testData)
+	n, err := w.Write(testData)
 	if err != nil {
 		t.Errorf("ConsoleWriter.Write() error = %v", err)
 	}
@@ -117,7 +118,7 @@ func TestConsoleWriter(t *testing.T) {
 		t.Errorf("ConsoleWriter.Write() wrote %d bytes, want %d", n, len(testData))
 	}
 
-	err = writer.Close()
+	err = w.Close()
 	if err != nil {
 		t.Errorf("ConsoleWriter.Close() error = %v", err)
 	}
@@ -128,16 +129,16 @@ func TestFileWriter(t *testing.T) {
 	tempDir := t.TempDir()
 	logFile := tempDir + "/test.log"
 
-	writer, err := NewFileWriter(&FileWriterOptions{
+	w, err := writer.NewFileWriter(&writer.FileWriterOptions{
 		Path: logFile,
 	})
 	if err != nil {
 		t.Fatalf("NewFileWriter() error = %v", err)
 	}
-	defer writer.Close()
+	defer w.Close()
 
 	testData := []byte("test log message\n")
-	n, err := writer.Write(testData)
+	n, err := w.Write(testData)
 	if err != nil {
 		t.Errorf("FileWriter.Write() error = %v", err)
 	}
@@ -159,20 +160,20 @@ func TestMultiWriter(t *testing.T) {
 	tempDir := t.TempDir()
 	logFile := tempDir + "/multi_test.log"
 
-	writer, err := NewMultiWriter(&MultiWriterOptions{
+	w, err := writer.NewMultiWriter(&writer.MultiWriterOptions{
 		Writers: []refx.TypeOptions{
 			{
-				Namespace: "github.com/hatlonely/gox/log",
+				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "ConsoleWriter",
-				Options: &ConsoleWriterOptions{
+				Options: &writer.ConsoleWriterOptions{
 					Color:  false,
 					Target: "stdout",
 				},
 			},
 			{
-				Namespace: "github.com/hatlonely/gox/log",
+				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "FileWriter",
-				Options: &FileWriterOptions{
+				Options: &writer.FileWriterOptions{
 					Path: logFile,
 				},
 			},
@@ -181,10 +182,10 @@ func TestMultiWriter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMultiWriter() error = %v", err)
 	}
-	defer writer.Close()
+	defer w.Close()
 
 	testData := []byte("multi writer test\n")
-	n, err := writer.Write(testData)
+	n, err := w.Write(testData)
 	if err != nil {
 		t.Errorf("MultiWriter.Write() error = %v", err)
 	}

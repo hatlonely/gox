@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/writer"
 	"github.com/hatlonely/gox/refx"
 )
 
@@ -35,9 +36,9 @@ func demoConsoleLog() {
 			"version": "1.0.0",
 		},
 		Output: refx.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log",
+			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "ConsoleWriter",
-			Options: &log.ConsoleWriterOptions{
+			Options: &writer.ConsoleWriterOptions{
 				Color:  true,
 				Target: "stdout",
 			},
@@ -82,9 +83,9 @@ func demoFileLog() {
 		TimeFormat: "2006-01-02T15:04:05Z07:00",
 		AddSource:  true,
 		Output: refx.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log",
+			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "FileWriter",
-			Options: &log.FileWriterOptions{
+			Options: &writer.FileWriterOptions{
 				Path:       "./logs/app.log",
 				MaxSize:    10, // 10MB
 				MaxBackups: 3,
@@ -115,22 +116,22 @@ func demoMultiLog() {
 		Level:  "info",
 		Format: "text",
 		Output: refx.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log",
+			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "MultiWriter",
-			Options: &log.MultiWriterOptions{
+			Options: &writer.MultiWriterOptions{
 				Writers: []refx.TypeOptions{
 					{
-						Namespace: "github.com/hatlonely/gox/log",
+						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "ConsoleWriter",
-						Options: &log.ConsoleWriterOptions{
+						Options: &writer.ConsoleWriterOptions{
 							Color:  true,
 							Target: "stdout",
 						},
 					},
 					{
-						Namespace: "github.com/hatlonely/gox/log",
+						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "FileWriter",
-						Options: &log.FileWriterOptions{
+						Options: &writer.FileWriterOptions{
 							Path: "./logs/multi.log",
 						},
 					},
@@ -166,16 +167,16 @@ log:
     service: "my-service"
     version: "1.0.0"
   output:
-    namespace: "github.com/hatlonely/gox/log"
+    namespace: "github.com/hatlonely/gox/log/writer"
     type: "MultiWriter"
     options:
       writers:
-        - namespace: "github.com/hatlonely/gox/log"
+        - namespace: "github.com/hatlonely/gox/log/writer"
           type: "ConsoleWriter"
           options:
             color: true
             target: "stdout"
-        - namespace: "github.com/hatlonely/gox/log"
+        - namespace: "github.com/hatlonely/gox/log/writer"
           type: "FileWriter"
           options:
             path: "./logs/config.log"
@@ -199,6 +200,5 @@ log:
   logger, err := log.NewLogWithOptions(&logOptions)
   if err != nil {
       // 处理错误
-  }
-`)
+  }`)
 }
