@@ -6,10 +6,12 @@ func init() {
 	refx.MustRegisterT[FileProvider](NewFileProviderWithOptions)
 	refx.MustRegisterT[GormProvider](NewGormProviderWithOptions)
 	refx.MustRegisterT[EnvProvider](NewEnvProviderWithOptions)
+	refx.MustRegisterT[CmdProvider](NewCmdProviderWithOptions)
 
 	refx.MustRegisterT[*FileProvider](NewFileProviderWithOptions)
 	refx.MustRegisterT[*GormProvider](NewGormProviderWithOptions)
 	refx.MustRegisterT[*EnvProvider](NewEnvProviderWithOptions)
+	refx.MustRegisterT[*CmdProvider](NewCmdProviderWithOptions)
 }
 
 // Provider 配置数据提供者接口
