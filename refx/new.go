@@ -219,9 +219,9 @@ func MustRegisterT[T any](newFunc any) {
 }
 
 type TypeOptions struct {
-	Namespace string
-	Type      string
-	Options   any
+	Namespace string `cfg:"namespace"`
+	Type      string `cfg:"type"`
+	Options   any    `cfg:"options"`
 }
 
 func New(namespace string, type_ string, options any) (any, error) {
