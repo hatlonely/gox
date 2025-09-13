@@ -210,6 +210,11 @@ dbConfig := config.Sub("database")
 defer dbConfig.Close() // 等价于 config.Close()
 ```
 
+**重要特性：**
+- Close 方法只会执行一次，多次调用会返回第一次调用的结果
+- 线程安全，支持并发调用
+- 子配置和根配置的 Close 调用会产生同样的结果
+
 ## 高级用法
 
 ### 自定义 Provider 和 Decoder

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
@@ -30,6 +31,11 @@ type Config struct {
 	// 只有根配置才使用这些字段
 	onChangeHandlers    []func(*Config) error
 	onKeyChangeHandlers map[string][]func(*Config) error
+
+	// Close 状态管理（只有根配置使用）
+	closeMu     sync.Mutex
+	closed      bool
+	closeResult error
 }
 
 // NewConfigWithOptions 根据选项创建配置对象
@@ -275,10 +281,28 @@ func (c *Config) getFullKey() string {
 
 // Close 关闭配置对象，释放相关资源
 // 只有根配置对象才能执行关闭操作，子配置对象会将关闭请求转发到根配置
+// 多次调用只会执行一次，后续调用直接返回第一次调用的结果
 func (c *Config) Close() error {
 	root := c.getRoot()
-	if root.provider != nil {
-		return root.provider.Close()
+
+	// 使用互斥锁确保线程安全
+	root.closeMu.Lock()
+	defer root.closeMu.Unlock()
+
+	// 如果已经关闭过，直接返回之前的结果
+	if root.closed {
+		return root.closeResult
 	}
-	return nil
+
+	// 标记为已关闭
+	root.closed = true
+
+	// 执行关闭操作
+	if root.provider != nil {
+		root.closeResult = root.provider.Close()
+	} else {
+		root.closeResult = nil
+	}
+
+	return root.closeResult
 }

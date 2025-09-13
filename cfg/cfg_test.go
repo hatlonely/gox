@@ -30,7 +30,7 @@ redis:
   host: localhost
   port: 6379
 `
-	
+
 	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
@@ -295,7 +295,7 @@ redis:
 
 		// 测试多层嵌套访问
 		primaryDB := config.Sub("app").Sub("database").Sub("primary")
-		
+
 		var dbConfig map[string]any
 		err = primaryDB.ConvertTo(&dbConfig)
 		if err != nil {
@@ -330,7 +330,7 @@ redis:
 		yamlContent := `database:
   host: localhost
   port: 3306`
-		
+
 		if err := os.WriteFile(yamlFile, []byte(yamlContent), 0644); err != nil {
 			t.Fatalf("Failed to write YAML file: %v", err)
 		}
@@ -395,6 +395,101 @@ redis:
 					t.Errorf("Expected error to contain '%s', got '%s'", tt.expectError, err.Error())
 				}
 			})
+		}
+	})
+}
+
+// TestConfig_Close 测试 Close 方法的多次调用行为
+func TestConfig_Close(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "test-close.yaml")
+	configData := `test:
+  value: "hello"`
+
+	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	t.Run("Root config multiple close calls", func(t *testing.T) {
+		config, err := NewConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+
+		// 第一次调用 Close
+		err1 := config.Close()
+		if err1 != nil {
+			t.Errorf("First close should succeed, got error: %v", err1)
+		}
+
+		// 第二次调用 Close，应该返回同样的结果
+		err2 := config.Close()
+		if err2 != err1 {
+			t.Errorf("Second close should return same result as first, got %v vs %v", err2, err1)
+		}
+
+		// 第三次调用 Close，也应该返回同样的结果
+		err3 := config.Close()
+		if err3 != err1 {
+			t.Errorf("Third close should return same result as first, got %v vs %v", err3, err1)
+		}
+	})
+
+	t.Run("Sub config multiple close calls", func(t *testing.T) {
+		config, err := NewConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+
+		// 获取子配置
+		subConfig := config.Sub("test")
+
+		// 子配置的 Close 应该转发到根配置
+		err1 := subConfig.Close()
+		if err1 != nil {
+			t.Errorf("Sub config first close should succeed, got error: %v", err1)
+		}
+
+		// 第二次调用子配置的 Close
+		err2 := subConfig.Close()
+		if err2 != err1 {
+			t.Errorf("Sub config second close should return same result, got %v vs %v", err2, err1)
+		}
+
+		// 调用根配置的 Close 也应该返回同样的结果
+		err3 := config.Close()
+		if err3 != err1 {
+			t.Errorf("Root config close should return same result, got %v vs %v", err3, err1)
+		}
+	})
+
+	t.Run("Concurrent close calls", func(t *testing.T) {
+		config, err := NewConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+
+		// 使用 goroutines 并发调用 Close
+		results := make(chan error, 10)
+		for i := 0; i < 10; i++ {
+			go func() {
+				results <- config.Close()
+			}()
+		}
+
+		// 收集结果
+		var errors []error
+		for i := 0; i < 10; i++ {
+			errors = append(errors, <-results)
+		}
+
+		// 所有结果应该相同
+		firstResult := errors[0]
+		for i, result := range errors {
+			if result != firstResult {
+				t.Errorf("Concurrent close result %d differs: got %v, expected %v", i, result, firstResult)
+			}
 		}
 	})
 }
