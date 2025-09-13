@@ -43,7 +43,7 @@ type Config struct {
 	handlerExecution *HandlerExecutionOptions // handler 执行配置
 
 	parent *Config
-	key    string
+	prefix string
 
 	// 只有根配置才使用这些字段
 	onChangeHandlers    []func(*Config) error
@@ -239,7 +239,7 @@ func (c *Config) handleProviderChange(newData []byte) error {
 				logger:           c.logger,
 				handlerExecution: c.handlerExecution,
 				parent:           c,
-				key:              key,
+				prefix:           key,
 			}
 
 			// 执行 handlers
@@ -356,7 +356,7 @@ func (c *Config) Sub(key string) *Config {
 		logger:           root.logger,
 		handlerExecution: root.handlerExecution,
 		parent:           c,
-		key:              key,
+		prefix:           key,
 	}
 }
 
@@ -411,11 +411,11 @@ func (c *Config) getFullKey() string {
 		return ""
 	}
 
-	keys := []string{c.key}
+	keys := []string{c.prefix}
 	current := c.parent
 
 	for current.parent != nil {
-		keys = append([]string{current.key}, keys...)
+		keys = append([]string{current.prefix}, keys...)
 		current = current.parent
 	}
 
