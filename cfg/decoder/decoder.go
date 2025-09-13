@@ -6,11 +6,17 @@ import (
 )
 
 func init() {
-	refx.RegisterT[EnvDecoder](NewEnvDecoderWithOptions)
-	refx.RegisterT[JsonDecoder](NewJsonDecoderWithOptions)
-	refx.RegisterT[YamlDecoder](NewYamlDecoderWithOptions)
-	refx.RegisterT[TomlDecoder](NewTomlDecoderWithOptions)
-	refx.RegisterT[IniDecoder](NewIniDecoderWithOptions)
+	refx.MustRegisterT[EnvDecoder](NewEnvDecoderWithOptions)
+	refx.MustRegisterT[JsonDecoder](NewJsonDecoderWithOptions)
+	refx.MustRegisterT[YamlDecoder](NewYamlDecoderWithOptions)
+	refx.MustRegisterT[TomlDecoder](NewTomlDecoderWithOptions)
+	refx.MustRegisterT[IniDecoder](NewIniDecoderWithOptions)
+
+	refx.MustRegisterT[*EnvDecoder](NewEnvDecoderWithOptions)
+	refx.MustRegisterT[*JsonDecoder](NewJsonDecoderWithOptions)
+	refx.MustRegisterT[*YamlDecoder](NewYamlDecoderWithOptions)
+	refx.MustRegisterT[*TomlDecoder](NewTomlDecoderWithOptions)
+	refx.MustRegisterT[*IniDecoder](NewIniDecoderWithOptions)
 }
 
 // Decoder 配置数据编解码器接口

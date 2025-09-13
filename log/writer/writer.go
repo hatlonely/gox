@@ -8,9 +8,13 @@ import (
 
 func init() {
 	// 注册所有输出器到 refx 框架
-	refx.MustRegister("github.com/hatlonely/gox/log/writer", "ConsoleWriter", NewConsoleWriterWithOptions)
-	refx.MustRegister("github.com/hatlonely/gox/log/writer", "FileWriter", NewFileWriterWithOptions)
-	refx.MustRegister("github.com/hatlonely/gox/log/writer", "MultiWriter", NewMultiWriterWithOptions)
+	refx.MustRegisterT[ConsoleWriter](NewConsoleWriterWithOptions)
+	refx.MustRegisterT[FileWriter](NewFileWriterWithOptions)
+	refx.MustRegisterT[MultiWriter](NewMultiWriterWithOptions)
+
+	refx.MustRegisterT[*ConsoleWriter](NewConsoleWriterWithOptions)
+	refx.MustRegisterT[*FileWriter](NewFileWriterWithOptions)
+	refx.MustRegisterT[*MultiWriter](NewMultiWriterWithOptions)
 }
 
 // Writer 日志输出器接口
