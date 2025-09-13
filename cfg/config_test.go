@@ -1065,3 +1065,57 @@ func TestConfig_DefaultHandlerExecution(t *testing.T) {
 
 	t.Log("Default handler execution config test completed successfully")
 }
+
+func TestConfig_SubWithEmptyKey(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	configData := `database:
+  host: localhost
+  port: 3306`
+
+	if err := os.WriteFile(configFile, []byte(configData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	config, err := NewConfig(configFile)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+	defer config.Close()
+
+	// 测试 Sub("") 返回自身
+	rootConfig := config.Sub("")
+	if rootConfig != config {
+		t.Error("Sub(\"\") should return self")
+	}
+
+	// 测试子配置的 Sub("") 也返回自身
+	dbConfig := config.Sub("database")
+	dbConfigSelf := dbConfig.Sub("")
+	if dbConfigSelf != dbConfig {
+		t.Error("Sub config Sub(\"\") should return self")
+	}
+
+	// 验证功能正常
+	var dbData map[string]interface{}
+	if err := dbConfig.ConvertTo(&dbData); err != nil {
+		t.Fatalf("Failed to convert database config: %v", err)
+	}
+
+	if dbData["host"] != "localhost" {
+		t.Errorf("Expected host 'localhost', got %v", dbData["host"])
+	}
+
+	// 验证 Sub("") 后功能依然正常
+	var dbDataSelf map[string]interface{}
+	if err := dbConfigSelf.ConvertTo(&dbDataSelf); err != nil {
+		t.Fatalf("Failed to convert database config self: %v", err)
+	}
+
+	if dbDataSelf["host"] != "localhost" {
+		t.Errorf("Expected host 'localhost' from self, got %v", dbDataSelf["host"])
+	}
+
+	t.Log("Sub empty key test completed successfully")
+}

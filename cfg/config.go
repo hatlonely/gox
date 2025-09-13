@@ -229,18 +229,8 @@ func (c *Config) handleProviderChange(newData []byte) error {
 	for key, handlers := range c.onKeyChangeHandlers {
 		// 统一使用 isKeyChanged 检查，空字符串key会让Storage.Sub("")返回自己
 		if c.isKeyChanged(oldStorage, newStorage, key) {
-			// 统一创建目标配置对象
-			var targetConfig *Config
-			if key == "" {
-				// 根配置变更
-				targetConfig = c
-			} else {
-				// 子配置变更
-				targetConfig = &Config{
-					parent: c,
-					prefix: key,
-				}
-			}
+			// 统一使用 Sub 方法获取目标配置，Sub("")会返回自身
+			targetConfig := c.Sub(key)
 			
 			// 执行 handlers，为日志显示友好的key名
 			displayKey := key
@@ -352,7 +342,12 @@ func (c *Config) isKeyChanged(oldStorage, newStorage storage.Storage, key string
 
 // Sub 获取子配置对象
 // 优化后的实现：所有子配置共享同一个根配置，只存储父配置引用和前缀
+// 当key为空字符串时，返回自身（与Storage.Sub("")的行为一致）
 func (c *Config) Sub(key string) *Config {
+	if key == "" {
+		return c
+	}
+	
 	root := c.getRoot()
 	var fullPrefix string
 	if c.parent != nil {
