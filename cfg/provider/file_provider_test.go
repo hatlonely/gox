@@ -75,6 +75,12 @@ func TestFileProvider_OnChange(t *testing.T) {
 		return nil
 	})
 
+	// 启动监听
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
 	time.Sleep(100 * time.Millisecond)
 
 	err = os.WriteFile(testFile, []byte(updatedContent), 0644)
@@ -174,6 +180,12 @@ func TestFileProvider_MultipleOnChange(t *testing.T) {
 		return nil
 	})
 
+	// 启动监听
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
 	time.Sleep(100 * time.Millisecond)
 
 	// 更新文件
@@ -220,5 +232,116 @@ func TestFileProvider_InvalidOptions(t *testing.T) {
 	_, err = NewFileProviderWithOptions(&FileProviderOptions{})
 	if err == nil {
 		t.Error("Expected error for empty file path")
+	}
+}
+
+func TestFileProvider_Watch(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.json")
+	initialContent := `{"key": "value1"}`
+
+	err := os.WriteFile(testFile, []byte(initialContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	provider, err := NewFileProviderWithOptions(&FileProviderOptions{
+		FilePath: testFile,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create FileProvider: %v", err)
+	}
+	defer provider.Close()
+
+	// 测试在没有调用 Watch 的情况下，OnChange 不会触发
+	callbackTriggered := false
+	provider.OnChange(func(data []byte) error {
+		callbackTriggered = true
+		return nil
+	})
+
+	// 更新文件但不应该触发回调
+	updatedContent := `{"key": "value2"}`
+	err = os.WriteFile(testFile, []byte(updatedContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to update test file: %v", err)
+	}
+
+	// 等待一下确保没有回调被触发
+	time.Sleep(200 * time.Millisecond)
+	if callbackTriggered {
+		t.Error("Callback should not be triggered before Watch() is called")
+	}
+
+	// 现在调用 Watch，应该开始监听
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
+	// 再次更新文件，这次应该触发回调
+	updatedContent2 := `{"key": "value3"}`
+	err = os.WriteFile(testFile, []byte(updatedContent2), 0644)
+	if err != nil {
+		t.Fatalf("Failed to update test file: %v", err)
+	}
+
+	// 等待回调被触发
+	time.Sleep(200 * time.Millisecond)
+	if !callbackTriggered {
+		t.Error("Callback should be triggered after Watch() is called")
+	}
+}
+
+func TestFileProvider_WatchMultipleTimes(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test.json")
+	initialContent := `{"key": "value1"}`
+
+	err := os.WriteFile(testFile, []byte(initialContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	provider, err := NewFileProviderWithOptions(&FileProviderOptions{
+		FilePath: testFile,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create FileProvider: %v", err)
+	}
+	defer provider.Close()
+
+	// 多次调用 Watch 应该是安全的（通过 sync.Once 保证）
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("First Watch() call failed: %v", err)
+	}
+
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Second Watch() call failed: %v", err)
+	}
+
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Third Watch() call failed: %v", err)
+	}
+
+	// 应该仍然正常工作
+	callbackTriggered := false
+	provider.OnChange(func(data []byte) error {
+		callbackTriggered = true
+		return nil
+	})
+
+	updatedContent := `{"key": "value2"}`
+	err = os.WriteFile(testFile, []byte(updatedContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to update test file: %v", err)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+	if !callbackTriggered {
+		t.Error("Callback should be triggered after multiple Watch() calls")
 	}
 }

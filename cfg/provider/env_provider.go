@@ -114,6 +114,10 @@ func (p *EnvProvider) OnChange(fn func(data []byte) error) {
 	// 不支持变更监听，直接返回
 }
 
+func (p *EnvProvider) Watch() error {
+	return errors.New("env provider does not support watch operation")
+}
+
 func (p *EnvProvider) Close() error {
 	// 无需释放资源
 	return nil

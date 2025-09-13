@@ -15,6 +15,7 @@ type FileProvider struct {
 	mu       sync.RWMutex
 	onChange []func(data []byte) error
 	watching bool
+	once     sync.Once // 用于确保只初始化一次
 }
 
 type FileProviderOptions struct {
@@ -64,56 +65,68 @@ func (p *FileProvider) OnChange(fn func(data []byte) error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// 将新的回调函数添加到队列中
+	// 仅仅将新的回调函数添加到队列中
 	p.onChange = append(p.onChange, fn)
+}
 
-	// 如果已经在监听，直接返回
-	if p.watching {
-		return
-	}
+func (p *FileProvider) Watch() error {
+	var initErr error
+	p.once.Do(func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
 
-	// 第一次调用时创建监听
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return
-	}
+		// 创建文件监听器
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			initErr = errors.Wrap(err, "failed to create file watcher")
+			return
+		}
 
-	p.watcher = watcher
-	p.watching = true
+		p.watcher = watcher
+		p.watching = true
 
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					if data, err := os.ReadFile(p.filePath); err == nil {
-						// 调用所有注册的回调函数
-						p.mu.RLock()
-						handlers := make([]func(data []byte) error, len(p.onChange))
-						copy(handlers, p.onChange)
-						p.mu.RUnlock()
+		// 启动监听 goroutine
+		go func() {
+			for {
+				select {
+				case event, ok := <-watcher.Events:
+					if !ok {
+						return
+					}
+					if event.Op&fsnotify.Write == fsnotify.Write {
+						if data, err := os.ReadFile(p.filePath); err == nil {
+							// 安全地复制 handler 列表
+							p.mu.RLock()
+							handlers := make([]func(data []byte) error, len(p.onChange))
+							copy(handlers, p.onChange)
+							p.mu.RUnlock()
 
-						for _, handler := range handlers {
-							if handler != nil {
-								handler(data)
+							// 调用所有注册的回调函数
+							for _, handler := range handlers {
+								if handler != nil {
+									handler(data)
+								}
 							}
 						}
 					}
+				case err, ok := <-watcher.Errors:
+					if !ok {
+						return
+					}
+					_ = err
 				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				_ = err
 			}
-		}
-	}()
+		}()
 
-	dir := filepath.Dir(p.filePath)
-	watcher.Add(dir)
+		// 添加文件所在目录到监听器
+		dir := filepath.Dir(p.filePath)
+		if err := watcher.Add(dir); err != nil {
+			initErr = errors.Wrap(err, "failed to add directory to watcher")
+			return
+		}
+	})
+
+	return initErr
 }
 
 func (p *FileProvider) Close() error {

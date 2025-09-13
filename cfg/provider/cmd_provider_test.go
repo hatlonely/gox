@@ -381,3 +381,21 @@ func parseCmdData(data string) map[string]string {
 
 	return result
 }
+
+func TestCmdProvider_Watch(t *testing.T) {
+	provider, err := NewCmdProviderWithOptions(nil)
+	if err != nil {
+		t.Fatalf("Failed to create CmdProvider: %v", err)
+	}
+	defer provider.Close()
+
+	// CmdProvider 不支持 Watch
+	err = provider.Watch()
+	if err == nil {
+		t.Error("Expected error when calling Watch() on CmdProvider")
+	}
+
+	if !strings.Contains(err.Error(), "does not support watch operation") {
+		t.Errorf("Expected specific error message, got: %v", err)
+	}
+}

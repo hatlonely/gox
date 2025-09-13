@@ -105,6 +105,10 @@ func (p *CmdProvider) OnChange(fn func(data []byte) error) {
 	// 命令行参数是静态的，不支持变更监听
 }
 
+func (p *CmdProvider) Watch() error {
+	return errors.New("cmd provider does not support watch operation")
+}
+
 func (p *CmdProvider) Close() error {
 	// 无需释放资源
 	return nil

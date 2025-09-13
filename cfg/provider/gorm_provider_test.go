@@ -94,6 +94,12 @@ func TestGormProvider_OnChange(t *testing.T) {
 		return nil
 	})
 
+	// 启动监听
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
 	// 等待一小段时间让轮询启动
 	time.Sleep(200 * time.Millisecond)
 
@@ -162,6 +168,12 @@ func TestGormProvider_MultipleOnChange(t *testing.T) {
 		changeChan3 <- data
 		return nil
 	})
+
+	// 启动监听
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
 
 	// 等待一小段时间让轮询启动
 	time.Sleep(200 * time.Millisecond)
@@ -299,15 +311,144 @@ func TestGormProvider_MySQL_Skip(t *testing.T) {
 	testData := []byte(`{"mysql": "test"}`)
 	err = provider.Save(testData)
 	if err != nil {
-		t.Fatalf("Failed to save config to MySQL: %v", err)
+		t.Fatalf("Failed to save config: %v", err)
 	}
 
 	data, err := provider.Load()
 	if err != nil {
-		t.Fatalf("Failed to load config from MySQL: %v", err)
+		t.Fatalf("Failed to load config: %v", err)
 	}
 
 	if string(data) != string(testData) {
 		t.Errorf("Expected %s, got %s", string(testData), string(data))
+	}
+}
+
+func TestGormProvider_Watch(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbFile := filepath.Join(tmpDir, "test.db")
+
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
+		ConfigID:     "test_config",
+		Driver:       "sqlite",
+		DSN:          dbFile,
+		PollInterval: 50 * time.Millisecond, // 快速轮询用于测试
+	})
+	if err != nil {
+		t.Fatalf("Failed to create GormProvider: %v", err)
+	}
+	defer provider.Close()
+
+	// 保存初始配置
+	initialData := []byte(`{"key": "value1"}`)
+	err = provider.Save(initialData)
+	if err != nil {
+		t.Fatalf("Failed to save initial config: %v", err)
+	}
+
+	// 读取一次以设置 lastVersion
+	_, err = provider.Load()
+	if err != nil {
+		t.Fatalf("Failed to load initial config: %v", err)
+	}
+
+	// 测试在没有调用 Watch 的情况下，OnChange 不会触发
+	callbackTriggered := false
+	provider.OnChange(func(data []byte) error {
+		callbackTriggered = true
+		return nil
+	})
+
+	// 更新配置但不应该触发回调
+	updatedData := []byte(`{"key": "value2"}`)
+	err = provider.Save(updatedData)
+	if err != nil {
+		t.Fatalf("Failed to update config: %v", err)
+	}
+
+	// 等待一下确保没有回调被触发
+	time.Sleep(200 * time.Millisecond)
+	if callbackTriggered {
+		t.Error("Callback should not be triggered before Watch() is called")
+	}
+
+	// 现在调用 Watch，应该开始监听
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
+	// 再次更新配置，这次应该触发回调
+	updatedData2 := []byte(`{"key": "value3"}`)
+	err = provider.Save(updatedData2)
+	if err != nil {
+		t.Fatalf("Failed to update config: %v", err)
+	}
+
+	// 等待回调被触发
+	time.Sleep(200 * time.Millisecond)
+	if !callbackTriggered {
+		t.Error("Callback should be triggered after Watch() is called")
+	}
+}
+
+func TestGormProvider_WatchMultipleTimes(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbFile := filepath.Join(tmpDir, "test.db")
+
+	provider, err := NewGormProviderWithOptions(&GormProviderOptions{
+		ConfigID:     "test_config",
+		Driver:       "sqlite",
+		DSN:          dbFile,
+		PollInterval: 50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create GormProvider: %v", err)
+	}
+	defer provider.Close()
+
+	// 多次调用 Watch 应该是安全的（通过 sync.Once 保证）
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("First Watch() call failed: %v", err)
+	}
+
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Second Watch() call failed: %v", err)
+	}
+
+	err = provider.Watch()
+	if err != nil {
+		t.Fatalf("Third Watch() call failed: %v", err)
+	}
+
+	// 应该仍然正常工作
+	initialData := []byte(`{"key": "value1"}`)
+	err = provider.Save(initialData)
+	if err != nil {
+		t.Fatalf("Failed to save initial config: %v", err)
+	}
+
+	_, err = provider.Load()
+	if err != nil {
+		t.Fatalf("Failed to load initial config: %v", err)
+	}
+
+	callbackTriggered := false
+	provider.OnChange(func(data []byte) error {
+		callbackTriggered = true
+		return nil
+	})
+
+	updatedData := []byte(`{"key": "value2"}`)
+	err = provider.Save(updatedData)
+	if err != nil {
+		t.Fatalf("Failed to update config: %v", err)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+	if !callbackTriggered {
+		t.Error("Callback should be triggered after multiple Watch() calls")
 	}
 }

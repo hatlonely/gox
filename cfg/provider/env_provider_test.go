@@ -309,3 +309,21 @@ func parseEnvData(data string) map[string]string {
 
 	return result
 }
+
+func TestEnvProvider_Watch(t *testing.T) {
+	provider, err := NewEnvProviderWithOptions(nil)
+	if err != nil {
+		t.Fatalf("Failed to create EnvProvider: %v", err)
+	}
+	defer provider.Close()
+
+	// EnvProvider 不支持 Watch
+	err = provider.Watch()
+	if err == nil {
+		t.Error("Expected error when calling Watch() on EnvProvider")
+	}
+
+	if !strings.Contains(err.Error(), "does not support watch operation") {
+		t.Errorf("Expected specific error message, got: %v", err)
+	}
+}

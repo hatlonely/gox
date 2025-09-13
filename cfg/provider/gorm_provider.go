@@ -38,6 +38,7 @@ type GormProvider struct {
 	stopChan     chan struct{}
 	pollInterval time.Duration
 	watching     bool
+	once         sync.Once // 用于确保只初始化一次
 }
 
 // GormProviderOptions GORM Provider 配置选项
@@ -188,22 +189,27 @@ func (p *GormProvider) Save(data []byte) error {
 	return nil
 }
 
-// OnChange 监听配置变更
+// OnChange 注册配置变更回调函数
 func (p *GormProvider) OnChange(fn func(data []byte) error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	// 将新的回调函数添加到队列中
+	// 仅仅将新的回调函数添加到队列中
 	p.onChange = append(p.onChange, fn)
+}
 
-	// 如果已经在监听，直接返回
-	if p.watching {
-		return
-	}
+// Watch 启动配置变更监听
+func (p *GormProvider) Watch() error {
+	p.once.Do(func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
 
-	// 第一次调用时启动轮询监听
-	p.watching = true
-	go p.startPolling()
+		// 启动轮询监听
+		p.watching = true
+		go p.startPolling()
+	})
+
+	return nil
 }
 
 // startPolling 启动轮询监听配置变更
