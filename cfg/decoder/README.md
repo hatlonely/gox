@@ -87,7 +87,6 @@ decoder := NewIniDecoderWithOptions(&IniDecoderOptions{
 
 ```go
 decoder := NewEnvDecoder()  // 使用固定的默认配置
-decoder := NewEnvDecoderWithOptions(nil)  // 兼容性方法，忽略配置
 ```
 
 ### 命令行参数解码器 (`CmdDecoder`)

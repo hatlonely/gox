@@ -189,7 +189,7 @@ func NewConfig(filename string) (*Config, error) {
 		}
 	case ".env":
 		decoderType = "EnvDecoder"
-		decoderOptions = &decoder.EnvDecoderOptions{}
+		decoderOptions = nil
 	default:
 		return nil, fmt.Errorf("unsupported file extension: %s", ext)
 	}

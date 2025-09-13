@@ -369,7 +369,7 @@ TIMEOUT=30.5`
 
 func TestEnvDecoder_CustomOptions(t *testing.T) {
 	// 测试自定义配置（现在始终使用默认配置）
-	decoder := NewEnvDecoderWithOptions(&EnvDecoderOptions{})
+	decoder := NewEnvDecoder()
 
 	// 使用和 FlatStorage 测试中相似的数据格式
 	envData := `APP_NAME=test-service

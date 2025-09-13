@@ -11,11 +11,6 @@ import (
 	"github.com/hatlonely/gox/cfg/storage"
 )
 
-// EnvDecoderOptions 环境变量解码器配置选项
-type EnvDecoderOptions struct {
-	// 保留结构体以兼容现有代码，但不再使用字段
-}
-
 // EnvDecoder .env格式编解码器
 // 支持环境变量格式，使用FlatStorage进行智能字段匹配
 // 使用固定的默认配置：分隔符"_"，数组格式"_%d"，支持注释和空行
@@ -26,11 +21,6 @@ func NewEnvDecoder() *EnvDecoder {
 	return &EnvDecoder{}
 }
 
-// NewEnvDecoderWithOptions 使用选项创建环境变量解码器
-// 为了兼容性保留，忽略 options 参数，始终使用默认配置
-func NewEnvDecoderWithOptions(options *EnvDecoderOptions) *EnvDecoder {
-	return NewEnvDecoder()
-}
 
 // Decode 将.env数据解码为FlatStorage对象
 func (e *EnvDecoder) Decode(data []byte) (storage.Storage, error) {

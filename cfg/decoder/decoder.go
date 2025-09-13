@@ -6,14 +6,14 @@ import (
 )
 
 func init() {
-	refx.MustRegisterT[EnvDecoder](NewEnvDecoderWithOptions)
+	refx.MustRegisterT[EnvDecoder](NewEnvDecoder)
 	refx.MustRegisterT[CmdDecoder](NewCmdDecoderWithOptions)
 	refx.MustRegisterT[JsonDecoder](NewJsonDecoderWithOptions)
 	refx.MustRegisterT[YamlDecoder](NewYamlDecoderWithOptions)
 	refx.MustRegisterT[TomlDecoder](NewTomlDecoderWithOptions)
 	refx.MustRegisterT[IniDecoder](NewIniDecoderWithOptions)
 
-	refx.MustRegisterT[*EnvDecoder](NewEnvDecoderWithOptions)
+	refx.MustRegisterT[*EnvDecoder](NewEnvDecoder)
 	refx.MustRegisterT[*CmdDecoder](NewCmdDecoderWithOptions)
 	refx.MustRegisterT[*JsonDecoder](NewJsonDecoderWithOptions)
 	refx.MustRegisterT[*YamlDecoder](NewYamlDecoderWithOptions)
