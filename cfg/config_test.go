@@ -195,6 +195,12 @@ redis:
 			return nil
 		})
 
+		// 启动监听
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Failed to start watching: %v", err)
+		}
+
 		// 验证监听器已注册（根配置变更监听器现在使用空字符串key）
 		if len(config.onKeyChangeHandlers[""]) != 1 {
 			t.Errorf("Expected 1 root change handler, got %d", len(config.onKeyChangeHandlers[""]))
@@ -575,6 +581,12 @@ func TestConfig_ErrorPolicyStop(t *testing.T) {
 	// 等待监听器设置完成
 	time.Sleep(100 * time.Millisecond)
 
+	// 启动监听
+	err = config.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
 	// 触发配置变更
 	updatedData := `database:
   host: newhost
@@ -710,6 +722,12 @@ func TestConfig_ErrorPolicyContinue(t *testing.T) {
 	// 等待监听器设置完成
 	time.Sleep(100 * time.Millisecond)
 
+	// 启动监听
+	err = config.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
 	// 触发配置变更
 	updatedData := `test: value2`
 	if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
@@ -838,6 +856,12 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 		// 等待监听器设置完成
 		time.Sleep(100 * time.Millisecond)
 
+		// 启动监听
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Failed to start watching: %v", err)
+		}
+
 		// 触发配置变更
 		updatedData := `database:
   host: newhost
@@ -911,6 +935,12 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 
 		// 等待监听器设置完成
 		time.Sleep(100 * time.Millisecond)
+
+		// 启动监听
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Failed to start watching: %v", err)
+		}
 
 		// 触发配置变更
 		updatedData := `database:
@@ -989,6 +1019,12 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 
 		// 等待监听器设置完成
 		time.Sleep(100 * time.Millisecond)
+
+		// 启动监听
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Failed to start watching: %v", err)
+		}
 
 		// 触发配置变更
 		updatedData := `database:
@@ -1118,4 +1154,159 @@ func TestConfig_SubWithEmptyKey(t *testing.T) {
 	}
 
 	t.Log("Sub empty key test completed successfully")
+}
+
+// TestConfig_Watch 测试 Watch 方法的功能
+func TestConfig_Watch(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	initialData := `database:
+  host: localhost
+  port: 3306`
+
+	if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	t.Run("Root config Watch", func(t *testing.T) {
+		config, err := NewConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 测试在没有调用 Watch 的情况下，OnChange 不会触发
+		callbackTriggered := false
+		config.OnChange(func(c *Config) error {
+			callbackTriggered = true
+			return nil
+		})
+
+		// 更新文件但不应该触发回调
+		updatedData := `database:
+  host: newhost
+  port: 3307`
+		if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待一下确保没有回调被触发
+		time.Sleep(200 * time.Millisecond)
+		if callbackTriggered {
+			t.Error("Callback should not be triggered before Watch() is called")
+		}
+
+		// 现在调用 Watch，应该开始监听
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Failed to start watching: %v", err)
+		}
+
+		// 再次更新文件，这次应该触发回调
+		updatedData2 := `database:
+  host: watchedhost
+  port: 3308`
+		if err := os.WriteFile(configFile, []byte(updatedData2), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待回调被触发
+		time.Sleep(200 * time.Millisecond)
+		if !callbackTriggered {
+			t.Error("Callback should be triggered after Watch() is called")
+		}
+	})
+
+	t.Run("Sub config Watch", func(t *testing.T) {
+		config, err := NewConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 子配置的 Watch 应该转发到根配置
+		dbConfig := config.Sub("database")
+		err = dbConfig.Watch()
+		if err != nil {
+			t.Fatalf("Failed to start watching on sub config: %v", err)
+		}
+
+		// 测试监听功能
+		callbackTriggered := false
+		dbConfig.OnChange(func(c *Config) error {
+			callbackTriggered = true
+			return nil
+		})
+
+		// 更新数据库配置
+		updatedData := `database:
+  host: subwatchedhost
+  port: 3309`
+		if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待回调被触发
+		time.Sleep(200 * time.Millisecond)
+		if !callbackTriggered {
+			t.Error("Sub config callback should be triggered after Watch() is called")
+		}
+	})
+
+	t.Run("Multiple Watch calls", func(t *testing.T) {
+		config, err := NewConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 多次调用 Watch 应该是安全的
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("First Watch() call failed: %v", err)
+		}
+
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Second Watch() call failed: %v", err)
+		}
+
+		err = config.Watch()
+		if err != nil {
+			t.Fatalf("Third Watch() call failed: %v", err)
+		}
+
+		// 应该仍然正常工作
+		callbackTriggered := false
+		config.OnChange(func(c *Config) error {
+			callbackTriggered = true
+			return nil
+		})
+
+		updatedData := `database:
+  host: multiplewatchhost
+  port: 3310`
+		if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		time.Sleep(200 * time.Millisecond)
+		if !callbackTriggered {
+			t.Error("Callback should be triggered after multiple Watch() calls")
+		}
+	})
+
+	t.Run("Watch with nil provider", func(t *testing.T) {
+		// 创建一个没有 provider 的 Config
+		config := &Config{
+			provider: nil,
+		}
+
+		// Watch 应该静默处理，不返回错误
+		err := config.Watch()
+		if err != nil {
+			t.Errorf("Watch() should not return error with nil provider, got: %v", err)
+		}
+	})
 }

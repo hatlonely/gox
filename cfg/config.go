@@ -403,6 +403,17 @@ func (c *Config) OnKeyChange(key string, fn func(*Config) error) {
 	root.onKeyChangeHandlers[key] = append(root.onKeyChangeHandlers[key], fn)
 }
 
+// Watch 启动配置变更监听
+// 只有调用此方法后，OnChange 和 OnKeyChange 注册的回调函数才会被触发
+// 对于不支持监听的 Provider，此方法静默处理不返回错误
+func (c *Config) Watch() error {
+	root := c.getRoot()
+	if root.provider != nil {
+		return root.provider.Watch()
+	}
+	return nil
+}
+
 // getRoot 获取根配置对象
 func (c *Config) getRoot() *Config {
 	root := c

@@ -119,6 +119,12 @@ redis:
 	// 等待一小段时间让监听器设置完成
 	time.Sleep(100 * time.Millisecond)
 
+	// 启动监听
+	err = config.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
+
 	// 修改配置文件触发变更
 	updatedData := `database:
   host: newhost
@@ -298,6 +304,12 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 	config.OnChange(func(c *Config) error {
 		return nil
 	})
+
+	// 启动监听
+	err = config.Watch()
+	if err != nil {
+		t.Fatalf("Failed to start watching: %v", err)
+	}
 
 	// 等待一小段时间让监听器设置完成
 	time.Sleep(100 * time.Millisecond)
