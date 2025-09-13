@@ -18,7 +18,7 @@ import (
 type Options struct {
 	Provider refx.TypeOptions
 	Decoder  refx.TypeOptions
-	Logger   log.Logger // 可选的日志记录器
+	Logger   *log.Options // 可选的日志配置
 }
 
 // Config 配置管理器
@@ -82,12 +82,33 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 		return nil, fmt.Errorf("failed to decode data: %w", err)
 	}
 
+	// 创建或使用默认 Logger
+	var logger log.Logger
+	if options.Logger != nil {
+		// 使用提供的日志配置创建 Logger
+		var err error
+		logger, err = log.NewLogWithOptions(options.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create logger: %w", err)
+		}
+	} else {
+		// 创建默认的终端输出 Logger
+		var err error
+		logger, err = log.NewLogWithOptions(&log.Options{
+			Level:  "info",
+			Format: "text",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create default logger: %w", err)
+		}
+	}
+
 	// 创建 Config 实例
 	cfg := &Config{
 		provider:            prov,
 		storage:             stor,
 		decoder:             dec,
-		logger:              options.Logger,
+		logger:              logger,
 		onKeyChangeHandlers: make(map[string][]func(*Config) error),
 	}
 
@@ -249,6 +270,12 @@ func (c *Config) Sub(key string) *Config {
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
 func (c *Config) ConvertTo(object any) error {
 	return c.storage.ConvertTo(object)
+}
+
+// SetLogger 设置日志记录器（只有根配置才能设置）
+func (c *Config) SetLogger(logger log.Logger) {
+	root := c.getRoot()
+	root.logger = logger
 }
 
 // OnChange 监听配置变更

@@ -86,7 +86,7 @@ redis:
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
 		},
-		Logger: logger,
+		// 不设置 Logger配置，使用默认的终端输出
 	}
 
 	config, err := NewConfigWithOptions(options)
@@ -94,6 +94,9 @@ redis:
 		t.Fatalf("Failed to create config: %v", err)
 	}
 	defer config.Close()
+
+	// 使用 SetLogger 设置我们的 mock logger
+	config.SetLogger(logger)
 
 	// 注册 onChange handler
 	config.OnChange(func(c *Config) error {
@@ -227,4 +230,124 @@ func (l *mockLogger) WithGroup(name string) log.Logger {
 
 func (l *mockLogger) Handler() slog.Handler {
 	return nil
+}
+
+func TestConfig_WithLoggerOptions(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	initialData := `database:
+  host: localhost
+  port: 3306
+`
+
+	if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// 使用 log.Options 创建配置
+	options := &Options{
+		Provider: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/provider",
+			Type:      "FileProvider",
+			Options: &provider.FileProviderOptions{
+				FilePath: configFile,
+			},
+		},
+		Decoder: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/decoder",
+			Type:      "YamlDecoder",
+			Options:   &decoder.YamlDecoderOptions{Indent: 2},
+		},
+		Logger: &log.Options{
+			Level:  "debug",
+			Format: "text",
+		},
+	}
+
+	config, err := NewConfigWithOptions(options)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+	defer config.Close()
+
+	// 验证 logger 不为 nil
+	if config.logger == nil {
+		t.Error("Expected logger to be created, got nil")
+	}
+
+	// 注册一个 handler 
+	config.OnChange(func(c *Config) error {
+		return nil
+	})
+
+	// 等待一小段时间让监听器设置完成
+	time.Sleep(100 * time.Millisecond)
+
+	// 修改配置文件触发变更
+	updatedData := `database:
+  host: newhost
+  port: 3307
+`
+
+	if err := os.WriteFile(configFile, []byte(updatedData), 0644); err != nil {
+		t.Fatalf("Failed to update config file: %v", err)
+	}
+
+	// 等待变更处理完成
+	time.Sleep(200 * time.Millisecond)
+
+	// 此时应该有日志输出（在终端中）
+	t.Log("Logger test completed successfully - check terminal output for log messages")
+}
+
+func TestConfig_DefaultLogger(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+	initialData := `test: value`
+
+	if err := os.WriteFile(configFile, []byte(initialData), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	// 不设置 Logger配置，使用默认的
+	options := &Options{
+		Provider: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/provider",
+			Type:      "FileProvider",
+			Options: &provider.FileProviderOptions{
+				FilePath: configFile,
+			},
+		},
+		Decoder: refx.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/cfg/decoder",
+			Type:      "YamlDecoder",
+			Options:   &decoder.YamlDecoderOptions{Indent: 2},
+		},
+		// Logger 为 nil，应该使用默认配置
+	}
+
+	config, err := NewConfigWithOptions(options)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+	defer config.Close()
+
+	// 验证默认 logger 被创建
+	if config.logger == nil {
+		t.Error("Expected default logger to be created, got nil")
+	}
+
+	// 测试 SetLogger 方法
+	mockWriter := &MockWriter{}
+	mockLogger := &mockLogger{writer: mockWriter}
+	config.SetLogger(mockLogger)
+
+	// 验证 logger 被更新
+	if config.logger != mockLogger {
+		t.Error("Expected logger to be updated")
+	}
+
+	t.Log("Default logger test completed successfully")
 }
