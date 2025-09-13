@@ -6,7 +6,7 @@
 
 - 🔧 **多格式支持**: JSON、YAML、TOML、INI、ENV 格式
 - 🎯 **类型安全**: 自动类型转换和结构体绑定
-- 🔄 **实时监听**: 配置文件变更自动重载
+- 🔄 **实时监听**: 配置文件变更自动重载，支持延迟初始化
 - 📊 **层级访问**: 支持嵌套配置和数组索引访问
 - ⚡ **简单易用**: 一行代码即可开始使用
 
@@ -49,6 +49,10 @@ func main() {
     dbConfig.ConvertTo(&db)
     
     fmt.Printf("Database: %s:%d\n", db.Host, db.Port)
+    
+    // 可选：启动配置监听
+    // config.OnChange(func(c *cfg.Config) error { ... })
+    // config.Watch()
 }
 ```
 
@@ -156,7 +160,7 @@ config.ConvertTo(&app)
 ### 3. 配置变更监听
 
 ```go
-// 监听整个配置变更
+// 注册变更回调函数
 config.OnChange(func(c *cfg.Config) error {
     fmt.Println("Config changed!")
     return nil
@@ -176,6 +180,16 @@ dbConfig.OnChange(func(c *cfg.Config) error {
     fmt.Println("Database config changed!")
     return nil
 })
+
+// 启动监听（必须调用才会真正开始监听）
+config.Watch()
+```
+
+**监听机制说明：**
+- `OnChange/OnKeyChange`: 仅注册回调函数，不启动监听
+- `Watch()`: 真正启动监听，只有调用后回调才会被触发
+- **延迟初始化**: 监听器在第一次调用 Watch 时才初始化
+- **线程安全**: 多次调用 Watch 是安全的
 ```
 
 ### 4. 类型转换
@@ -294,7 +308,7 @@ if app.Database.DSN == "" {
 ```go
 config, _ := cfg.NewConfig("config.yaml")
 
-// 监听配置变更并重启服务组件
+// 注册配置变更监听
 config.OnKeyChange("server", func(c *cfg.Config) error {
     var serverConfig ServerConfig
     c.ConvertTo(&serverConfig)
@@ -302,6 +316,9 @@ config.OnKeyChange("server", func(c *cfg.Config) error {
     // 重启 HTTP 服务器
     return restartServer(serverConfig)
 })
+
+// 启动监听
+config.Watch()
 ```
 
 ## 支持的标签
