@@ -1,6 +1,7 @@
 package cfg
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -14,20 +15,32 @@ import (
 	"github.com/hatlonely/gox/refx"
 )
 
+// HandlerExecutionOptions onChange handler 执行配置
+type HandlerExecutionOptions struct {
+	// 超时时长，默认 5 秒
+	Timeout time.Duration `cfg:"timeout"`
+	// 是否异步执行，默认 true
+	Async bool `cfg:"async"`
+	// 错误处理策略："continue" 继续执行其他 handler，"stop" 停止执行
+	ErrorPolicy string `cfg:"errorPolicy"`
+}
+
 // Options 配置类初始化选项
 type Options struct {
-	Provider refx.TypeOptions
-	Decoder  refx.TypeOptions
-	Logger   *log.Options // 可选的日志配置
+	Provider         refx.TypeOptions         `cfg:"provider"`
+	Decoder          refx.TypeOptions         `cfg:"decoder"`
+	Logger           *log.Options             `cfg:"logger"`
+	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
 }
 
 // Config 配置管理器
 // 提供配置数据的统一访问入口和变更监听功能
 type Config struct {
-	provider provider.Provider
-	storage  storage.Storage
-	decoder  decoder.Decoder
-	logger   log.Logger // 可选的日志记录器
+	provider         provider.Provider
+	storage          storage.Storage
+	decoder          decoder.Decoder
+	logger           log.Logger               // 可选的日志记录器
+	handlerExecution *HandlerExecutionOptions // handler 执行配置
 
 	parent *Config
 	key    string
@@ -103,12 +116,31 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 		}
 	}
 
+	// 设置默认的 handler 执行配置
+	handlerExecution := options.HandlerExecution
+	if handlerExecution == nil {
+		handlerExecution = &HandlerExecutionOptions{
+			Timeout:     5 * time.Second,
+			Async:       true,
+			ErrorPolicy: "continue",
+		}
+	} else {
+		// 设置默认值
+		if handlerExecution.Timeout == 0 {
+			handlerExecution.Timeout = 5 * time.Second
+		}
+		if handlerExecution.ErrorPolicy == "" {
+			handlerExecution.ErrorPolicy = "continue"
+		}
+	}
+
 	// 创建 Config 实例
 	cfg := &Config{
 		provider:            prov,
 		storage:             stor,
 		decoder:             dec,
 		logger:              logger,
+		handlerExecution:    handlerExecution,
 		onKeyChangeHandlers: make(map[string][]func(*Config) error),
 	}
 
@@ -198,51 +230,115 @@ func (c *Config) handleProviderChange(newData []byte) error {
 	c.storage = newStorage
 
 	// 触发根配置的全局变更监听器
-	for _, handler := range c.onChangeHandlers {
-		start := time.Now()
-		err := handler(c)
-		duration := time.Since(start)
-
-		if c.logger != nil {
-			if err != nil {
-				c.logger.Warn("onChange handler failed", "key", "root", "duration", duration, "error", err)
-			} else {
-				c.logger.Info("onChange handler succeeded", "key", "root", "duration", duration)
-			}
-		}
-	}
+	c.executeHandlers("root", c.onChangeHandlers, c)
 
 	// 检查并触发特定 key 的变更监听器
 	for key, handlers := range c.onKeyChangeHandlers {
 		if c.isKeyChanged(oldStorage, newStorage, key) {
 			// 创建对应的 Sub Config 对象
 			subConfig := &Config{
-				provider: c.provider,
-				decoder:  c.decoder,
-				storage:  newStorage.Sub(key),
-				logger:   c.logger,
-				parent:   c,
-				key:      key,
+				provider:         c.provider,
+				decoder:          c.decoder,
+				storage:          newStorage.Sub(key),
+				logger:           c.logger,
+				handlerExecution: c.handlerExecution,
+				parent:           c,
+				key:              key,
 			}
 
-			// 触发所有注册的监听器
-			for _, handler := range handlers {
-				start := time.Now()
-				err := handler(subConfig)
-				duration := time.Since(start)
-
-				if c.logger != nil {
-					if err != nil {
-						c.logger.Warn("onKeyChange handler failed", "key", key, "duration", duration, "error", err)
-					} else {
-						c.logger.Info("onKeyChange handler succeeded", "key", key, "duration", duration)
-					}
-				}
-			}
+			// 执行 handlers
+			c.executeHandlers(key, handlers, subConfig)
 		}
 	}
 
 	return nil
+}
+
+// executeHandlers 执行 handler 列表，支持异步、超时和错误处理
+func (c *Config) executeHandlers(key string, handlers []func(*Config) error, config *Config) {
+	if len(handlers) == 0 {
+		return
+	}
+
+	if c.handlerExecution.Async {
+		// 异步执行：每个 handler 在独立的 goroutine 中运行
+		var wg sync.WaitGroup
+		for i, handler := range handlers {
+			wg.Add(1)
+			go func(idx int, h func(*Config) error) {
+				defer wg.Done()
+				c.executeHandler(key, idx, h, config)
+			}(i, handler)
+		}
+		wg.Wait()
+	} else {
+		// 同步执行：顺序执行每个 handler
+		for i, handler := range handlers {
+			handlerFailed := c.executeHandler(key, i, handler, config)
+			if c.handlerExecution.ErrorPolicy == "stop" && handlerFailed {
+				// 如果错误策略是 stop 且当前 handler 失败，停止执行后续 handler
+				if c.logger != nil {
+					c.logger.Warn("handler execution stopped due to error policy",
+						"key", key,
+						"stoppedAtIndex", i,
+						"remainingHandlers", len(handlers)-i-1)
+				}
+				break
+			}
+		}
+	}
+}
+
+// executeHandler 执行单个 handler，带有超时控制和日志记录
+// 返回 true 如果 handler 失败（错误或超时），false 如果成功
+func (c *Config) executeHandler(key string, index int, handler func(*Config) error, config *Config) bool {
+	// 创建带超时的 context
+	ctx, cancel := context.WithTimeout(context.Background(), c.handlerExecution.Timeout)
+	defer cancel()
+
+	// 在 goroutine 中执行 handler，支持超时取消
+	resultChan := make(chan error, 1)
+	start := time.Now()
+
+	go func() {
+		resultChan <- handler(config)
+	}()
+
+	// 等待结果或超时
+	select {
+	case err := <-resultChan:
+		// handler 正常完成
+		duration := time.Since(start)
+		if c.logger != nil {
+			if err != nil {
+				c.logger.Error("onChange handler failed",
+					"key", key,
+					"index", index,
+					"duration", duration,
+					"error", err)
+				return true // handler 失败
+			} else {
+				c.logger.Info("onChange handler succeeded",
+					"key", key,
+					"index", index,
+					"duration", duration)
+				return false // handler 成功
+			}
+		}
+		return err != nil
+	case <-ctx.Done():
+		// handler 超时
+		duration := time.Since(start)
+		if c.logger != nil {
+			c.logger.Error("onChange handler timeout",
+				"key", key,
+				"index", index,
+				"duration", duration,
+				"timeout", c.handlerExecution.Timeout,
+				"error", "handler execution timeout")
+		}
+		return true // 超时视为失败
+	}
 }
 
 // isKeyChanged 检查指定 key 的数据是否发生变更
@@ -258,12 +354,13 @@ func (c *Config) isKeyChanged(oldStorage, newStorage storage.Storage, key string
 func (c *Config) Sub(key string) *Config {
 	root := c.getRoot()
 	return &Config{
-		provider: root.provider,
-		decoder:  root.decoder,
-		storage:  c.storage.Sub(key),
-		logger:   root.logger,
-		parent:   c,
-		key:      key,
+		provider:         root.provider,
+		decoder:          root.decoder,
+		storage:          c.storage.Sub(key),
+		logger:           root.logger,
+		handlerExecution: root.handlerExecution,
+		parent:           c,
+		key:              key,
 	}
 }
 
