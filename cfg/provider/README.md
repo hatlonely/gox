@@ -25,11 +25,14 @@ data, _ := provider.Load()
 // 保存配置
 provider.Save([]byte(`{"key": "value"}`))
 
-// 监听变更
+// 注册变更回调
 provider.OnChange(func(data []byte) error {
     // 处理配置变更
     return nil
 })
+
+// 启动监听
+provider.Watch()
 ```
 
 ### 环境变量存储
@@ -42,7 +45,7 @@ provider, _ := NewEnvProviderWithOptions(&EnvProviderOptions{
 // 读取配置（合并系统环境变量和 .env 文件）
 data, _ := provider.Load()
 
-// 注意：EnvProvider 不支持 Save 和 OnChange
+// 注意：EnvProvider 不支持 Save，Watch 静默处理
 ```
 
 ### 命令行参数
@@ -59,7 +62,7 @@ provider, _ := NewCmdProviderWithOptions(&CmdProviderOptions{
 // 读取配置（来自 os.Args[1:]）  
 data, _ := provider.Load()
 
-// 注意：CmdProvider 不支持 Save 和 OnChange
+// 注意：CmdProvider 不支持 Save，Watch 静默处理
 ```
 
 ### 数据库存储
@@ -92,12 +95,22 @@ data, _ := provider.Load()
 // 保存配置  
 provider.Save([]byte(`{"key": "value"}`))
 
-// 监听变更
+// 注册变更回调
 provider.OnChange(func(data []byte) error {
     // 处理配置变更
     return nil
 })
+
+// 启动监听
+provider.Watch()
 ```
+
+## 监听机制
+
+- **OnChange**: 注册变更回调函数，不启动监听
+- **Watch**: 真正启动监听，只有调用后 OnChange 回调才会被触发
+- **延迟初始化**: 监听器在第一次调用 Watch 时才初始化
+- **线程安全**: 多次调用 Watch 是安全的
 
 ## 配置优先级
 
@@ -114,3 +127,4 @@ provider.OnChange(func(data []byte) error {
 - **优先级管理**: 可组合多个 Provider 实现配置覆盖
 - **实时监听**: FileProvider 和 GormProvider 支持配置变更监听
 - **容错处理**: 文件不存在等错误不会影响其他数据源
+- **延迟初始化**: 监听器在第一次调用 Watch 时才初始化
