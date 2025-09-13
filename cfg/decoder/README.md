@@ -93,19 +93,14 @@ decoder := NewEnvDecoderWithOptions(nil)  // 兼容性方法，忽略配置
 ### 命令行参数解码器 (`CmdDecoder`)
 - 支持命令行参数格式
 - 使用 `FlatStorage` 进行智能字段映射
+- 固定配置：键分隔符 `-`，数组格式 `-%d`，支持注释和空行
 - 支持 kebab-case 键名（`server-http-port`）
 - 自动类型转换（布尔值、数字）
 - 支持引号包围的字符串和转义字符
-- 可配置键分隔符和数组格式
 
 ```go
-decoder := NewCmdDecoder()  // 默认使用 "-" 分隔符
-decoder := NewCmdDecoderWithOptions(&CmdDecoderOptions{
-    Separator:     "_",
-    ArrayFormat:   "_%d", 
-    AllowComments: true,
-    AllowEmpty:    true,
-})
+decoder := NewCmdDecoder()  // 使用固定的默认配置
+decoder := NewCmdDecoderWithOptions(nil)  // 兼容性方法，忽略配置
 ```
 
 ## 使用示例
@@ -145,12 +140,8 @@ yamlDecoder := decoder.NewYamlDecoderWithOptions(&decoder.YamlDecoderOptions{
 // EnvDecoder 已简化，不再需要配置选项
 envDecoder := decoder.NewEnvDecoder()
 
-cmdDecoder := decoder.NewCmdDecoderWithOptions(&decoder.CmdDecoderOptions{
-    Separator:     "_",
-    ArrayFormat:   "_%d",
-    AllowComments: false,
-    AllowEmpty:    false,
-})
+// CmdDecoder 已简化，不再需要配置选项
+cmdDecoder := decoder.NewCmdDecoder()
 
 // 传递 nil 使用默认配置
 iniDecoder := decoder.NewIniDecoderWithOptions(nil)

@@ -12,51 +12,23 @@ import (
 
 // CmdDecoderOptions 命令行参数解码器配置选项
 type CmdDecoderOptions struct {
-	// Separator 键分隔符，默认为"-"，将 kebab-case 转换为层级结构
-	Separator string
-	// ArrayFormat 数组格式，默认为"-%d"
-	ArrayFormat string
-	// AllowComments 是否允许注释，默认为true
-	AllowComments bool
-	// AllowEmpty 是否允许空行，默认为true
-	AllowEmpty bool
+	// 保留结构体以兼容现有代码，但不再使用字段
 }
 
 // CmdDecoder 命令行参数格式编解码器
 // 支持命令行参数格式，使用FlatStorage进行智能字段匹配
-// 将 kebab-case 格式的键转换为层级结构
-type CmdDecoder struct {
-	// Separator 键分隔符，默认为"-"
-	Separator string
-	// ArrayFormat 数组格式，默认为"-%d"
-	ArrayFormat string
-	// AllowComments 是否允许注释，默认为true
-	AllowComments bool
-	// AllowEmpty 是否允许空行，默认为true
-	AllowEmpty bool
-}
+// 使用固定的默认配置：分隔符"-"，数组格式"-%d"，支持注释和空行
+type CmdDecoder struct {}
 
 // NewCmdDecoder 创建新的命令行参数解码器，使用默认配置
 func NewCmdDecoder() *CmdDecoder {
-	return &CmdDecoder{
-		Separator:     "-",
-		ArrayFormat:   "-%d",
-		AllowComments: true,
-		AllowEmpty:    true,
-	}
+	return &CmdDecoder{}
 }
 
 // NewCmdDecoderWithOptions 使用选项创建命令行参数解码器
+// 为了兼容性保留，忽略 options 参数，始终使用默认配置
 func NewCmdDecoderWithOptions(options *CmdDecoderOptions) *CmdDecoder {
-	if options == nil {
-		return NewCmdDecoder()
-	}
-	return &CmdDecoder{
-		Separator:     options.Separator,
-		ArrayFormat:   options.ArrayFormat,
-		AllowComments: options.AllowComments,
-		AllowEmpty:    options.AllowEmpty,
-	}
+	return NewCmdDecoder()
 }
 
 // Decode 将命令行参数数据解码为FlatStorage对象
@@ -71,12 +43,12 @@ func (c *CmdDecoder) Decode(data []byte) (storage.Storage, error) {
 		line := strings.TrimSpace(scanner.Text())
 		
 		// 跳过空行
-		if line == "" && c.AllowEmpty {
+		if line == "" {
 			continue
 		}
 		
 		// 跳过注释行
-		if c.AllowComments && (strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//")) {
+		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
 			continue
 		}
 		
@@ -90,8 +62,8 @@ func (c *CmdDecoder) Decode(data []byte) (storage.Storage, error) {
 		return nil, fmt.Errorf("failed to scan cmd data: %w", err)
 	}
 	
-	// 创建FlatStorage，使用 "-" 作为分隔符处理 kebab-case
-	return storage.NewFlatStorageWithOptions(result, c.Separator, c.ArrayFormat), nil
+	// 创建FlatStorage，使用固定的默认配置
+	return storage.NewFlatStorageWithOptions(result, "-", "-%d"), nil
 }
 
 // parseLine 解析单行数据

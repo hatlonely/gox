@@ -24,12 +24,7 @@ func TestNewCmdDecoderWithOptions(t *testing.T) {
 		},
 		{
 			name: "custom options",
-			options: &CmdDecoderOptions{
-				Separator:     "_",
-				ArrayFormat:   "_%d",
-				AllowComments: false,
-				AllowEmpty:    false,
-			},
+			options: &CmdDecoderOptions{},
 			wantErr: false,
 		},
 	}
@@ -288,8 +283,8 @@ string=hello`,
 		t.Run(tt.name, func(t *testing.T) {
 			decoder := NewCmdDecoder()
 			
-			// 创建 FlatStorage
-			storage := storage.NewFlatStorageWithOptions(tt.input, decoder.Separator, decoder.ArrayFormat)
+			// 创建 FlatStorage，使用固定的默认配置
+			storage := storage.NewFlatStorageWithOptions(tt.input, "-", "-%d")
 			
 			data, err := decoder.Encode(storage)
 			if (err != nil) != tt.wantErr {
