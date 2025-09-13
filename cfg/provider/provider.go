@@ -5,9 +5,11 @@ import "github.com/hatlonely/gox/refx"
 func init() {
 	refx.MustRegisterT[FileProvider](NewFileProviderWithOptions)
 	refx.MustRegisterT[GormProvider](NewGormProviderWithOptions)
+	refx.MustRegisterT[EnvProvider](NewEnvProviderWithOptions)
 
 	refx.MustRegisterT[*FileProvider](NewFileProviderWithOptions)
 	refx.MustRegisterT[*GormProvider](NewGormProviderWithOptions)
+	refx.MustRegisterT[*EnvProvider](NewEnvProviderWithOptions)
 }
 
 // Provider 配置数据提供者接口
