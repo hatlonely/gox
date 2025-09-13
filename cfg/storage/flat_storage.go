@@ -831,6 +831,11 @@ func (fs *FlatStorage) extractArrayFromFlatData(flatData map[string]interface{})
 
 // convertToStruct 转换为 struct 类型，支持基于字段路径的智能匹配
 func (fs *FlatStorage) convertToStruct(flatData map[string]interface{}, dst reflect.Value) error {
+	// 特殊处理 refx.TypeOptions 类型
+	if err := fs.convertToTypeOptions(flatData, dst); err == nil {
+		return nil
+	}
+	
 	return fs.convertToStructWithPrefix(flatData, dst, "")
 }
 
@@ -1034,4 +1039,81 @@ func (fs *FlatStorage) generatePrefixedPatterns(fieldPath string) []string {
 	}
 	
 	return patterns
+}
+
+// convertToTypeOptions 处理 refx.TypeOptions 类型的特殊转换
+// 当目标类型是 TypeOptions 时，将当前 storage 的 Sub("options") 赋值给 Options 字段
+func (fs *FlatStorage) convertToTypeOptions(flatData map[string]interface{}, dst reflect.Value) error {
+	dstType := dst.Type()
+	
+	// 检查是否是 TypeOptions 类型（通过类型名和字段结构判断）
+	if dstType.Kind() != reflect.Struct {
+		return fmt.Errorf("not a struct type")
+	}
+	
+	// 检查是否有 TypeOptions 的典型字段：Namespace, Type, Options
+	hasNamespace := false
+	hasType := false
+	hasOptions := false
+	
+	for i := 0; i < dstType.NumField(); i++ {
+		field := dstType.Field(i)
+		switch field.Name {
+		case "Namespace":
+			hasNamespace = true
+		case "Type":
+			hasType = true
+		case "Options":
+			hasOptions = true
+		}
+	}
+	
+	// 如果不是 TypeOptions 结构，返回错误
+	if !hasNamespace || !hasType || !hasOptions {
+		return fmt.Errorf("not a TypeOptions type")
+	}
+	
+	// 处理 TypeOptions 的转换
+	for i := 0; i < dstType.NumField(); i++ {
+		field := dstType.Field(i)
+		fieldValue := dst.Field(i)
+		
+		if !fieldValue.CanSet() {
+			continue
+		}
+		
+		if field.Name == "Options" {
+			// 对于 Options 字段，使用 storage.Sub("options")
+			optionsStorage := fs.Sub("options")
+			fieldValue.Set(reflect.ValueOf(optionsStorage))
+		} else {
+			// 对于其他字段（Namespace, Type），从源数据中获取
+			fieldName := field.Name
+			if tag := field.Tag.Get("cfg"); tag != "" {
+				tagName := strings.Split(tag, ",")[0]
+				if tagName != "-" && tagName != "" {
+					fieldName = tagName
+				}
+			} else if tag := field.Tag.Get("json"); tag != "" {
+				tagName := strings.Split(tag, ",")[0]
+				if tagName != "-" && tagName != "" {
+					fieldName = tagName
+				}
+			}
+			
+			// 查找对应的源值，支持灵活匹配
+			value, found := fs.findMatchingValue(flatData, strings.ToLower(fieldName))
+			if !found {
+				value, found = fs.findMatchingValue(flatData, fieldName)
+			}
+			
+			if found {
+				if err := fs.convertDirectValue(value, fieldValue); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	
+	return nil
 }
