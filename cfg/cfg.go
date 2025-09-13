@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
+	"github.com/hatlonely/gox/log"
 	"github.com/hatlonely/gox/refx"
 )
 
@@ -16,6 +18,7 @@ import (
 type Options struct {
 	Provider refx.TypeOptions
 	Decoder  refx.TypeOptions
+	Logger   log.Logger // 可选的日志记录器
 }
 
 // Config 配置管理器
@@ -24,6 +27,7 @@ type Config struct {
 	provider provider.Provider
 	storage  storage.Storage
 	decoder  decoder.Decoder
+	logger   log.Logger // 可选的日志记录器
 
 	parent *Config
 	key    string
@@ -83,6 +87,7 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 		provider:            prov,
 		storage:             stor,
 		decoder:             dec,
+		logger:              options.Logger,
 		onKeyChangeHandlers: make(map[string][]func(*Config) error),
 	}
 
@@ -173,8 +178,16 @@ func (c *Config) handleProviderChange(newData []byte) error {
 
 	// 触发根配置的全局变更监听器
 	for _, handler := range c.onChangeHandlers {
-		if err := handler(c); err != nil {
-			// 可以记录日志，但不中断其他处理器
+		start := time.Now()
+		err := handler(c)
+		duration := time.Since(start)
+
+		if c.logger != nil {
+			if err != nil {
+				c.logger.Warn("onChange handler failed", "key", "root", "duration", duration, "error", err)
+			} else {
+				c.logger.Info("onChange handler succeeded", "key", "root", "duration", duration)
+			}
 		}
 	}
 
@@ -186,14 +199,23 @@ func (c *Config) handleProviderChange(newData []byte) error {
 				provider: c.provider,
 				decoder:  c.decoder,
 				storage:  newStorage.Sub(key),
+				logger:   c.logger,
 				parent:   c,
 				key:      key,
 			}
 
 			// 触发所有注册的监听器
 			for _, handler := range handlers {
-				if err := handler(subConfig); err != nil {
-					// 可以记录日志，但不中断其他处理器
+				start := time.Now()
+				err := handler(subConfig)
+				duration := time.Since(start)
+
+				if c.logger != nil {
+					if err != nil {
+						c.logger.Warn("onKeyChange handler failed", "key", key, "duration", duration, "error", err)
+					} else {
+						c.logger.Info("onKeyChange handler succeeded", "key", key, "duration", duration)
+					}
 				}
 			}
 		}
@@ -218,6 +240,7 @@ func (c *Config) Sub(key string) *Config {
 		provider: root.provider,
 		decoder:  root.decoder,
 		storage:  c.storage.Sub(key),
+		logger:   root.logger,
 		parent:   c,
 		key:      key,
 	}
