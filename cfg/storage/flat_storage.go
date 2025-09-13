@@ -925,6 +925,27 @@ func (fs *FlatStorage) convertToStructWithPrefix(flatData map[string]interface{}
 		} else {
 			// 没有直接匹配时，根据字段类型进行特殊处理
 			switch fieldValue.Kind() {
+			case reflect.Ptr:
+				// 指针类型，只有当存在相关配置时才处理
+				ptrData := fs.filterDataWithPrefix(flatData, fullPath)
+				if len(ptrData) > 0 {
+					// 存在相关配置，创建指针并递归处理
+					if fieldValue.IsNil() {
+						fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
+					}
+					// 对于指针指向的结构体，使用 convertToStructWithPrefix 递归处理
+					if fieldValue.Elem().Kind() == reflect.Struct {
+						if err := fs.convertToStructWithPrefix(flatData, fieldValue.Elem(), fullPath); err != nil {
+							return err
+						}
+					} else {
+						// 对于非结构体指针，使用 convertDirectValue
+						if err := fs.convertDirectValue(ptrData, fieldValue.Elem()); err != nil {
+							return err
+						}
+					}
+				}
+				// 如果没有相关配置，保持指针原状（nil 保持 nil，非 nil 保持不变）
 			case reflect.Struct:
 				// 嵌套结构体，递归处理
 				if err := fs.convertToStructWithPrefix(flatData, fieldValue, fullPath); err != nil {

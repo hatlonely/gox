@@ -1130,3 +1130,172 @@ func TestFlatStorage_NilEquals(t *testing.T) {
 		t.Error("Expected nil FlatStorage to not equal nil interface")
 	}
 }
+
+func TestFlatStorage_SmartPointerFieldHandling(t *testing.T) {
+	// 测试指针字段的智能处理：
+	// 1. 如果配置中没有该字段，保持指针字段的原始状态（nil 保持 nil，非 nil 保持不变）
+	// 2. 如果配置中有该字段，即使指针字段为 nil，也创建新实例并赋值
+
+	type InnerConfig struct {
+		Value string `json:"value"`
+		Count int    `json:"count"`
+	}
+
+	type OuterConfig struct {
+		Name     string       `json:"name"`
+		Inner    *InnerConfig `json:"inner"`    // 指针字段
+		Optional *InnerConfig `json:"optional"` // 另一个指针字段
+	}
+
+	// 场景1: 配置中没有 inner 和 optional 字段
+	t.Run("no_pointer_fields_in_config", func(t *testing.T) {
+		data := map[string]interface{}{
+			"name": "test",
+			// 注意：没有 inner 和 optional 字段
+		}
+		storage := NewFlatStorage(data)
+
+		// 测试1a: 目标结构体的指针字段为 nil
+		var config1 OuterConfig
+		config1.Inner = nil
+		config1.Optional = nil
+
+		err := storage.ConvertTo(&config1)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if config1.Name != "test" {
+			t.Errorf("Expected name 'test', got %v", config1.Name)
+		}
+		// 关键断言：指针字段应该保持 nil
+		if config1.Inner != nil {
+			t.Error("Expected Inner to remain nil when not in config")
+		}
+		if config1.Optional != nil {
+			t.Error("Expected Optional to remain nil when not in config")
+		}
+
+		// 测试1b: 目标结构体的指针字段已有值
+		existingInner := &InnerConfig{Value: "existing", Count: 999}
+		var config2 OuterConfig
+		config2.Inner = existingInner
+		config2.Optional = nil
+
+		err = storage.ConvertTo(&config2)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 关键断言：已存在的指针应该保持不变
+		if config2.Inner != existingInner {
+			t.Error("Expected Inner to remain unchanged when not in config")
+		}
+		if config2.Inner.Value != "existing" || config2.Inner.Count != 999 {
+			t.Error("Expected Inner values to remain unchanged when not in config")
+		}
+		if config2.Optional != nil {
+			t.Error("Expected Optional to remain nil when not in config")
+		}
+	})
+
+	// 场景2: 配置中有 inner 字段但没有 optional 字段
+	t.Run("inner_field_in_config", func(t *testing.T) {
+		data := map[string]interface{}{
+			"name":        "test",
+			"inner.value": "configured",
+			"inner.count": 42,
+			// 注意：没有 optional 字段
+		}
+		storage := NewFlatStorage(data)
+
+		// 测试2a: 目标结构体的 inner 字段为 nil
+		var config1 OuterConfig
+		config1.Inner = nil
+		config1.Optional = nil
+
+		err := storage.ConvertTo(&config1)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 关键断言：Inner 应该被创建并赋值
+		if config1.Inner == nil {
+			t.Error("Expected Inner to be created when in config")
+		} else {
+			if config1.Inner.Value != "configured" {
+				t.Errorf("Expected Inner.Value 'configured', got %v", config1.Inner.Value)
+			}
+			if config1.Inner.Count != 42 {
+				t.Errorf("Expected Inner.Count 42, got %v", config1.Inner.Count)
+			}
+		}
+		// Optional 不在配置中，应该保持 nil
+		if config1.Optional != nil {
+			t.Error("Expected Optional to remain nil when not in config")
+		}
+
+		// 测试2b: 目标结构体的 inner 字段已有值（应该被覆盖）
+		existingInner := &InnerConfig{Value: "existing", Count: 999}
+		var config2 OuterConfig
+		config2.Inner = existingInner
+		config2.Optional = nil
+
+		err = storage.ConvertTo(&config2)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 关键断言：Inner 应该被重新赋值
+		if config2.Inner == nil {
+			t.Error("Expected Inner to be assigned when in config")
+		} else {
+			if config2.Inner.Value != "configured" {
+				t.Errorf("Expected Inner.Value 'configured', got %v", config2.Inner.Value)
+			}
+			if config2.Inner.Count != 42 {
+				t.Errorf("Expected Inner.Count 42, got %v", config2.Inner.Count)
+			}
+		}
+	})
+
+	// 场景3: 配置中两个字段都有
+	t.Run("both_fields_in_config", func(t *testing.T) {
+		data := map[string]interface{}{
+			"name":           "test",
+			"inner.value":    "inner_value",
+			"inner.count":    10,
+			"optional.value": "optional_value",
+			"optional.count": 20,
+		}
+		storage := NewFlatStorage(data)
+
+		var config OuterConfig
+		config.Inner = nil
+		config.Optional = nil
+
+		err := storage.ConvertTo(&config)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 两个指针字段都应该被创建并赋值
+		if config.Inner == nil {
+			t.Error("Expected Inner to be created when in config")
+		} else {
+			if config.Inner.Value != "inner_value" || config.Inner.Count != 10 {
+				t.Errorf("Expected Inner values (inner_value, 10), got (%v, %v)",
+					config.Inner.Value, config.Inner.Count)
+			}
+		}
+
+		if config.Optional == nil {
+			t.Error("Expected Optional to be created when in config")
+		} else {
+			if config.Optional.Value != "optional_value" || config.Optional.Count != 20 {
+				t.Errorf("Expected Optional values (optional_value, 20), got (%v, %v)",
+					config.Optional.Value, config.Optional.Count)
+			}
+		}
+	})
+}
