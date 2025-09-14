@@ -77,10 +77,10 @@ func TestMultiStorage_ConvertTo(t *testing.T) {
 		err := ms.ConvertTo(&result)
 		assert.NoError(t, err)
 
-		// 验证覆盖规则：后面的配置覆盖前面的配置
-		assert.Equal(t, "override", result["name"]) // 被覆盖
-		assert.Equal(t, 9090, result["port"])       // 被覆盖
-		assert.Equal(t, false, result["debug"])     // 保留原值
+		// 验证增量合并：后面的配置覆盖前面的配置，但保留不冲突的字段
+		assert.Equal(t, "override", result["name"]) // 被 override 覆盖
+		assert.Equal(t, 9090, result["port"])       // 被 override 覆盖
+		assert.Equal(t, false, result["debug"])     // 来自 base，被保留
 	})
 
 	t.Run("包含nil存储源", func(t *testing.T) {
@@ -161,10 +161,10 @@ func TestMultiStorage_Sub(t *testing.T) {
 		err := dbConfig.ConvertTo(&result)
 		assert.NoError(t, err)
 
-		// 验证子配置的合并
-		assert.Equal(t, "localhost", result["host"]) // base 的值
-		assert.Equal(t, 3306, result["port"])        // override 覆盖
-		assert.Equal(t, "test", result["name"])      // override 的值
+		// 验证子配置的增量合并
+		assert.Equal(t, "localhost", result["host"]) // 来自 base，被保留
+		assert.Equal(t, 3306, result["port"])        // 被 override 覆盖
+		assert.Equal(t, "test", result["name"])      // 来自 override
 	})
 
 	t.Run("空键返回自身", func(t *testing.T) {

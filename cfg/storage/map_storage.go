@@ -233,8 +233,13 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 		srcValue = srcValue.Elem()
 	}
 
-	// 类型完全匹配
+	// 类型完全匹配，但对于 map 类型需要特殊处理以支持增量合并
 	if srcValue.Type().AssignableTo(dst.Type()) {
+		// 如果目标是 map 类型，使用增量合并而不是完全替换
+		if dst.Kind() == reflect.Map {
+			return ms.convertToMap(srcValue, dst)
+		}
+		// 其他类型直接设置
 		dst.Set(srcValue)
 		return nil
 	}

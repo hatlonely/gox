@@ -61,8 +61,8 @@ func (ms *multiStorage) UpdateStorage(index int, storage Storage) bool {
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
-// 先合并所有存储源的数据，然后转换到目标对象
-func (ms *multiStorage) ConvertTo(object interface{}) error {
+// 按照优先级顺序依次调用每个存储源的 ConvertTo，后面的配置覆盖前面的配置
+func (ms *multiStorage) ConvertTo(object any) error {
 	if object == nil {
 		return fmt.Errorf("object cannot be nil")
 	}
@@ -70,59 +70,21 @@ func (ms *multiStorage) ConvertTo(object interface{}) error {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
-	// 创建一个合并的 MapStorage
-	mergedData := ms.mergeAllSources()
-	mergedStorage := NewMapStorage(mergedData)
-	
-	return mergedStorage.ConvertTo(object)
-}
-
-// mergeAllSources 合并所有存储源的数据
-func (ms *multiStorage) mergeAllSources() interface{} {
-	if len(ms.sources) == 0 {
-		return nil
-	}
-
-	// 先转换所有源为 map[string]interface{}
-	var allData []map[string]interface{}
-	for _, storage := range ms.sources {
+	// 依次调用每个存储源的 ConvertTo
+	// - 对于结构体：字段级覆盖，不存在的字段保持原值
+	// - 对于 map：完全替换，最后一个存储源获胜
+	// - 对于其他类型：按照 Storage 实现的语义处理
+	for i, storage := range ms.sources {
 		if storage != nil {
-			var data map[string]interface{}
-			if err := storage.ConvertTo(&data); err == nil && data != nil {
-				allData = append(allData, data)
+			if err := storage.ConvertTo(object); err != nil {
+				return fmt.Errorf("failed to convert from source %d: %w", i, err)
 			}
 		}
 	}
 
-	if len(allData) == 0 {
-		return nil
-	}
-
-	// 合并所有 map，后面的覆盖前面的
-	result := make(map[string]interface{})
-	for _, data := range allData {
-		ms.deepMergeMap(result, data)
-	}
-
-	return result
+	return nil
 }
 
-// deepMergeMap 深度合并两个 map，source 的值覆盖 target 的值
-func (ms *multiStorage) deepMergeMap(target, source map[string]interface{}) {
-	for key, sourceValue := range source {
-		if targetValue, exists := target[key]; exists {
-			// 如果目标和源都是 map，递归合并
-			if targetMap, targetIsMap := targetValue.(map[string]interface{}); targetIsMap {
-				if sourceMap, sourceIsMap := sourceValue.(map[string]interface{}); sourceIsMap {
-					ms.deepMergeMap(targetMap, sourceMap)
-					continue
-				}
-			}
-		}
-		// 直接覆盖
-		target[key] = sourceValue
-	}
-}
 
 // Sub 获取子配置存储对象
 // 对每个存储源调用 Sub，然后创建新的 MultiStorage
