@@ -47,7 +47,7 @@ type SingleConfig struct {
 
 	// 只有根配置才使用这些字段
 	// 统一的变更处理器映射，使用空字符串作为根配置变更的特殊key
-	onKeyChangeHandlers map[string][]func(*SingleConfig) error
+	onKeyChangeHandlers map[string][]func(storage.Storage) error
 
 	// Close 状态管理（只有根配置使用）
 	closeMu     sync.Mutex
@@ -141,7 +141,7 @@ func NewSingleConfigWithOptions(options *Options) (*SingleConfig, error) {
 		decoder:             dec,
 		logger:              logger,
 		handlerExecution:    handlerExecution,
-		onKeyChangeHandlers: make(map[string][]func(*SingleConfig) error),
+		onKeyChangeHandlers: make(map[string][]func(storage.Storage) error),
 	}
 
 	// 设置 Provider 的变更监听
@@ -229,11 +229,11 @@ func (c *SingleConfig) handleProviderChange(newData []byte) error {
 	for key, handlers := range c.onKeyChangeHandlers {
 		// 统一使用 isKeyChanged 检查，空字符串key会让Storage.Sub("")返回自己
 		if c.isKeyChanged(oldStorage, newStorage, key) {
-			// 统一使用 Sub 方法获取目标配置，Sub("")会返回自身
-			targetConfig := c.Sub(key)
+			// 统一使用 Sub 方法获取目标存储，Sub("")会返回自身
+			targetStorage := c.storage.Sub(key)
 
 			// 执行 handlers，直接使用原始的 key
-			c.executeHandlers(key, handlers, targetConfig)
+			c.executeHandlers(key, handlers, targetStorage)
 		}
 	}
 
@@ -241,7 +241,7 @@ func (c *SingleConfig) handleProviderChange(newData []byte) error {
 }
 
 // executeHandlers 执行 handler 列表，支持异步、超时和错误处理
-func (c *SingleConfig) executeHandlers(key string, handlers []func(*SingleConfig) error, config *SingleConfig) {
+func (c *SingleConfig) executeHandlers(key string, handlers []func(storage.Storage) error, targetStorage storage.Storage) {
 	if len(handlers) == 0 {
 		return
 	}
@@ -251,16 +251,16 @@ func (c *SingleConfig) executeHandlers(key string, handlers []func(*SingleConfig
 		var wg sync.WaitGroup
 		for i, handler := range handlers {
 			wg.Add(1)
-			go func(idx int, h func(*SingleConfig) error) {
+			go func(idx int, h func(storage.Storage) error) {
 				defer wg.Done()
-				c.executeHandler(key, idx, h, config)
+				c.executeHandler(key, idx, h, targetStorage)
 			}(i, handler)
 		}
 		wg.Wait()
 	} else {
 		// 同步执行：顺序执行每个 handler
 		for i, handler := range handlers {
-			handlerFailed := c.executeHandler(key, i, handler, config)
+			handlerFailed := c.executeHandler(key, i, handler, targetStorage)
 			if c.handlerExecution.ErrorPolicy == "stop" && handlerFailed {
 				// 如果错误策略是 stop 且当前 handler 失败，停止执行后续 handler
 				if c.logger != nil {
@@ -277,7 +277,7 @@ func (c *SingleConfig) executeHandlers(key string, handlers []func(*SingleConfig
 
 // executeHandler 执行单个 handler，带有超时控制和日志记录
 // 返回 true 如果 handler 失败（错误或超时），false 如果成功
-func (c *SingleConfig) executeHandler(key string, index int, handler func(*SingleConfig) error, config *SingleConfig) bool {
+func (c *SingleConfig) executeHandler(key string, index int, handler func(storage.Storage) error, targetStorage storage.Storage) bool {
 	// 创建带超时的 context
 	ctx, cancel := context.WithTimeout(context.Background(), c.handlerExecution.Timeout)
 	defer cancel()
@@ -287,7 +287,7 @@ func (c *SingleConfig) executeHandler(key string, index int, handler func(*Singl
 	start := time.Now()
 
 	go func() {
-		resultChan <- handler(config)
+		resultChan <- handler(targetStorage)
 	}()
 
 	// 等待结果或超时
@@ -339,7 +339,7 @@ func (c *SingleConfig) isKeyChanged(oldStorage, newStorage storage.Storage, key 
 // Sub 获取子配置对象
 // 优化后的实现：所有子配置共享同一个根配置，只存储父配置引用和前缀
 // 当key为空字符串时，返回自身（与Storage.Sub("")的行为一致）
-func (c *SingleConfig) Sub(key string) *SingleConfig {
+func (c *SingleConfig) Sub(key string) Config {
 	if key == "" {
 		return c
 	}
@@ -379,7 +379,7 @@ func (c *SingleConfig) SetLogger(logger log.Logger) {
 }
 
 // OnChange 监听配置变更
-func (c *SingleConfig) OnChange(fn func(*SingleConfig) error) {
+func (c *SingleConfig) OnChange(fn func(storage.Storage) error) {
 	if c.parent != nil {
 		// 子配置：重定向到根配置的 OnKeyChange
 		root := c.getRoot()
@@ -392,11 +392,11 @@ func (c *SingleConfig) OnChange(fn func(*SingleConfig) error) {
 }
 
 // OnKeyChange 监听指定键的配置变更
-func (c *SingleConfig) OnKeyChange(key string, fn func(*SingleConfig) error) {
+func (c *SingleConfig) OnKeyChange(key string, fn func(storage.Storage) error) {
 	root := c.getRoot()
 
 	if root.onKeyChangeHandlers == nil {
-		root.onKeyChangeHandlers = make(map[string][]func(*SingleConfig) error)
+		root.onKeyChangeHandlers = make(map[string][]func(storage.Storage) error)
 	}
 
 	// 所有 key 变更监听器都注册到根配置上

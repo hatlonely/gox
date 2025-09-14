@@ -12,6 +12,7 @@ import (
 
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
+	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/log"
 	"github.com/hatlonely/gox/log/writer"
 	"github.com/hatlonely/gox/refx"
@@ -99,20 +100,20 @@ redis:
 	config.SetLogger(logger)
 
 	// 注册 onChange handler
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		return nil // 成功的 handler
 	})
 
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		return fmt.Errorf("test error") // 失败的 handler
 	})
 
 	// 注册 onKeyChange handler
-	config.OnKeyChange("database", func(c *SingleConfig) error {
+	config.OnKeyChange("database", func(s storage.Storage) error {
 		return nil // 成功的 handler
 	})
 
-	config.OnKeyChange("database", func(c *SingleConfig) error {
+	config.OnKeyChange("database", func(s storage.Storage) error {
 		return fmt.Errorf("database handler error") // 失败的 handler
 	})
 
@@ -301,7 +302,7 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 	}
 
 	// 注册一个 handler
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		return nil
 	})
 

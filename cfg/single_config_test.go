@@ -11,6 +11,7 @@ import (
 
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
+	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/refx"
 )
 
@@ -176,13 +177,13 @@ redis:
 
 		// 测试监听器注册
 		rootChangeCalled := false
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			rootChangeCalled = true
 			return nil
 		})
 
 		dbChangeCalled := false
-		config.OnKeyChange("database", func(c *SingleConfig) error {
+		config.OnKeyChange("database", func(s storage.Storage) error {
 			dbChangeCalled = true
 			return nil
 		})
@@ -190,7 +191,7 @@ redis:
 		// 测试子配置的 OnChange（应该重定向到 OnKeyChange）
 		redisChangeCalled := false
 		redisConfig := config.Sub("redis")
-		redisConfig.OnChange(func(c *SingleConfig) error {
+		redisConfig.OnChange(func(s storage.Storage) error {
 			redisChangeCalled = true
 			return nil
 		})
@@ -316,13 +317,13 @@ redis:
 
 		// 测试 getFullKey 功能
 		expectedFullKey := "app.database.primary"
-		actualFullKey := primaryDB.getFullKey()
+		actualFullKey := primaryDB.(*SingleConfig).getFullKey()
 		if actualFullKey != expectedFullKey {
 			t.Errorf("Expected full key '%s', got '%s'", expectedFullKey, actualFullKey)
 		}
 
 		// 测试嵌套配置的监听
-		primaryDB.OnChange(func(c *SingleConfig) error {
+		primaryDB.OnChange(func(s storage.Storage) error {
 			return nil
 		})
 
@@ -557,21 +558,21 @@ func TestConfig_ErrorPolicyStop(t *testing.T) {
 	executionOrder := []string{}
 
 	// 注册多个 handler：第二个会失败，第三个不应该被执行
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		mu.Lock()
 		executionOrder = append(executionOrder, "handler1_success")
 		mu.Unlock()
 		return nil // 成功
 	})
 
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		mu.Lock()
 		executionOrder = append(executionOrder, "handler2_fail")
 		mu.Unlock()
 		return fmt.Errorf("intentional failure") // 失败
 	})
 
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		mu.Lock()
 		executionOrder = append(executionOrder, "handler3_should_not_execute")
 		mu.Unlock()
@@ -698,21 +699,21 @@ func TestConfig_ErrorPolicyContinue(t *testing.T) {
 	executionOrder := []string{}
 
 	// 注册多个 handler：第二个会失败，但第三个应该继续执行
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		mu.Lock()
 		executionOrder = append(executionOrder, "handler1_success")
 		mu.Unlock()
 		return nil // 成功
 	})
 
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		mu.Lock()
 		executionOrder = append(executionOrder, "handler2_fail")
 		mu.Unlock()
 		return fmt.Errorf("intentional failure") // 失败
 	})
 
-	config.OnChange(func(c *SingleConfig) error {
+	config.OnChange(func(s storage.Storage) error {
 		mu.Lock()
 		executionOrder = append(executionOrder, "handler3_success")
 		mu.Unlock()
@@ -831,14 +832,15 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 		var mu sync.Mutex
 		executionOrder := []string{}
 
-		config.OnChange(func(c *SingleConfig) error {
+		// 测试异步执行
+		config.OnChange(func(s storage.Storage) error {
 			mu.Lock()
 			executionOrder = append(executionOrder, "fast")
 			mu.Unlock()
 			return nil
 		})
 
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			time.Sleep(100 * time.Millisecond) // 慢速 handler
 			mu.Lock()
 			executionOrder = append(executionOrder, "slow")
@@ -846,7 +848,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 			return nil
 		})
 
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			mu.Lock()
 			executionOrder = append(executionOrder, "fast2")
 			mu.Unlock()
@@ -927,8 +929,8 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 		// 清空之前的日志
 		mockWriter.logs = []string{}
 
-		// 注册一个会超时的 handler
-		config.OnChange(func(c *SingleConfig) error {
+		// 注册超时 handler
+		config.OnChange(func(s storage.Storage) error {
 			time.Sleep(200 * time.Millisecond) // 超过超时时间
 			return nil
 		})
@@ -1002,7 +1004,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 		var mu sync.Mutex
 		executionOrder := []string{}
 
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			mu.Lock()
 			executionOrder = append(executionOrder, "first")
 			mu.Unlock()
@@ -1010,7 +1012,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 			return nil
 		})
 
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			mu.Lock()
 			executionOrder = append(executionOrder, "second")
 			mu.Unlock()
@@ -1178,7 +1180,7 @@ func TestConfig_Watch(t *testing.T) {
 
 		// 测试在没有调用 Watch 的情况下，OnChange 不会触发
 		callbackTriggered := false
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			callbackTriggered = true
 			return nil
 		})
@@ -1234,7 +1236,7 @@ func TestConfig_Watch(t *testing.T) {
 
 		// 测试监听功能
 		callbackTriggered := false
-		dbConfig.OnChange(func(c *SingleConfig) error {
+		dbConfig.OnChange(func(s storage.Storage) error {
 			callbackTriggered = true
 			return nil
 		})
@@ -1279,7 +1281,7 @@ func TestConfig_Watch(t *testing.T) {
 
 		// 应该仍然正常工作
 		callbackTriggered := false
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			callbackTriggered = true
 			return nil
 		})
@@ -1338,10 +1340,10 @@ app: test_updated`
 		// 注册回调函数
 		callbackTriggered := false
 		var receivedVersion interface{}
-		config.OnChange(func(c *SingleConfig) error {
+		config.OnChange(func(s storage.Storage) error {
 			callbackTriggered = true
 			var data map[string]interface{}
-			c.ConvertTo(&data)
+			s.ConvertTo(&data)
 			receivedVersion = data["version"]
 			return nil
 		})
