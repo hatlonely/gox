@@ -127,15 +127,13 @@ func createFileSourceOptions(filename string) (*ConfigSourceOptions, error) {
 
 // createEnvSourceOptions 创建环境变量配置源选项
 func createEnvSourceOptions(prefix string) *ConfigSourceOptions {
-	// 注意：EnvProvider 本身不支持前缀过滤，我们通过在解码层面处理
-	// 这里暂时还是使用标准的 EnvProvider，后续可以扩展 EnvProvider 支持前缀
-	// TODO: 实现带前缀的 EnvProvider 或在 EnvDecoder 中支持前缀过滤
-	_ = prefix // 暂时忽略前缀参数
 	return &ConfigSourceOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "EnvProvider",
-			Options:   &provider.EnvProviderOptions{},
+			Options: &provider.EnvProviderOptions{
+				Prefix: prefix,
+			},
 		},
 		Decoder: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",

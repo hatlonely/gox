@@ -12,10 +12,13 @@ import (
 
 type EnvProvider struct {
 	envFiles []string
+	prefix   string
 }
 
 type EnvProviderOptions struct {
 	EnvFiles []string
+	// Prefix 环境变量前缀过滤，如 "APP_" 只处理 APP_ 开头的环境变量，处理时直接移除前缀
+	Prefix string
 }
 
 func NewEnvProviderWithOptions(options *EnvProviderOptions) (*EnvProvider, error) {
@@ -36,6 +39,7 @@ func NewEnvProviderWithOptions(options *EnvProviderOptions) (*EnvProvider, error
 
 	return &EnvProvider{
 		envFiles: envFiles,
+		prefix:   options.Prefix,
 	}, nil
 }
 
@@ -46,7 +50,22 @@ func (p *EnvProvider) Load() ([]byte, error) {
 	for _, env := range os.Environ() {
 		parts := strings.SplitN(env, "=", 2)
 		if len(parts) == 2 {
-			envVars[parts[0]] = parts[1]
+			key := parts[0]
+			value := parts[1]
+			
+			// 如果设置了前缀，只处理匹配前缀的环境变量
+			if p.prefix != "" {
+				if !strings.HasPrefix(key, p.prefix) {
+					continue
+				}
+				// 移除前缀
+				key = key[len(p.prefix):]
+				if key == "" {
+					continue
+				}
+			}
+			
+			envVars[key] = value
 		}
 	}
 
@@ -99,11 +118,39 @@ func (p *EnvProvider) loadEnvFile(filename string, envVars map[string]string) er
 			continue // 跳过空键名
 		}
 
+		// 应用前缀过滤逻辑
+		key = p.filterKeyWithPrefix(key)
+		if key == "" {
+			continue // 前缀不匹配，跳过
+		}
+
 		// 不处理引号和转义，保持原始值，交给 decoder 处理
 		envVars[key] = value
 	}
 
 	return scanner.Err()
+}
+
+// filterKeyWithPrefix 根据前缀过滤和处理键名
+// 返回空字符串表示应该跳过这个键
+func (p *EnvProvider) filterKeyWithPrefix(key string) string {
+	// 如果没有设置前缀，直接返回原键名
+	if p.prefix == "" {
+		return key
+	}
+
+	// 如果键名不以前缀开头，返回空字符串表示跳过
+	if !strings.HasPrefix(key, p.prefix) {
+		return ""
+	}
+
+	// 移除前缀
+	filteredKey := key[len(p.prefix):]
+	if filteredKey == "" {
+		return "" // 移除前缀后为空，跳过
+	}
+
+	return filteredKey
 }
 
 func (p *EnvProvider) Save(data []byte) error {
