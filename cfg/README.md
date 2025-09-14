@@ -1,4 +1,4 @@
-# SingleConfig 配置管理库
+# Config 配置管理库
 
 一个功能强大、易于使用的 Go 配置管理库，支持多种配置格式和实时配置变更监听。
 
@@ -9,6 +9,7 @@
 - 🔄 **实时监听**: 配置文件变更自动重载，支持延迟初始化
 - 📊 **层级访问**: 支持嵌套配置和数组索引访问
 - ⚡ **简单易用**: 一行代码即可开始使用
+- 🏗️ **接口驱动**: 基于 Config 接口的设计，支持多种实现
 
 ## 快速开始
 
@@ -28,6 +29,7 @@ import (
     "log"
     
     "github.com/hatlonely/gox/cfg"
+    "github.com/hatlonely/gox/cfg/storage"
 )
 
 func main() {
@@ -51,7 +53,7 @@ func main() {
     fmt.Printf("Database: %s:%d\n", db.Host, db.Port)
     
     // 可选：启动配置监听
-    // config.OnChange(func(c *cfg.SingleConfig) error { ... })
+    // config.OnChange(func(s storage.Storage) error { ... })
     // config.Watch()
 }
 ```
@@ -123,6 +125,41 @@ DATABASE_PORT=3306
 DATABASE_TIMEOUT=30s
 ```
 
+## 核心接口
+
+### Config 接口
+
+配置库基于 `Config` 接口设计，提供统一的配置访问方式：
+
+```go
+type Config interface {
+    // 获取子配置对象
+    Sub(key string) Config
+    
+    // 将配置数据转成结构体或 map/slice 等
+    ConvertTo(object any) error
+    
+    // 设置日志记录器
+    SetLogger(logger log.Logger)
+    
+    // 监听配置变更（回调参数为 storage.Storage）
+    OnChange(fn func(storage.Storage) error)
+    
+    // 监听指定键的配置变更
+    OnKeyChange(key string, fn func(storage.Storage) error)
+    
+    // 启动配置变更监听
+    Watch() error
+    
+    // 关闭配置对象，释放相关资源
+    Close() error
+}
+```
+
+### SingleConfig 实现
+
+`SingleConfig` 是 `Config` 接口的默认实现，提供完整的配置管理功能。
+
 ## 核心功能
 
 ### 1. 层级配置访问
@@ -160,30 +197,51 @@ config.ConvertTo(&app)
 ### 3. 配置变更监听
 
 ```go
-// 注册变更回调函数
-config.OnChange(func(c *cfg.SingleConfig) error {
-    fmt.Println("SingleConfig changed!")
+import "github.com/hatlonely/gox/cfg/storage"
+
+// 注册变更回调函数（参数为 storage.Storage）
+config.OnChange(func(s storage.Storage) error {
+    fmt.Println("Configuration changed!")
+    
+    // 直接操作存储层数据
+    var data map[string]any
+    if err := s.ConvertTo(&data); err != nil {
+        return err
+    }
+    fmt.Printf("New config: %+v\n", data)
     return nil
 })
 
 // 监听特定键变更
-config.OnKeyChange("database", func(c *cfg.SingleConfig) error {
+config.OnKeyChange("database", func(s storage.Storage) error {
     var db DatabaseConfig
-    c.ConvertTo(&db)
+    s.ConvertTo(&db)
     fmt.Printf("Database config changed: %+v\n", db)
     return nil
 })
 
 // 子配置监听（等价于 OnKeyChange）
 dbConfig := config.Sub("database")
-dbConfig.OnChange(func(c *cfg.SingleConfig) error {
+dbConfig.OnChange(func(s storage.Storage) error {
     fmt.Println("Database config changed!")
+    
+    // 可以访问子存储的任意路径
+    hostStorage := s.Sub("host")
+    var host string
+    hostStorage.ConvertTo(&host)
+    fmt.Printf("New host: %s\n", host)
     return nil
 })
 
 // 启动监听（必须调用才会真正开始监听）
 config.Watch()
 ```
+
+**Storage 参数优势：**
+- **直接数据访问**: 回调函数接收 `storage.Storage` 接口，可直接操作配置数据
+- **高性能**: 避免了 Config 到 Storage 的类型转换开销
+- **灵活操作**: 可使用 Storage 的所有方法（Sub、ConvertTo、Equals）
+- **简化代码**: 减少了中间层的复杂性
 
 **监听机制说明：**
 - `OnChange/OnKeyChange`: 仅注册回调函数，不启动监听
@@ -306,12 +364,14 @@ if app.Database.DSN == "" {
 ### 3. 配置热重载
 
 ```go
+import "github.com/hatlonely/gox/cfg/storage"
+
 config, _ := cfg.NewSingleConfig("config.yaml")
 
-// 注册配置变更监听
-config.OnKeyChange("server", func(c *cfg.SingleConfig) error {
+// 注册配置变更监听（使用 storage.Storage 参数）
+config.OnKeyChange("server", func(s storage.Storage) error {
     var serverConfig ServerConfig
-    c.ConvertTo(&serverConfig)
+    s.ConvertTo(&serverConfig)
     
     // 重启 HTTP 服务器
     return restartServer(serverConfig)
