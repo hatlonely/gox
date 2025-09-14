@@ -32,7 +32,7 @@ import (
 
 func main() {
     // 从配置文件创建配置对象（自动识别格式）
-    config, err := cfg.NewConfig("config.yaml")
+    config, err := cfg.NewSingleConfig("config.yaml")
     if err != nil {
         log.Fatal(err)
     }
@@ -213,7 +213,7 @@ type SingleConfig struct {
 配置对象可能会持有一些资源（如文件监听器、数据库连接等），使用完毕后应该调用 Close 方法释放资源。
 
 ```go
-config, err := cfg.NewConfig("config.yaml")
+config, err := cfg.NewSingleConfig("config.yaml")
 if err != nil {
     log.Fatal(err)
 }
@@ -256,7 +256,7 @@ options := &cfg.Options{
     },
 }
 
-config, err := cfg.NewConfigWithOptions(options)
+config, err := cfg.NewSingleConfigWithOptions(options)
 ```
 
 ## 最佳实践
@@ -286,7 +286,7 @@ type AppConfig struct {
 ### 2. 配置验证
 
 ```go
-config, err := cfg.NewConfig("config.yaml")
+config, err := cfg.NewSingleConfig("config.yaml")
 if err != nil {
     log.Fatal(err)
 }
@@ -306,7 +306,7 @@ if app.Database.DSN == "" {
 ### 3. 配置热重载
 
 ```go
-config, _ := cfg.NewConfig("config.yaml")
+config, _ := cfg.NewSingleConfig("config.yaml")
 
 // 注册配置变更监听
 config.OnKeyChange("server", func(c *cfg.SingleConfig) error {

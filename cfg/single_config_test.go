@@ -53,7 +53,7 @@ redis:
 			},
 		}
 
-		config, err := NewConfigWithOptions(options)
+		config, err := NewSingleConfigWithOptions(options)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -91,7 +91,7 @@ redis:
 			},
 		}
 
-		config, err := NewConfigWithOptions(options)
+		config, err := NewSingleConfigWithOptions(options)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -168,7 +168,7 @@ redis:
 			},
 		}
 
-		config, err := NewConfigWithOptions(options)
+		config, err := NewSingleConfigWithOptions(options)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -295,7 +295,7 @@ redis:
 			},
 		}
 
-		config, err := NewConfigWithOptions(options)
+		config, err := NewSingleConfigWithOptions(options)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -343,7 +343,7 @@ redis:
 			t.Fatalf("Failed to write YAML file: %v", err)
 		}
 
-		config, err := NewConfig(yamlFile)
+		config, err := NewSingleConfig(yamlFile)
 		if err != nil {
 			t.Fatalf("Failed to create config with NewConfig: %v", err)
 		}
@@ -394,7 +394,7 @@ redis:
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				_, err := NewConfig(tt.filename)
+				_, err := NewSingleConfig(tt.filename)
 				if err == nil {
 					t.Fatal("Expected error, got nil")
 				}
@@ -420,7 +420,7 @@ func TestConfig_Close(t *testing.T) {
 	}
 
 	t.Run("Root config multiple close calls", func(t *testing.T) {
-		config, err := NewConfig(configFile)
+		config, err := NewSingleConfig(configFile)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -445,7 +445,7 @@ func TestConfig_Close(t *testing.T) {
 	})
 
 	t.Run("Sub config multiple close calls", func(t *testing.T) {
-		config, err := NewConfig(configFile)
+		config, err := NewSingleConfig(configFile)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -473,7 +473,7 @@ func TestConfig_Close(t *testing.T) {
 	})
 
 	t.Run("Concurrent close calls", func(t *testing.T) {
-		config, err := NewConfig(configFile)
+		config, err := NewSingleConfig(configFile)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -540,7 +540,7 @@ func TestConfig_ErrorPolicyStop(t *testing.T) {
 		},
 	}
 
-	config, err := NewConfigWithOptions(options)
+	config, err := NewSingleConfigWithOptions(options)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
 	}
@@ -681,7 +681,7 @@ func TestConfig_ErrorPolicyContinue(t *testing.T) {
 		},
 	}
 
-	config, err := NewConfigWithOptions(options)
+	config, err := NewSingleConfigWithOptions(options)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
 	}
@@ -815,7 +815,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 			},
 		}
 
-		config, err := NewConfigWithOptions(options)
+		config, err := NewSingleConfigWithOptions(options)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -915,7 +915,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 			},
 		}
 
-		config, err := NewConfigWithOptions(options)
+		config, err := NewSingleConfigWithOptions(options)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -986,7 +986,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 			},
 		}
 
-		config, err := NewConfigWithOptions(options)
+		config, err := NewSingleConfigWithOptions(options)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -1079,7 +1079,7 @@ func TestConfig_DefaultHandlerExecution(t *testing.T) {
 		// 不设置 HandlerExecution，使用默认值
 	}
 
-	config, err := NewConfigWithOptions(options)
+	config, err := NewSingleConfigWithOptions(options)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
 	}
@@ -1114,7 +1114,7 @@ func TestConfig_SubWithEmptyKey(t *testing.T) {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	config, err := NewConfig(configFile)
+	config, err := NewSingleConfig(configFile)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
 	}
@@ -1170,7 +1170,7 @@ func TestConfig_Watch(t *testing.T) {
 	}
 
 	t.Run("Root config Watch", func(t *testing.T) {
-		config, err := NewConfig(configFile)
+		config, err := NewSingleConfig(configFile)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -1219,7 +1219,7 @@ func TestConfig_Watch(t *testing.T) {
 	})
 
 	t.Run("Sub config Watch", func(t *testing.T) {
-		config, err := NewConfig(configFile)
+		config, err := NewSingleConfig(configFile)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -1255,7 +1255,7 @@ func TestConfig_Watch(t *testing.T) {
 	})
 
 	t.Run("Multiple Watch calls", func(t *testing.T) {
-		config, err := NewConfig(configFile)
+		config, err := NewSingleConfig(configFile)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}
@@ -1322,7 +1322,7 @@ app: test`
 		}
 
 		// 创建配置对象
-		config, err := NewConfig(configFile)
+		config, err := NewSingleConfig(configFile)
 		if err != nil {
 			t.Fatalf("Failed to create config: %v", err)
 		}

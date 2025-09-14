@@ -89,7 +89,7 @@ redis:
 		// 不设置 Logger配置，使用默认的终端输出
 	}
 
-	config, err := NewConfigWithOptions(options)
+	config, err := NewSingleConfigWithOptions(options)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
 	}
@@ -183,13 +183,13 @@ redis:
 	hasRootKeyLog := false
 	for _, log := range mockWriter.logs {
 		// 检查是否包含空字符串 key 的日志记录
-		if strings.Contains(log, `"key":""`) || strings.Contains(log, `key ""`) || 
-		   (strings.Contains(log, "onChange handler") && strings.Contains(log, "key")) {
+		if strings.Contains(log, `"key":""`) || strings.Contains(log, `key ""`) ||
+			(strings.Contains(log, "onChange handler") && strings.Contains(log, "key")) {
 			hasRootKeyLog = true
 			break
 		}
 	}
-	
+
 	if !hasRootKeyLog {
 		t.Errorf("Expected empty key (root) logs, got: %s", logContent)
 	}
@@ -289,7 +289,7 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 		},
 	}
 
-	config, err := NewConfigWithOptions(options)
+	config, err := NewSingleConfigWithOptions(options)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
 	}
@@ -358,7 +358,7 @@ func TestConfig_DefaultLogger(t *testing.T) {
 		// Logger 为 nil，应该使用默认配置
 	}
 
-	config, err := NewConfigWithOptions(options)
+	config, err := NewSingleConfigWithOptions(options)
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
 	}

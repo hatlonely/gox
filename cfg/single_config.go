@@ -55,8 +55,8 @@ type SingleConfig struct {
 	closeResult error
 }
 
-// NewConfigWithOptions 根据选项创建配置对象
-func NewConfigWithOptions(options *Options) (*SingleConfig, error) {
+// NewSingleConfigWithOptions 根据选项创建配置对象
+func NewSingleConfigWithOptions(options *Options) (*SingleConfig, error) {
 	if options == nil {
 		return nil, fmt.Errorf("options cannot be nil")
 	}
@@ -152,7 +152,7 @@ func NewConfigWithOptions(options *Options) (*SingleConfig, error) {
 	return cfg, nil
 }
 
-// NewConfig 简单构造方法，从文件中加载配置
+// NewSingleConfig 简单构造方法，从文件中加载配置
 // 根据文件后缀自动选择对应的解码器：
 //
 //	.json/.json5 -> JsonDecoder
@@ -160,7 +160,7 @@ func NewConfigWithOptions(options *Options) (*SingleConfig, error) {
 //	.toml -> TomlDecoder
 //	.ini -> IniDecoder
 //	.env -> EnvDecoder
-func NewConfig(filename string) (*SingleConfig, error) {
+func NewSingleConfig(filename string) (*SingleConfig, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("filename cannot be empty")
 	}
@@ -210,7 +210,7 @@ func NewConfig(filename string) (*SingleConfig, error) {
 		},
 	}
 
-	return NewConfigWithOptions(options)
+	return NewSingleConfigWithOptions(options)
 }
 
 // handleProviderChange 处理 Provider 数据变更
