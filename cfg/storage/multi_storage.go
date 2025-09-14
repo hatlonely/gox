@@ -61,7 +61,7 @@ func (ms *multiStorage) UpdateStorage(index int, storage Storage) bool {
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
-// 按照优先级顺序依次调用每个存储源的 ConvertTo，后面的配置覆盖前面的配置
+// 按照优先级顺序依次调用每个存储源的 ConvertTo，实现增量合并
 func (ms *multiStorage) ConvertTo(object any) error {
 	if object == nil {
 		return fmt.Errorf("object cannot be nil")
@@ -70,10 +70,10 @@ func (ms *multiStorage) ConvertTo(object any) error {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 
-	// 依次调用每个存储源的 ConvertTo
-	// - 对于结构体：字段级覆盖，不存在的字段保持原值
-	// - 对于 map：完全替换，最后一个存储源获胜
-	// - 对于其他类型：按照 Storage 实现的语义处理
+	// 依次调用每个存储源的 ConvertTo，实现增量合并
+	// - 对于结构体：字段级覆盖，后面的配置覆盖前面的配置，不存在的字段保持原值
+	// - 对于 map：增量合并，新键被添加，已存在的键被覆盖，其他键被保留
+	// - 对于其他类型：按照各 Storage 实现的语义处理
 	for i, storage := range ms.sources {
 		if storage != nil {
 			if err := storage.ConvertTo(object); err != nil {
