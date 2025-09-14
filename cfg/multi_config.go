@@ -16,7 +16,7 @@ import (
 // ConfigSource 配置源，包含 Provider、Decoder 和当前存储的数据
 type ConfigSource struct {
 	provider provider.Provider // 配置数据提供者
-	decoder  decoder.Decoder   // 配置数据解码器  
+	decoder  decoder.Decoder   // 配置数据解码器
 	storage  storage.Storage   // 当前配置源的数据
 }
 
@@ -38,21 +38,21 @@ type MultiConfigOptions struct {
 type MultiConfig struct {
 	// 配置源数组，索引越大优先级越高（后面的覆盖前面的）
 	sources []ConfigSource
-	
+
 	// 多配置存储
 	multiStorage storage.MultiStorage
-	
+
 	// 通用配置
 	logger           log.Logger
 	handlerExecution *HandlerExecutionOptions
-	
+
 	// 变更监听相关
 	onKeyChangeHandlers map[string][]func(storage.Storage) error
-	
+
 	// 子配置支持
 	parent *MultiConfig
 	prefix string
-	
+
 	// 关闭控制
 	closeMu     sync.Mutex
 	closed      bool
@@ -174,7 +174,6 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 
 	return cfg, nil
 }
-
 
 // handleSourceChange 处理某个配置源的数据变更
 func (c *MultiConfig) handleSourceChange(sourceIndex int, newData []byte) error {
@@ -320,7 +319,7 @@ func (c *MultiConfig) Sub(key string) Config {
 	root := c.getRoot()
 	var fullPrefix string
 	if c.parent != nil {
-		fullPrefix = c.getFullKey() + "." + key
+		fullPrefix = c.prefix + "." + key
 	} else {
 		fullPrefix = key
 	}
@@ -354,8 +353,7 @@ func (c *MultiConfig) OnChange(fn func(storage.Storage) error) {
 	if c.parent != nil {
 		// 子配置：重定向到根配置的 OnKeyChange
 		root := c.getRoot()
-		fullKey := c.getFullKey()
-		root.OnKeyChange(fullKey, fn)
+		root.OnKeyChange(c.prefix, fn)
 	} else {
 		// 根配置：使用空字符串作为根配置变更的特殊key
 		c.OnKeyChange("", fn)
@@ -377,7 +375,7 @@ func (c *MultiConfig) OnKeyChange(key string, fn func(storage.Storage) error) {
 // Watch 启动配置变更监听
 func (c *MultiConfig) Watch() error {
 	root := c.getRoot()
-	
+
 	// 启动所有 Provider 的监听
 	for i, source := range root.sources {
 		if err := source.provider.Watch(); err != nil {
@@ -392,7 +390,7 @@ func (c *MultiConfig) Watch() error {
 		}
 		// 即使 Load 失败也不影响 Watch 的成功
 	}
-	
+
 	return nil
 }
 
@@ -403,14 +401,6 @@ func (c *MultiConfig) getRoot() *MultiConfig {
 		root = root.parent
 	}
 	return root
-}
-
-// getFullKey 获取当前配置对象的完整路径
-func (c *MultiConfig) getFullKey() string {
-	if c.parent == nil {
-		return ""
-	}
-	return c.prefix
 }
 
 // Close 关闭配置对象，释放相关资源

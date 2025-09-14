@@ -348,7 +348,7 @@ func (c *SingleConfig) Sub(key string) Config {
 	var fullPrefix string
 	if c.parent != nil {
 		// 如果当前配置是子配置，构建完整的前缀路径
-		fullPrefix = c.getFullKey() + "." + key
+		fullPrefix = c.prefix + "." + key
 	} else {
 		// 如果当前配置是根配置，直接使用key作为前缀
 		fullPrefix = key
@@ -383,8 +383,7 @@ func (c *SingleConfig) OnChange(fn func(storage.Storage) error) {
 	if c.parent != nil {
 		// 子配置：重定向到根配置的 OnKeyChange
 		root := c.getRoot()
-		fullKey := c.getFullKey()
-		root.OnKeyChange(fullKey, fn)
+		root.OnKeyChange(c.prefix, fn)
 	} else {
 		// 根配置：使用空字符串作为根配置变更的特殊key
 		c.OnKeyChange("", fn)
@@ -435,16 +434,6 @@ func (c *SingleConfig) getRoot() *SingleConfig {
 		root = root.parent
 	}
 	return root
-}
-
-// getFullKey 获取当前配置对象的完整路径
-func (c *SingleConfig) getFullKey() string {
-	if c.parent == nil {
-		return ""
-	}
-
-	// 优化后的实现：直接返回存储的完整前缀
-	return c.prefix
 }
 
 // Close 关闭配置对象，释放相关资源

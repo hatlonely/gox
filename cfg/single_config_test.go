@@ -315,9 +315,9 @@ redis:
 			t.Errorf("Expected host 'primary-host', got '%v'", dbConfig["host"])
 		}
 
-		// 测试 getFullKey 功能
+		// 测试配置对象的前缀路径
 		expectedFullKey := "app.database.primary"
-		actualFullKey := primaryDB.(*SingleConfig).getFullKey()
+		actualFullKey := primaryDB.(*SingleConfig).prefix
 		if actualFullKey != expectedFullKey {
 			t.Errorf("Expected full key '%s', got '%s'", expectedFullKey, actualFullKey)
 		}
