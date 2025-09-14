@@ -28,8 +28,19 @@ type ConfigSourceOptions struct {
 
 // MultiConfigOptions 多配置管理器初始化选项
 type MultiConfigOptions struct {
-	Sources          []*ConfigSourceOptions   `cfg:"sources"`
-	Logger           *log.Options             `cfg:"logger"`
+	// 配置源数组，按优先级排序（索引越大优先级越高）
+	// 配置合并策略：
+	//   - 结构体：字段级覆盖，后面的配置覆盖前面的配置，不存在的字段保持原值
+	//   - map：增量合并，新键被添加，已存在的键被覆盖，其他键被保留
+	//   - 其他类型：按照各 Storage 实现的语义处理
+	// 示例：[基础配置文件, 环境变量配置, 数据库配置] -> 数据库配置优先级最高
+	Sources []*ConfigSourceOptions `cfg:"sources"`
+	
+	// 可选的日志配置，用于记录配置变更和处理器执行情况
+	Logger *log.Options `cfg:"logger"`
+	
+	// 可选的处理器执行配置，控制 OnChange/OnKeyChange 回调的执行行为
+	// 包括超时时长、异步/同步执行、错误处理策略等
 	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
 }
 
@@ -331,7 +342,7 @@ func (c *MultiConfig) Sub(key string) Config {
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
-func (c *MultiConfig) ConvertTo(object interface{}) error {
+func (c *MultiConfig) ConvertTo(object any) error {
 	if c.parent == nil {
 		// 根配置直接使用 MultiStorage
 		return c.multiStorage.ConvertTo(object)
