@@ -99,20 +99,20 @@ redis:
 	config.SetLogger(logger)
 
 	// 注册 onChange handler
-	config.OnChange(func(c *Config) error {
+	config.OnChange(func(c *SingleConfig) error {
 		return nil // 成功的 handler
 	})
 
-	config.OnChange(func(c *Config) error {
+	config.OnChange(func(c *SingleConfig) error {
 		return fmt.Errorf("test error") // 失败的 handler
 	})
 
 	// 注册 onKeyChange handler
-	config.OnKeyChange("database", func(c *Config) error {
+	config.OnKeyChange("database", func(c *SingleConfig) error {
 		return nil // 成功的 handler
 	})
 
-	config.OnKeyChange("database", func(c *Config) error {
+	config.OnKeyChange("database", func(c *SingleConfig) error {
 		return fmt.Errorf("database handler error") // 失败的 handler
 	})
 
@@ -301,7 +301,7 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 	}
 
 	// 注册一个 handler
-	config.OnChange(func(c *Config) error {
+	config.OnChange(func(c *SingleConfig) error {
 		return nil
 	})
 

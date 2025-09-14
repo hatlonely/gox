@@ -1,4 +1,4 @@
-# Config 配置管理库
+# SingleConfig 配置管理库
 
 一个功能强大、易于使用的 Go 配置管理库，支持多种配置格式和实时配置变更监听。
 
@@ -51,7 +51,7 @@ func main() {
     fmt.Printf("Database: %s:%d\n", db.Host, db.Port)
     
     // 可选：启动配置监听
-    // config.OnChange(func(c *cfg.Config) error { ... })
+    // config.OnChange(func(c *cfg.SingleConfig) error { ... })
     // config.Watch()
 }
 ```
@@ -161,13 +161,13 @@ config.ConvertTo(&app)
 
 ```go
 // 注册变更回调函数
-config.OnChange(func(c *cfg.Config) error {
-    fmt.Println("Config changed!")
+config.OnChange(func(c *cfg.SingleConfig) error {
+    fmt.Println("SingleConfig changed!")
     return nil
 })
 
 // 监听特定键变更
-config.OnKeyChange("database", func(c *cfg.Config) error {
+config.OnKeyChange("database", func(c *cfg.SingleConfig) error {
     var db DatabaseConfig
     c.ConvertTo(&db)
     fmt.Printf("Database config changed: %+v\n", db)
@@ -176,7 +176,7 @@ config.OnKeyChange("database", func(c *cfg.Config) error {
 
 // 子配置监听（等价于 OnKeyChange）
 dbConfig := config.Sub("database")
-dbConfig.OnChange(func(c *cfg.Config) error {
+dbConfig.OnChange(func(c *cfg.SingleConfig) error {
     fmt.Println("Database config changed!")
     return nil
 })
@@ -202,7 +202,7 @@ config.Watch()
 
 ```go
 // 自动转换时间类型
-type Config struct {
+type SingleConfig struct {
     Timeout  time.Duration `yaml:"timeout"`   // "30s" -> 30 * time.Second
     Created  time.Time     `yaml:"created"`   // "2023-01-01" -> time.Time
 }
@@ -309,7 +309,7 @@ if app.Database.DSN == "" {
 config, _ := cfg.NewConfig("config.yaml")
 
 // 注册配置变更监听
-config.OnKeyChange("server", func(c *cfg.Config) error {
+config.OnKeyChange("server", func(c *cfg.SingleConfig) error {
     var serverConfig ServerConfig
     c.ConvertTo(&serverConfig)
     
@@ -332,7 +332,7 @@ config.Watch()
 - `ini:"field_name"`
 
 ```go
-type Config struct {
+type SingleConfig struct {
     Host string `cfg:"host" json:"host" yaml:"host"`
     Port int    `cfg:"port" json:"port" yaml:"port"`
 }

@@ -33,21 +33,21 @@ type Options struct {
 	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
 }
 
-// Config 配置管理器
+// SingleConfig 配置管理器
 // 提供配置数据的统一访问入口和变更监听功能
-type Config struct {
+type SingleConfig struct {
 	provider         provider.Provider
 	storage          storage.Storage
 	decoder          decoder.Decoder
 	logger           log.Logger               // 可选的日志记录器
 	handlerExecution *HandlerExecutionOptions // handler 执行配置
 
-	parent *Config
+	parent *SingleConfig
 	prefix string
 
 	// 只有根配置才使用这些字段
 	// 统一的变更处理器映射，使用空字符串作为根配置变更的特殊key
-	onKeyChangeHandlers map[string][]func(*Config) error
+	onKeyChangeHandlers map[string][]func(*SingleConfig) error
 
 	// Close 状态管理（只有根配置使用）
 	closeMu     sync.Mutex
@@ -56,7 +56,7 @@ type Config struct {
 }
 
 // NewConfigWithOptions 根据选项创建配置对象
-func NewConfigWithOptions(options *Options) (*Config, error) {
+func NewConfigWithOptions(options *Options) (*SingleConfig, error) {
 	if options == nil {
 		return nil, fmt.Errorf("options cannot be nil")
 	}
@@ -134,14 +134,14 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 		}
 	}
 
-	// 创建 Config 实例
-	cfg := &Config{
+	// 创建 SingleConfig 实例
+	cfg := &SingleConfig{
 		provider:            prov,
 		storage:             stor,
 		decoder:             dec,
 		logger:              logger,
 		handlerExecution:    handlerExecution,
-		onKeyChangeHandlers: make(map[string][]func(*Config) error),
+		onKeyChangeHandlers: make(map[string][]func(*SingleConfig) error),
 	}
 
 	// 设置 Provider 的变更监听
@@ -160,7 +160,7 @@ func NewConfigWithOptions(options *Options) (*Config, error) {
 //	.toml -> TomlDecoder
 //	.ini -> IniDecoder
 //	.env -> EnvDecoder
-func NewConfig(filename string) (*Config, error) {
+func NewConfig(filename string) (*SingleConfig, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("filename cannot be empty")
 	}
@@ -214,7 +214,7 @@ func NewConfig(filename string) (*Config, error) {
 }
 
 // handleProviderChange 处理 Provider 数据变更
-func (c *Config) handleProviderChange(newData []byte) error {
+func (c *SingleConfig) handleProviderChange(newData []byte) error {
 	// 保存旧的 storage
 	oldStorage := c.storage
 
@@ -241,7 +241,7 @@ func (c *Config) handleProviderChange(newData []byte) error {
 }
 
 // executeHandlers 执行 handler 列表，支持异步、超时和错误处理
-func (c *Config) executeHandlers(key string, handlers []func(*Config) error, config *Config) {
+func (c *SingleConfig) executeHandlers(key string, handlers []func(*SingleConfig) error, config *SingleConfig) {
 	if len(handlers) == 0 {
 		return
 	}
@@ -251,7 +251,7 @@ func (c *Config) executeHandlers(key string, handlers []func(*Config) error, con
 		var wg sync.WaitGroup
 		for i, handler := range handlers {
 			wg.Add(1)
-			go func(idx int, h func(*Config) error) {
+			go func(idx int, h func(*SingleConfig) error) {
 				defer wg.Done()
 				c.executeHandler(key, idx, h, config)
 			}(i, handler)
@@ -277,7 +277,7 @@ func (c *Config) executeHandlers(key string, handlers []func(*Config) error, con
 
 // executeHandler 执行单个 handler，带有超时控制和日志记录
 // 返回 true 如果 handler 失败（错误或超时），false 如果成功
-func (c *Config) executeHandler(key string, index int, handler func(*Config) error, config *Config) bool {
+func (c *SingleConfig) executeHandler(key string, index int, handler func(*SingleConfig) error, config *SingleConfig) bool {
 	// 创建带超时的 context
 	ctx, cancel := context.WithTimeout(context.Background(), c.handlerExecution.Timeout)
 	defer cancel()
@@ -328,7 +328,7 @@ func (c *Config) executeHandler(key string, index int, handler func(*Config) err
 }
 
 // isKeyChanged 检查指定 key 的数据是否发生变更
-func (c *Config) isKeyChanged(oldStorage, newStorage storage.Storage, key string) bool {
+func (c *SingleConfig) isKeyChanged(oldStorage, newStorage storage.Storage, key string) bool {
 	oldSubStorage := oldStorage.Sub(key)
 	newSubStorage := newStorage.Sub(key)
 
@@ -339,7 +339,7 @@ func (c *Config) isKeyChanged(oldStorage, newStorage storage.Storage, key string
 // Sub 获取子配置对象
 // 优化后的实现：所有子配置共享同一个根配置，只存储父配置引用和前缀
 // 当key为空字符串时，返回自身（与Storage.Sub("")的行为一致）
-func (c *Config) Sub(key string) *Config {
+func (c *SingleConfig) Sub(key string) *SingleConfig {
 	if key == "" {
 		return c
 	}
@@ -354,14 +354,14 @@ func (c *Config) Sub(key string) *Config {
 		fullPrefix = key
 	}
 
-	return &Config{
+	return &SingleConfig{
 		parent: root,
 		prefix: fullPrefix,
 	}
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
-func (c *Config) ConvertTo(object any) error {
+func (c *SingleConfig) ConvertTo(object any) error {
 	if c.parent == nil {
 		// 根配置直接使用自己的存储
 		return c.storage.ConvertTo(object)
@@ -373,13 +373,13 @@ func (c *Config) ConvertTo(object any) error {
 }
 
 // SetLogger 设置日志记录器（只有根配置才能设置）
-func (c *Config) SetLogger(logger log.Logger) {
+func (c *SingleConfig) SetLogger(logger log.Logger) {
 	root := c.getRoot()
 	root.logger = logger
 }
 
 // OnChange 监听配置变更
-func (c *Config) OnChange(fn func(*Config) error) {
+func (c *SingleConfig) OnChange(fn func(*SingleConfig) error) {
 	if c.parent != nil {
 		// 子配置：重定向到根配置的 OnKeyChange
 		root := c.getRoot()
@@ -392,11 +392,11 @@ func (c *Config) OnChange(fn func(*Config) error) {
 }
 
 // OnKeyChange 监听指定键的配置变更
-func (c *Config) OnKeyChange(key string, fn func(*Config) error) {
+func (c *SingleConfig) OnKeyChange(key string, fn func(*SingleConfig) error) {
 	root := c.getRoot()
 
 	if root.onKeyChangeHandlers == nil {
-		root.onKeyChangeHandlers = make(map[string][]func(*Config) error)
+		root.onKeyChangeHandlers = make(map[string][]func(*SingleConfig) error)
 	}
 
 	// 所有 key 变更监听器都注册到根配置上
@@ -407,7 +407,7 @@ func (c *Config) OnKeyChange(key string, fn func(*Config) error) {
 // 只有调用此方法后，OnChange 和 OnKeyChange 注册的回调函数才会被触发
 // 对于不支持监听的 Provider，此方法静默处理不返回错误
 // 为了防止在 NewConfig 和 Watch 之间丢失配置变更，会主动检查一次配置
-func (c *Config) Watch() error {
+func (c *SingleConfig) Watch() error {
 	root := c.getRoot()
 	if root.provider != nil {
 		// 先启动 Provider 的监听
@@ -429,7 +429,7 @@ func (c *Config) Watch() error {
 }
 
 // getRoot 获取根配置对象
-func (c *Config) getRoot() *Config {
+func (c *SingleConfig) getRoot() *SingleConfig {
 	root := c
 	for root.parent != nil {
 		root = root.parent
@@ -438,7 +438,7 @@ func (c *Config) getRoot() *Config {
 }
 
 // getFullKey 获取当前配置对象的完整路径
-func (c *Config) getFullKey() string {
+func (c *SingleConfig) getFullKey() string {
 	if c.parent == nil {
 		return ""
 	}
@@ -450,7 +450,7 @@ func (c *Config) getFullKey() string {
 // Close 关闭配置对象，释放相关资源
 // 只有根配置对象才能执行关闭操作，子配置对象会将关闭请求转发到根配置
 // 多次调用只会执行一次，后续调用直接返回第一次调用的结果
-func (c *Config) Close() error {
+func (c *SingleConfig) Close() error {
 	root := c.getRoot()
 
 	// 使用互斥锁确保线程安全
