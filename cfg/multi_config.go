@@ -1,0 +1,459 @@
+package cfg
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/hatlonely/gox/cfg/decoder"
+	"github.com/hatlonely/gox/cfg/provider"
+	"github.com/hatlonely/gox/cfg/storage"
+	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/refx"
+)
+
+// ConfigSource 配置源，包含 Provider、Decoder 和当前存储的数据
+type ConfigSource struct {
+	provider provider.Provider // 配置数据提供者
+	decoder  decoder.Decoder   // 配置数据解码器  
+	storage  storage.Storage   // 当前配置源的数据
+}
+
+// ConfigSourceOptions 配置源选项，用于创建配置源
+type ConfigSourceOptions struct {
+	Provider refx.TypeOptions `cfg:"provider"`
+	Decoder  refx.TypeOptions `cfg:"decoder"`
+}
+
+// MultiConfigOptions 多配置管理器初始化选项
+type MultiConfigOptions struct {
+	Sources          []*ConfigSourceOptions   `cfg:"sources"`
+	Logger           *log.Options             `cfg:"logger"`
+	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
+}
+
+// MultiConfig 多配置管理器
+// 支持从多个配置源获取配置数据，并按优先级合并
+type MultiConfig struct {
+	// 配置源数组，索引越大优先级越高（后面的覆盖前面的）
+	sources []ConfigSource
+	
+	// 多配置存储
+	multiStorage storage.MultiStorage
+	
+	// 通用配置
+	logger           log.Logger
+	handlerExecution *HandlerExecutionOptions
+	
+	// 变更监听相关
+	onKeyChangeHandlers map[string][]func(storage.Storage) error
+	
+	// 子配置支持
+	parent *MultiConfig
+	prefix string
+	
+	// 关闭控制
+	closeMu     sync.Mutex
+	closed      bool
+	closeResult error
+}
+
+// NewMultiConfigWithOptions 根据选项创建多配置对象
+func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error) {
+	if options == nil {
+		return nil, fmt.Errorf("options cannot be nil")
+	}
+
+	if len(options.Sources) == 0 {
+		return nil, fmt.Errorf("at least one configuration source is required")
+	}
+
+	// 创建配置源
+	sources := make([]ConfigSource, len(options.Sources))
+	storages := make([]storage.Storage, len(options.Sources))
+
+	for i, sourceOptions := range options.Sources {
+		// 创建 Provider 实例
+		providerObj, err := refx.New(sourceOptions.Provider.Namespace, sourceOptions.Provider.Type, sourceOptions.Provider.Options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create provider %d: %w", i, err)
+		}
+
+		prov, ok := providerObj.(provider.Provider)
+		if !ok {
+			return nil, fmt.Errorf("provider %d does not implement Provider interface", i)
+		}
+
+		// 创建 Decoder 实例
+		decoderObj, err := refx.New(sourceOptions.Decoder.Namespace, sourceOptions.Decoder.Type, sourceOptions.Decoder.Options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create decoder %d: %w", i, err)
+		}
+
+		dec, ok := decoderObj.(decoder.Decoder)
+		if !ok {
+			return nil, fmt.Errorf("decoder %d does not implement Decoder interface", i)
+		}
+
+		// 从 Provider 加载数据
+		data, err := prov.Load()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load data from provider %d: %w", i, err)
+		}
+
+		// 用 Decoder 解码数据为 Storage
+		stor, err := dec.Decode(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode data from source %d: %w", i, err)
+		}
+
+		sources[i] = ConfigSource{
+			provider: prov,
+			decoder:  dec,
+			storage:  stor,
+		}
+		storages[i] = stor
+	}
+
+	// 创建 MultiStorage
+	multiStorage := storage.NewMultiStorage(storages)
+
+	// 创建或使用默认 Logger
+	var logger log.Logger
+	if options.Logger != nil {
+		var err error
+		logger, err = log.NewLogWithOptions(options.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create logger: %w", err)
+		}
+	} else {
+		var err error
+		logger, err = log.NewLogWithOptions(&log.Options{
+			Level:  "info",
+			Format: "text",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create default logger: %w", err)
+		}
+	}
+
+	// 设置默认的 handler 执行配置
+	handlerExecution := options.HandlerExecution
+	if handlerExecution == nil {
+		handlerExecution = &HandlerExecutionOptions{
+			Timeout:     5 * time.Second,
+			Async:       true,
+			ErrorPolicy: "continue",
+		}
+	} else {
+		if handlerExecution.Timeout == 0 {
+			handlerExecution.Timeout = 5 * time.Second
+		}
+		if handlerExecution.ErrorPolicy == "" {
+			handlerExecution.ErrorPolicy = "continue"
+		}
+	}
+
+	// 创建 MultiConfig 实例
+	cfg := &MultiConfig{
+		sources:             sources,
+		multiStorage:        multiStorage,
+		logger:              logger,
+		handlerExecution:    handlerExecution,
+		onKeyChangeHandlers: make(map[string][]func(storage.Storage) error),
+	}
+
+	// 设置每个 Provider 的变更监听
+	for i, source := range cfg.sources {
+		sourceIndex := i // 捕获循环变量
+		source.provider.OnChange(func(newData []byte) error {
+			return cfg.handleSourceChange(sourceIndex, newData)
+		})
+	}
+
+	return cfg, nil
+}
+
+// NewMultiConfigWithSources 根据配置源选项创建多配置对象
+func NewMultiConfigWithSources(sourcesOptions []*ConfigSourceOptions) (*MultiConfig, error) {
+	options := &MultiConfigOptions{
+		Sources: sourcesOptions,
+	}
+	return NewMultiConfigWithOptions(options)
+}
+
+// handleSourceChange 处理某个配置源的数据变更
+func (c *MultiConfig) handleSourceChange(sourceIndex int, newData []byte) error {
+	if sourceIndex < 0 || sourceIndex >= len(c.sources) {
+		return fmt.Errorf("invalid source index: %d", sourceIndex)
+	}
+
+	source := &c.sources[sourceIndex]
+
+	// 保存旧的合并存储结果，用于变更检测
+	var oldMerged map[string]interface{}
+	if err := c.multiStorage.ConvertTo(&oldMerged); err != nil {
+		// 如果获取旧状态失败，记录日志但不影响更新流程
+		if c.logger != nil {
+			c.logger.Warn("failed to get old merged state for change detection", "error", err)
+		}
+	}
+
+	// 重新解码数据
+	newStorage, err := source.decoder.Decode(newData)
+	if err != nil {
+		return fmt.Errorf("failed to decode new data from source %d: %w", sourceIndex, err)
+	}
+
+	// 更新存储
+	source.storage = newStorage
+	changed := c.multiStorage.UpdateStorage(sourceIndex, newStorage)
+
+	if changed {
+		// 获取新的合并结果
+		var newMerged map[string]interface{}
+		if err := c.multiStorage.ConvertTo(&newMerged); err != nil {
+			if c.logger != nil {
+				c.logger.Error("failed to get new merged state after change", "error", err)
+			}
+		}
+
+		// 检查并触发变更监听器
+		c.checkAndTriggerHandlers(oldMerged, newMerged)
+	}
+
+	return nil
+}
+
+// checkAndTriggerHandlers 检查配置变更并触发相应的处理器
+func (c *MultiConfig) checkAndTriggerHandlers(oldData, newData map[string]interface{}) {
+	// 为了简化实现，这里触发所有注册的处理器
+	// 在实际生产环境中，可以进一步优化为只触发真正有变更的键的处理器
+	// 目前 oldData 和 newData 用于日志记录和未来的精确变更检测
+	_ = oldData // 预留给未来的精确变更检测
+	_ = newData
+	
+	for key, handlers := range c.onKeyChangeHandlers {
+		var targetStorage storage.Storage
+		if key == "" {
+			// 根配置变更
+			targetStorage = c.multiStorage
+		} else {
+			// 特定键的变更
+			targetStorage = c.multiStorage.Sub(key)
+		}
+		
+		c.executeHandlers(key, handlers, targetStorage)
+	}
+}
+
+// executeHandlers 执行 handler 列表，支持异步、超时和错误处理
+func (c *MultiConfig) executeHandlers(key string, handlers []func(storage.Storage) error, targetStorage storage.Storage) {
+	if len(handlers) == 0 {
+		return
+	}
+
+	if c.handlerExecution.Async {
+		// 异步执行：每个 handler 在独立的 goroutine 中运行
+		var wg sync.WaitGroup
+		for i, handler := range handlers {
+			wg.Add(1)
+			go func(idx int, h func(storage.Storage) error) {
+				defer wg.Done()
+				c.executeHandler(key, idx, h, targetStorage)
+			}(i, handler)
+		}
+		wg.Wait()
+	} else {
+		// 同步执行：顺序执行每个 handler
+		for i, handler := range handlers {
+			handlerFailed := c.executeHandler(key, i, handler, targetStorage)
+			if c.handlerExecution.ErrorPolicy == "stop" && handlerFailed {
+				if c.logger != nil {
+					c.logger.Warn("handler execution stopped due to error policy",
+						"key", key,
+						"stoppedAtIndex", i,
+						"remainingHandlers", len(handlers)-i-1)
+				}
+				break
+			}
+		}
+	}
+}
+
+// executeHandler 执行单个 handler，带有超时控制和日志记录
+func (c *MultiConfig) executeHandler(key string, index int, handler func(storage.Storage) error, targetStorage storage.Storage) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), c.handlerExecution.Timeout)
+	defer cancel()
+
+	resultChan := make(chan error, 1)
+	start := time.Now()
+
+	go func() {
+		resultChan <- handler(targetStorage)
+	}()
+
+	select {
+	case err := <-resultChan:
+		duration := time.Since(start)
+		if c.logger != nil {
+			if err != nil {
+				c.logger.Error("onChange handler failed",
+					"key", key,
+					"index", index,
+					"duration", duration,
+					"error", err)
+				return true
+			} else {
+				c.logger.Info("onChange handler succeeded",
+					"key", key,
+					"index", index,
+					"duration", duration)
+				return false
+			}
+		}
+		return err != nil
+	case <-ctx.Done():
+		duration := time.Since(start)
+		if c.logger != nil {
+			c.logger.Error("onChange handler timeout",
+				"key", key,
+				"index", index,
+				"duration", duration,
+				"timeout", c.handlerExecution.Timeout,
+				"error", "handler execution timeout")
+		}
+		return true
+	}
+}
+
+// Sub 获取子配置对象
+func (c *MultiConfig) Sub(key string) Config {
+	if key == "" {
+		return c
+	}
+
+	root := c.getRoot()
+	var fullPrefix string
+	if c.parent != nil {
+		fullPrefix = c.getFullKey() + "." + key
+	} else {
+		fullPrefix = key
+	}
+
+	return &MultiConfig{
+		parent: root,
+		prefix: fullPrefix,
+	}
+}
+
+// ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
+func (c *MultiConfig) ConvertTo(object interface{}) error {
+	if c.parent == nil {
+		// 根配置直接使用 MultiStorage
+		return c.multiStorage.ConvertTo(object)
+	}
+
+	// 子配置从父配置获取对应的子存储
+	subStorage := c.parent.multiStorage.Sub(c.prefix)
+	return subStorage.ConvertTo(object)
+}
+
+// SetLogger 设置日志记录器（只有根配置才能设置）
+func (c *MultiConfig) SetLogger(logger log.Logger) {
+	root := c.getRoot()
+	root.logger = logger
+}
+
+// OnChange 监听配置变更
+func (c *MultiConfig) OnChange(fn func(storage.Storage) error) {
+	if c.parent != nil {
+		// 子配置：重定向到根配置的 OnKeyChange
+		root := c.getRoot()
+		fullKey := c.getFullKey()
+		root.OnKeyChange(fullKey, fn)
+	} else {
+		// 根配置：使用空字符串作为根配置变更的特殊key
+		c.OnKeyChange("", fn)
+	}
+}
+
+// OnKeyChange 监听指定键的配置变更
+func (c *MultiConfig) OnKeyChange(key string, fn func(storage.Storage) error) {
+	root := c.getRoot()
+
+	if root.onKeyChangeHandlers == nil {
+		root.onKeyChangeHandlers = make(map[string][]func(storage.Storage) error)
+	}
+
+	// 所有 key 变更监听器都注册到根配置上
+	root.onKeyChangeHandlers[key] = append(root.onKeyChangeHandlers[key], fn)
+}
+
+// Watch 启动配置变更监听
+func (c *MultiConfig) Watch() error {
+	root := c.getRoot()
+	
+	// 启动所有 Provider 的监听
+	for i, source := range root.sources {
+		if err := source.provider.Watch(); err != nil {
+			return fmt.Errorf("failed to start watching source %d: %w", i, err)
+		}
+
+		// 主动检查一次配置变更，防止在初始化和 Watch 之间丢失变更
+		newData, loadErr := source.provider.Load()
+		if loadErr == nil {
+			// 触发变更检查和处理
+			root.handleSourceChange(i, newData)
+		}
+		// 即使 Load 失败也不影响 Watch 的成功
+	}
+	
+	return nil
+}
+
+// getRoot 获取根配置对象
+func (c *MultiConfig) getRoot() *MultiConfig {
+	root := c
+	for root.parent != nil {
+		root = root.parent
+	}
+	return root
+}
+
+// getFullKey 获取当前配置对象的完整路径
+func (c *MultiConfig) getFullKey() string {
+	if c.parent == nil {
+		return ""
+	}
+	return c.prefix
+}
+
+// Close 关闭配置对象，释放相关资源
+func (c *MultiConfig) Close() error {
+	root := c.getRoot()
+
+	root.closeMu.Lock()
+	defer root.closeMu.Unlock()
+
+	if root.closed {
+		return root.closeResult
+	}
+
+	root.closed = true
+
+	// 关闭所有 Provider
+	var lastErr error
+	for i, source := range root.sources {
+		if err := source.provider.Close(); err != nil {
+			if root.logger != nil {
+				root.logger.Error("failed to close provider", "index", i, "error", err)
+			}
+			lastErr = err // 记录最后一个错误
+		}
+	}
+
+	root.closeResult = lastErr
+	return root.closeResult
+}
