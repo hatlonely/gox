@@ -74,7 +74,7 @@ redis:
 	}
 
 	// 创建配置对象
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
@@ -271,7 +271,7 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 	}
 
 	// 使用 log.Options 创建配置
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
@@ -343,7 +343,7 @@ func TestConfig_DefaultLogger(t *testing.T) {
 	}
 
 	// 不设置 Logger配置，使用默认的
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",

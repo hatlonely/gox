@@ -299,7 +299,7 @@ import (
     "github.com/hatlonely/gox/refx"
 )
 
-options := &cfg.Options{
+options := &cfg.SingleConfigOptions{
     Provider: refx.TypeOptions{
         Namespace: "github.com/hatlonely/gox/cfg/provider",
         Type:      "FileProvider",

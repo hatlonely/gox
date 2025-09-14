@@ -11,7 +11,7 @@ import (
 // TestConfigInterfaceImplementation 验证 SingleConfig 实现了 Config 接口
 func TestConfigInterfaceImplementation(t *testing.T) {
 	// 创建一个 SingleConfig 实例
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "EnvProvider",

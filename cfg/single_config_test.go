@@ -39,7 +39,7 @@ redis:
 	}
 
 	t.Run("NewConfigWithOptions", func(t *testing.T) {
-		options := &Options{
+		options := &SingleConfigOptions{
 			Provider: refx.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
@@ -77,7 +77,7 @@ redis:
 	})
 
 	t.Run("Sub and ConvertTo", func(t *testing.T) {
-		options := &Options{
+		options := &SingleConfigOptions{
 			Provider: refx.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
@@ -154,7 +154,7 @@ redis:
 	})
 
 	t.Run("OnChange and OnKeyChange", func(t *testing.T) {
-		options := &Options{
+		options := &SingleConfigOptions{
 			Provider: refx.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
@@ -281,7 +281,7 @@ redis:
 			t.Fatalf("Failed to write nested config file: %v", err)
 		}
 
-		options := &Options{
+		options := &SingleConfigOptions{
 			Provider: refx.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
@@ -521,7 +521,7 @@ func TestConfig_ErrorPolicyStop(t *testing.T) {
 	mockLogger := &mockLogger{writer: mockWriter}
 
 	// 创建配置，使用 stop 错误策略
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
@@ -662,7 +662,7 @@ func TestConfig_ErrorPolicyContinue(t *testing.T) {
 	mockLogger := &mockLogger{writer: mockWriter}
 
 	// 创建配置，使用 continue 错误策略
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
@@ -796,7 +796,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 
 	t.Run("AsyncExecution", func(t *testing.T) {
 		// 创建配置，启用异步执行
-		options := &Options{
+		options := &SingleConfigOptions{
 			Provider: refx.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
@@ -897,7 +897,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 
 	t.Run("TimeoutControl", func(t *testing.T) {
 		// 创建配置，设置较短的超时时间
-		options := &Options{
+		options := &SingleConfigOptions{
 			Provider: refx.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
@@ -968,7 +968,7 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 
 	t.Run("SyncExecution", func(t *testing.T) {
 		// 创建配置，使用同步执行
-		options := &Options{
+		options := &SingleConfigOptions{
 			Provider: refx.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
@@ -1065,7 +1065,7 @@ func TestConfig_DefaultHandlerExecution(t *testing.T) {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",

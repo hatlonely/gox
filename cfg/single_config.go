@@ -25,8 +25,8 @@ type HandlerExecutionOptions struct {
 	ErrorPolicy string `cfg:"errorPolicy"`
 }
 
-// Options 配置类初始化选项
-type Options struct {
+// SingleConfigOptions 配置类初始化选项
+type SingleConfigOptions struct {
 	Provider         refx.TypeOptions         `cfg:"provider"`
 	Decoder          refx.TypeOptions         `cfg:"decoder"`
 	Logger           *log.Options             `cfg:"logger"`
@@ -56,7 +56,7 @@ type SingleConfig struct {
 }
 
 // NewSingleConfigWithOptions 根据选项创建配置对象
-func NewSingleConfigWithOptions(options *Options) (*SingleConfig, error) {
+func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, error) {
 	if options == nil {
 		return nil, fmt.Errorf("options cannot be nil")
 	}
@@ -195,7 +195,7 @@ func NewSingleConfig(filename string) (*SingleConfig, error) {
 	}
 
 	// 构建选项
-	options := &Options{
+	options := &SingleConfigOptions{
 		Provider: refx.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
