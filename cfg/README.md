@@ -10,6 +10,7 @@
 - 📊 **层级访问**: 支持嵌套配置和数组索引访问
 - ⚡ **简单易用**: 一行代码即可开始使用
 - 🏗️ **接口驱动**: 基于 Config 接口的设计，支持多种实现
+- 🔀 **多源合并**: 支持多个配置源按优先级合并（MultiConfig）
 
 ## 快速开始
 
@@ -159,6 +160,67 @@ type Config interface {
 ### SingleConfig 实现
 
 `SingleConfig` 是 `Config` 接口的默认实现，提供完整的配置管理功能。
+
+### MultiConfig 实现
+
+`MultiConfig` 支持多配置源合并，按优先级覆盖配置，适用于多环境配置管理。
+
+```go
+import (
+    "github.com/hatlonely/gox/cfg"
+    "github.com/hatlonely/gox/cfg/provider"
+    "github.com/hatlonely/gox/refx"
+)
+
+// 创建多配置源：基础配置 + 环境配置 + 数据库配置
+multiConfig, err := cfg.NewMultiConfigWithOptions(&cfg.MultiConfigOptions{
+    Sources: []*cfg.ConfigSourceOptions{
+        {
+            // 基础配置文件（优先级最低）
+            Provider: refx.TypeOptions{
+                Type: "FileProvider",
+                Options: &provider.FileProviderOptions{FilePath: "config.yaml"},
+            },
+            Decoder: refx.TypeOptions{Type: "YamlDecoder"},
+        },
+        {
+            // 环境变量覆盖（中等优先级）
+            Provider: refx.TypeOptions{
+                Type: "EnvProvider",
+                Options: &provider.EnvProviderOptions{EnvFiles: []string{}},
+            },
+            Decoder: refx.TypeOptions{Type: "EnvDecoder"},
+        },
+        {
+            // 数据库配置（优先级最高）
+            Provider: refx.TypeOptions{
+                Type: "GormProvider",
+                Options: &provider.GormProviderOptions{
+                    DSN: "postgres://...",
+                    Table: "app_configs",
+                },
+            },
+            Decoder: refx.TypeOptions{Type: "JsonDecoder"},
+        },
+    },
+})
+
+// 使用方式与 SingleConfig 完全相同
+var app AppConfig
+multiConfig.ConvertTo(&app)
+
+// 监听任意配置源的变更
+multiConfig.OnChange(func(s storage.Storage) error {
+    // 重新加载配置
+    return nil
+})
+multiConfig.Watch()
+```
+
+**典型使用场景：**
+- **多环境部署**: 基础配置 + 环境特定配置（dev/test/prod）
+- **配置分层管理**: 默认配置 + 环境变量覆盖 + 运行时配置
+- **动态配置中心**: 本地配置文件 + 远程配置服务
 
 ## 核心功能
 
@@ -315,6 +377,25 @@ options := &cfg.SingleConfigOptions{
 }
 
 config, err := cfg.NewSingleConfigWithOptions(options)
+```
+
+### 多配置源合并 (MultiConfig)
+
+```go
+// 简化配置：基础 + 环境变量
+multiConfig, err := cfg.NewMultiConfigWithOptions(&cfg.MultiConfigOptions{
+    Sources: []*cfg.ConfigSourceOptions{
+        {
+            Provider: refx.TypeOptions{Type: "FileProvider", Options: &provider.FileProviderOptions{FilePath: "config.yaml"}},
+            Decoder:  refx.TypeOptions{Type: "YamlDecoder"},
+        },
+        {
+            Provider: refx.TypeOptions{Type: "EnvProvider", Options: &provider.EnvProviderOptions{}},
+            Decoder:  refx.TypeOptions{Type: "EnvDecoder"},
+        },
+    },
+})
+// 后续使用与 SingleConfig 完全相同
 ```
 
 ## 最佳实践

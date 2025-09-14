@@ -175,13 +175,6 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 	return cfg, nil
 }
 
-// NewMultiConfigWithSources 根据配置源选项创建多配置对象
-func NewMultiConfigWithSources(sourcesOptions []*ConfigSourceOptions) (*MultiConfig, error) {
-	options := &MultiConfigOptions{
-		Sources: sourcesOptions,
-	}
-	return NewMultiConfigWithOptions(options)
-}
 
 // handleSourceChange 处理某个配置源的数据变更
 func (c *MultiConfig) handleSourceChange(sourceIndex int, newData []byte) error {

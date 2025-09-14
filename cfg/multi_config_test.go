@@ -12,23 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewMultiConfigWithSources(t *testing.T) {
+func TestNewMultiConfigWithOptions(t *testing.T) {
 	t.Run("创建多配置源", func(t *testing.T) {
-		sources := []*ConfigSourceOptions{
-			{
-				Provider: refx.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/cfg/provider",
-					Type:      "EnvProvider",
-					Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
-				},
-				Decoder: refx.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/cfg/decoder",
-					Type:      "EnvDecoder",
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "EnvProvider",
+						Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "EnvDecoder",
+					},
 				},
 			},
 		}
 
-		config, err := NewMultiConfigWithSources(sources)
+		config, err := NewMultiConfigWithOptions(options)
 		require.NoError(t, err)
 		require.NotNil(t, config)
 
@@ -46,15 +48,18 @@ func TestNewMultiConfigWithSources(t *testing.T) {
 	})
 
 	t.Run("空配置源应该失败", func(t *testing.T) {
-		_, err := NewMultiConfigWithSources([]*ConfigSourceOptions{})
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{},
+		}
+		_, err := NewMultiConfigWithOptions(options)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "at least one configuration source is required")
 	})
 
 	t.Run("nil选项应该失败", func(t *testing.T) {
-		_, err := NewMultiConfigWithSources(nil)
+		_, err := NewMultiConfigWithOptions(nil)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "at least one configuration source is required")
+		assert.Contains(t, err.Error(), "options cannot be nil")
 	})
 }
 
@@ -244,21 +249,23 @@ func TestMultiConfig_SetLogger(t *testing.T) {
 func TestMultiConfig_Close(t *testing.T) {
 	t.Run("关闭配置对象", func(t *testing.T) {
 		// 创建一个简单的 MultiConfig 用于测试
-		sources := []*ConfigSourceOptions{
-			{
-				Provider: refx.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/cfg/provider",
-					Type:      "EnvProvider",
-					Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
-				},
-				Decoder: refx.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/cfg/decoder",
-					Type:      "EnvDecoder",
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "EnvProvider",
+						Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "EnvDecoder",
+					},
 				},
 			},
 		}
 
-		config, err := NewMultiConfigWithSources(sources)
+		config, err := NewMultiConfigWithOptions(options)
 		require.NoError(t, err)
 
 		// 关闭配置
@@ -305,21 +312,23 @@ func TestMultiConfig_HandlerExecution(t *testing.T) {
 	})
 
 	t.Run("默认处理器执行配置", func(t *testing.T) {
-		sources := []*ConfigSourceOptions{
-			{
-				Provider: refx.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/cfg/provider",
-					Type:      "EnvProvider",
-					Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
-				},
-				Decoder: refx.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/cfg/decoder",
-					Type:      "EnvDecoder",
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "EnvProvider",
+						Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "EnvDecoder",
+					},
 				},
 			},
 		}
 
-		config, err := NewMultiConfigWithSources(sources)
+		config, err := NewMultiConfigWithOptions(options)
 		require.NoError(t, err)
 		defer config.Close()
 
