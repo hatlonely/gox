@@ -191,14 +191,13 @@ func (c *MultiConfig) handleSourceChange(sourceIndex int, newData []byte) error 
 
 	source := &c.sources[sourceIndex]
 
-	// 保存旧的合并存储结果，用于变更检测
-	var oldMerged map[string]interface{}
-	if err := c.multiStorage.ConvertTo(&oldMerged); err != nil {
-		// 如果获取旧状态失败，记录日志但不影响更新流程
-		if c.logger != nil {
-			c.logger.Warn("failed to get old merged state for change detection", "error", err)
-		}
+	// 创建旧的合并存储状态的快照，用于变更检测
+	// 这里我们重新创建一个 MultiStorage 来保存旧状态
+	oldStorages := make([]storage.Storage, len(c.sources))
+	for i, s := range c.sources {
+		oldStorages[i] = s.storage
 	}
+	oldMergedStorage := storage.NewMultiStorage(oldStorages)
 
 	// 重新解码数据
 	newStorage, err := source.decoder.Decode(newData)
@@ -211,41 +210,32 @@ func (c *MultiConfig) handleSourceChange(sourceIndex int, newData []byte) error 
 	changed := c.multiStorage.UpdateStorage(sourceIndex, newStorage)
 
 	if changed {
-		// 获取新的合并结果
-		var newMerged map[string]interface{}
-		if err := c.multiStorage.ConvertTo(&newMerged); err != nil {
-			if c.logger != nil {
-				c.logger.Error("failed to get new merged state after change", "error", err)
+		// 新的合并存储就是当前的 multiStorage
+		newMergedStorage := c.multiStorage
+
+		// 检查并触发变更监听器（统一处理根配置和特定key）
+		for key, handlers := range c.onKeyChangeHandlers {
+			// 统一使用 isKeyChanged 检查，空字符串key会让Storage.Sub("")返回自己
+			if c.isKeyChanged(oldMergedStorage, newMergedStorage, key) {
+				// 统一使用 Sub 方法获取目标存储，Sub("")会返回自身
+				targetStorage := newMergedStorage.Sub(key)
+
+				// 执行 handlers
+				c.executeHandlers(key, handlers, targetStorage)
 			}
 		}
-
-		// 检查并触发变更监听器
-		c.checkAndTriggerHandlers(oldMerged, newMerged)
 	}
 
 	return nil
 }
 
-// checkAndTriggerHandlers 检查配置变更并触发相应的处理器
-func (c *MultiConfig) checkAndTriggerHandlers(oldData, newData map[string]interface{}) {
-	// 为了简化实现，这里触发所有注册的处理器
-	// 在实际生产环境中，可以进一步优化为只触发真正有变更的键的处理器
-	// 目前 oldData 和 newData 用于日志记录和未来的精确变更检测
-	_ = oldData // 预留给未来的精确变更检测
-	_ = newData
-	
-	for key, handlers := range c.onKeyChangeHandlers {
-		var targetStorage storage.Storage
-		if key == "" {
-			// 根配置变更
-			targetStorage = c.multiStorage
-		} else {
-			// 特定键的变更
-			targetStorage = c.multiStorage.Sub(key)
-		}
-		
-		c.executeHandlers(key, handlers, targetStorage)
-	}
+// isKeyChanged 检查指定 key 的数据是否发生变更
+func (c *MultiConfig) isKeyChanged(oldStorage, newStorage storage.Storage, key string) bool {
+	oldSubStorage := oldStorage.Sub(key)
+	newSubStorage := newStorage.Sub(key)
+
+	// 使用 Storage 的 Equals 方法进行比较，各实现可以根据自身特点优化
+	return !oldSubStorage.Equals(newSubStorage)
 }
 
 // executeHandlers 执行 handler 列表，支持异步、超时和错误处理
