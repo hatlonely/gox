@@ -234,8 +234,8 @@ func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cm
 
 // generateEnvName 生成环境变量名
 func generateEnvName(path, prefix string) string {
-	// 处理占位符：[N] -> _N_, {KEY} -> _{KEY}_
-	envPath := strings.ReplaceAll(path, "[N]", "_N")
+	// 处理占位符：[N] -> _{N}, {KEY} -> _{KEY}
+	envPath := strings.ReplaceAll(path, "[N]", "_{N}")
 	envPath = strings.ReplaceAll(envPath, ".{KEY}", "_{KEY}")
 	envPath = strings.ReplaceAll(envPath, "[0]", "_0") // 兼容已有的 [0] 格式
 
@@ -248,9 +248,9 @@ func generateEnvName(path, prefix string) string {
 
 // generateCmdName 生成命令行参数名
 func generateCmdName(path, prefix string) string {
-	// 处理占位符：[N] -> -N-, {KEY} -> -{KEY}-
-	cmdPath := strings.ReplaceAll(path, "[N]", "-N")
-	cmdPath = strings.ReplaceAll(cmdPath, ".{KEY}", "-{KEY}")
+	// 处理占位符：[N] -> -{n}, {KEY} -> -{key}
+	cmdPath := strings.ReplaceAll(path, "[N]", "-{n}")
+	cmdPath = strings.ReplaceAll(cmdPath, ".{KEY}", "-{key}")
 	cmdPath = strings.ReplaceAll(cmdPath, "[0]", "-0") // 兼容已有的 [0] 格式
 
 	cmdName := strings.ToLower(strings.ReplaceAll(cmdPath, ".", "-"))

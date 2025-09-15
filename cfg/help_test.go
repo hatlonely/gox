@@ -128,7 +128,7 @@ func TestGenerateHelp_SliceType(t *testing.T) {
 	config := Config{}
 	help := GenerateHelp(&config, "APP_", "app-")
 
-	// 验证切片类型信息：现在只展示叶子节点字段
+	// 验证切片类型信息：现在只展示叶子节点字段，使用占位符格式
 	expectedContent := []string{
 		"pools[N].host",
 		"pools[N].port",
@@ -140,10 +140,10 @@ func TestGenerateHelp_SliceType(t *testing.T) {
 		"连接池名称",
 		"最大连接数",
 		"连接超时时间",
-		"APP_POOLS_N_HOST",
-		"APP_POOLS_N_PORT",
-		"--app-pools-n-host",
-		"--app-pools-n-port",
+		"APP_POOLS_{N}_HOST", // 新的占位符格式
+		"APP_POOLS_{N}_PORT",
+		"--app-pools-{n}-host", // 命令行参数使用小写
+		"--app-pools-{n}-port",
 	}
 
 	for _, content := range expectedContent {
