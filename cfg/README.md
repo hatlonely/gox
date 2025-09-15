@@ -464,6 +464,8 @@ config.Watch()
 
 ## 支持的标签
 
+### 字段映射标签
+
 配置库支持多种结构体标签进行字段映射：
 
 - `cfg:"field_name"` - 优先级最高
@@ -478,6 +480,64 @@ type SingleConfig struct {
     Port int    `cfg:"port" json:"port" yaml:"port"`
 }
 ```
+
+### def 标签 - 默认值设置
+
+`def` 标签用于为结构体字段设置默认值。使用 `cfg.SetDefaults()` 函数可以自动为零值字段设置默认值。
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    "github.com/hatlonely/gox/cfg"
+)
+
+type AppConfig struct {
+    Name        string        `def:"MyApp"`
+    Port        int           `def:"8080"`
+    Timeout     time.Duration `def:"30s"`
+    Debug       bool          `def:"true"`
+    Tags        []string      `def:"web,api,service"`
+    CreatedAt   time.Time     `def:"2023-01-01T00:00:00Z"`
+    
+    // 嵌套结构体会自动递归处理
+    Database DatabaseConfig
+    
+    // 指针结构体只有在非空时才会递归处理
+    Cache *CacheConfig
+}
+
+type DatabaseConfig struct {
+    Host     string `def:"localhost"`
+    Port     int    `def:"3306"`
+    Username string `def:"root"`
+}
+
+func main() {
+    config := &AppConfig{}
+    
+    // 设置默认值
+    if err := cfg.SetDefaults(config); err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Name: %s, Port: %d\n", config.Name, config.Port)
+    fmt.Printf("Database: %s:%d\n", config.Database.Host, config.Database.Port)
+}
+```
+
+**支持的类型：**
+- 基础类型：`string`, `bool`, `int/uint` 系列, `float32/float64`
+- 时间类型：`time.Duration`, `time.Time`（支持多种格式）
+- 切片类型：逗号分隔的值（如：`"a,b,c"`）
+- 指针类型：自动分配内存（仅对有 def 标签的字段）
+
+**注意事项：**
+- 只有零值字段才会被设置默认值
+- 结构体字段会自动递归处理（无需 def 标签）
+- 指针结构体字段只有在非空时才会递归处理
 
 ## 许可证
 
