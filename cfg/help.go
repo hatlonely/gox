@@ -416,48 +416,8 @@ func formatValidationRules(validation string) string {
 			continue
 		}
 
-		// 解析常见的校验规则
-		switch {
-		case rule == "required":
-			formatted = append(formatted, "必填")
-		case strings.HasPrefix(rule, "min="):
-			value := strings.TrimPrefix(rule, "min=")
-			formatted = append(formatted, fmt.Sprintf("最小值: %s", value))
-		case strings.HasPrefix(rule, "max="):
-			value := strings.TrimPrefix(rule, "max=")
-			formatted = append(formatted, fmt.Sprintf("最大值: %s", value))
-		case strings.HasPrefix(rule, "len="):
-			value := strings.TrimPrefix(rule, "len=")
-			formatted = append(formatted, fmt.Sprintf("长度: %s", value))
-		case strings.HasPrefix(rule, "gt="):
-			value := strings.TrimPrefix(rule, "gt=")
-			formatted = append(formatted, fmt.Sprintf("大于: %s", value))
-		case strings.HasPrefix(rule, "gte="):
-			value := strings.TrimPrefix(rule, "gte=")
-			formatted = append(formatted, fmt.Sprintf("大于等于: %s", value))
-		case strings.HasPrefix(rule, "lt="):
-			value := strings.TrimPrefix(rule, "lt=")
-			formatted = append(formatted, fmt.Sprintf("小于: %s", value))
-		case strings.HasPrefix(rule, "lte="):
-			value := strings.TrimPrefix(rule, "lte=")
-			formatted = append(formatted, fmt.Sprintf("小于等于: %s", value))
-		case rule == "email":
-			formatted = append(formatted, "邮箱格式")
-		case rule == "url":
-			formatted = append(formatted, "URL格式")
-		case rule == "alphanum":
-			formatted = append(formatted, "仅允许字母数字")
-		case rule == "alpha":
-			formatted = append(formatted, "仅允许字母")
-		case rule == "numeric":
-			formatted = append(formatted, "仅允许数字")
-		case strings.HasPrefix(rule, "oneof="):
-			value := strings.TrimPrefix(rule, "oneof=")
-			formatted = append(formatted, fmt.Sprintf("允许值: %s", strings.ReplaceAll(value, " ", ", ")))
-		default:
-			// 对于未识别的规则，直接显示原始内容
-			formatted = append(formatted, rule)
-		}
+		// 解析校验规则
+		formatted = append(formatted, formatSingleRule(rule))
 	}
 
 	if len(formatted) == 0 {
@@ -465,4 +425,317 @@ func formatValidationRules(validation string) string {
 	}
 
 	return strings.Join(formatted, "; ")
+}
+
+// formatSingleRule 格式化单个校验规则
+func formatSingleRule(rule string) string {
+	// 处理带参数的规则
+	if strings.Contains(rule, "=") {
+		parts := strings.SplitN(rule, "=", 2)
+		key := parts[0]
+		value := parts[1]
+
+		switch key {
+		case "min":
+			return fmt.Sprintf("最小值: %s", value)
+		case "max":
+			return fmt.Sprintf("最大值: %s", value)
+		case "len":
+			return fmt.Sprintf("长度: %s", value)
+		case "gt":
+			return fmt.Sprintf("大于: %s", value)
+		case "gte":
+			return fmt.Sprintf("大于等于: %s", value)
+		case "lt":
+			return fmt.Sprintf("小于: %s", value)
+		case "lte":
+			return fmt.Sprintf("小于等于: %s", value)
+		case "eq":
+			return fmt.Sprintf("等于: %s", value)
+		case "ne":
+			return fmt.Sprintf("不等于: %s", value)
+		case "oneof":
+			return fmt.Sprintf("允许值: %s", strings.ReplaceAll(value, " ", ", "))
+		case "contains":
+			return fmt.Sprintf("包含: %s", value)
+		case "containsany":
+			return fmt.Sprintf("包含任意字符: %s", value)
+		case "excludes":
+			return fmt.Sprintf("不包含: %s", value)
+		case "startswith":
+			return fmt.Sprintf("开头为: %s", value)
+		case "endswith":
+			return fmt.Sprintf("结尾为: %s", value)
+		case "eqfield":
+			return fmt.Sprintf("等于字段: %s", value)
+		case "nefield":
+			return fmt.Sprintf("不等于字段: %s", value)
+		case "gtfield":
+			return fmt.Sprintf("大于字段: %s", value)
+		case "gtefield":
+			return fmt.Sprintf("大于等于字段: %s", value)
+		case "ltfield":
+			return fmt.Sprintf("小于字段: %s", value)
+		case "ltefield":
+			return fmt.Sprintf("小于等于字段: %s", value)
+		// 条件校验
+		case "required_with":
+			return fmt.Sprintf("与其他字段一起必填: %s", value)
+		case "required_with_all":
+			return fmt.Sprintf("与所有其他字段一起必填: %s", value)
+		case "required_without":
+			return fmt.Sprintf("缺少其他字段时必填: %s", value)
+		case "required_without_all":
+			return fmt.Sprintf("缺少所有其他字段时必填: %s", value)
+		case "required_if":
+			return fmt.Sprintf("条件必填: %s", value)
+		case "required_unless":
+			return fmt.Sprintf("除非必填: %s", value)
+		default:
+			return rule // 未识别的带参数规则，返回原始内容
+		}
+	}
+
+	// 处理无参数的规则
+	switch rule {
+	// 基础校验
+	case "required":
+		return "必填"
+	case "omitempty":
+		return "可为空"
+
+	// 比较
+	case "eq_ignore_case":
+		return "等于(忽略大小写)"
+	case "ne_ignore_case":
+		return "不等于(忽略大小写)"
+
+	// 字符串类型
+	case "alpha":
+		return "仅允许字母"
+	case "alphanum":
+		return "仅允许字母数字"
+	case "alphanumunicode":
+		return "仅允许字母数字Unicode"
+	case "alphaunicode":
+		return "仅允许字母Unicode"
+	case "ascii":
+		return "仅允许ASCII字符"
+	case "boolean":
+		return "布尔值"
+	case "lowercase":
+		return "小写字母"
+	case "uppercase":
+		return "大写字母"
+	case "number":
+		return "数字"
+	case "numeric":
+		return "仅允许数字"
+	case "printascii":
+		return "可打印ASCII字符"
+	case "multibyte":
+		return "多字节字符"
+
+	// 网络格式
+	case "email":
+		return "邮箱格式"
+	case "url":
+		return "URL格式"
+	case "http_url":
+		return "HTTP URL格式"
+	case "uri":
+		return "URI格式"
+	case "hostname":
+		return "主机名格式"
+	case "hostname_rfc1123":
+		return "主机名格式(RFC1123)"
+	case "fqdn":
+		return "完全限定域名"
+	case "ip":
+		return "IP地址"
+	case "ipv4":
+		return "IPv4地址"
+	case "ipv6":
+		return "IPv6地址"
+	case "cidr":
+		return "CIDR格式"
+	case "cidrv4":
+		return "CIDRv4格式"
+	case "cidrv6":
+		return "CIDRv6格式"
+	case "mac":
+		return "MAC地址"
+	case "tcp_addr":
+		return "TCP地址"
+	case "tcp4_addr":
+		return "TCPv4地址"
+	case "tcp6_addr":
+		return "TCPv6地址"
+	case "udp_addr":
+		return "UDP地址"
+	case "udp4_addr":
+		return "UDPv4地址"
+	case "udp6_addr":
+		return "UDPv6地址"
+	case "unix_addr":
+		return "Unix域套接字地址"
+
+	// 格式校验
+	case "base64":
+		return "Base64编码"
+	case "base64url":
+		return "Base64URL编码"
+	case "base64rawurl":
+		return "Base64RawURL编码"
+	case "json":
+		return "JSON格式"
+	case "jwt":
+		return "JWT格式"
+	case "uuid":
+		return "UUID格式"
+	case "uuid3":
+		return "UUIDv3格式"
+	case "uuid4":
+		return "UUIDv4格式"
+	case "uuid5":
+		return "UUIDv5格式"
+	case "ulid":
+		return "ULID格式"
+	case "credit_card":
+		return "信用卡号码"
+	case "isbn":
+		return "ISBN格式"
+	case "isbn10":
+		return "ISBN10格式"
+	case "isbn13":
+		return "ISBN13格式"
+	case "ssn":
+		return "社会保障号"
+	case "btc_addr":
+		return "比特币地址"
+	case "btc_addr_bech32":
+		return "比特币Bech32地址"
+	case "eth_addr":
+		return "以太坊地址"
+	case "hexadecimal":
+		return "十六进制字符串"
+	case "hexcolor":
+		return "十六进制颜色"
+	case "rgb":
+		return "RGB颜色"
+	case "rgba":
+		return "RGBA颜色"
+	case "hsl":
+		return "HSL颜色"
+	case "hsla":
+		return "HSLA颜色"
+	case "html":
+		return "HTML标签"
+	case "html_encoded":
+		return "HTML编码"
+	case "url_encoded":
+		return "URL编码"
+
+	// 哈希格式
+	case "md4":
+		return "MD4哈希"
+	case "md5":
+		return "MD5哈希"
+	case "sha256":
+		return "SHA256哈希"
+	case "sha384":
+		return "SHA384哈希"
+	case "sha512":
+		return "SHA512哈希"
+
+	// 时间和版本
+	case "datetime":
+		return "日期时间格式"
+	case "timezone":
+		return "时区格式"
+	case "semver":
+		return "语义化版本"
+	case "cron":
+		return "Cron表达式"
+
+	// 地理位置
+	case "latitude":
+		return "纬度"
+	case "longitude":
+		return "经度"
+
+	// 国际化标准
+	case "iso3166_1_alpha2":
+		return "ISO3166-1国家代码(2位字母)"
+	case "iso3166_1_alpha3":
+		return "ISO3166-1国家代码(3位字母)"
+	case "iso3166_1_alpha_numeric":
+		return "ISO3166-1国家代码(数字)"
+	case "iso3166_2":
+		return "ISO3166-2地区代码"
+	case "iso4217":
+		return "ISO4217货币代码"
+	case "bcp47_language_tag":
+		return "BCP47语言标签"
+	case "e164":
+		return "E164电话号码"
+
+	// 文件和路径
+	case "file":
+		return "文件路径"
+	case "filepath":
+		return "文件路径格式"
+	case "dir":
+		return "目录路径"
+	case "dirpath":
+		return "目录路径格式"
+	case "image":
+		return "图片格式"
+
+	// 其他
+	case "unique":
+		return "唯一值"
+	case "isdefault":
+		return "默认值"
+	case "iscolor":
+		return "颜色格式"
+	case "country_code":
+		return "国家代码"
+	case "luhn_checksum":
+		return "Luhn校验码"
+	case "mongodb":
+		return "MongoDB ObjectID"
+	case "cve":
+		return "CVE标识符"
+
+	// 条件校验
+	case "required_if":
+		return "条件必填"
+	case "required_unless":
+		return "除非必填"
+	case "required_with":
+		return "与其他字段一起必填"
+	case "required_with_all":
+		return "与所有其他字段一起必填"
+	case "required_without":
+		return "缺少其他字段时必填"
+	case "required_without_all":
+		return "缺少所有其他字段时必填"
+	case "excluded_if":
+		return "条件排除"
+	case "excluded_unless":
+		return "除非排除"
+	case "excluded_with":
+		return "与其他字段一起排除"
+	case "excluded_with_all":
+		return "与所有其他字段一起排除"
+	case "excluded_without":
+		return "缺少其他字段时排除"
+	case "excluded_without_all":
+		return "缺少所有其他字段时排除"
+
+	default:
+		// 对于未识别的规则，直接显示原始内容
+		return rule
+	}
 }

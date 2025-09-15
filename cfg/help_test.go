@@ -495,3 +495,82 @@ func TestGenerateHelp_ValidateTag(t *testing.T) {
 		t.Error("没有 validate 标签的字段不应显示校验规则")
 	}
 }
+
+func TestGenerateHelp_ExtendedValidateTag(t *testing.T) {
+	type ExtendedTestConfig struct {
+		// 网络校验
+		ServerIP   string `cfg:"server_ip" help:"服务器IP" validate:"required,ipv4"`
+		Hostname   string `cfg:"hostname" help:"主机名" validate:"hostname"`
+		MacAddress string `cfg:"mac_address" help:"MAC地址" validate:"mac"`
+		CIDR       string `cfg:"cidr" help:"CIDR地址" validate:"cidr"`
+
+		// 格式校验
+		UUID       string `cfg:"uuid" help:"UUID" validate:"uuid4"`
+		Base64Data string `cfg:"base64_data" help:"Base64数据" validate:"base64"`
+		JSONData   string `cfg:"json_data" help:"JSON数据" validate:"json"`
+		CreditCard string `cfg:"credit_card" help:"信用卡" validate:"credit_card"`
+		ISBN       string `cfg:"isbn" help:"ISBN" validate:"isbn"`
+
+		// 字符串校验
+		Code        string `cfg:"code" help:"代码" validate:"required,uppercase,len=6"`
+		HexColor    string `cfg:"hex_color" help:"颜色" validate:"hexcolor"`
+		AlphaOnly   string `cfg:"alpha_only" help:"纯字母" validate:"alpha"`
+		NumericOnly string `cfg:"numeric_only" help:"纯数字" validate:"numeric"`
+
+		// 哈希校验
+		MD5Hash    string `cfg:"md5_hash" help:"MD5哈希" validate:"md5"`
+		SHA256Hash string `cfg:"sha256_hash" help:"SHA256哈希" validate:"sha256"`
+
+		// 时间和版本
+		SemVer   string `cfg:"semver" help:"语义化版本" validate:"semver"`
+		Timezone string `cfg:"timezone" help:"时区" validate:"timezone"`
+
+		// 国际化
+		CountryCode string `cfg:"country_code" help:"国家代码" validate:"iso3166_1_alpha2"`
+		Currency    string `cfg:"currency" help:"货币代码" validate:"iso4217"`
+
+		// 条件校验
+		Password        string `cfg:"password" help:"密码" validate:"required,min=8"`
+		ConfirmPassword string `cfg:"confirm_password" help:"确认密码" validate:"required_with=Password,eqfield=Password"`
+		OptionalField   string `cfg:"optional_field" help:"可选字段" validate:"omitempty,email"`
+	}
+
+	config := ExtendedTestConfig{}
+	help := GenerateHelp(&config, "APP_", "app-")
+
+	// 打印帮助信息用于查看效果
+	fmt.Println("\n=== 扩展 Validate 标签测试结果 ===")
+	fmt.Println(help)
+	fmt.Println("=== 扩展测试结果结束 ===")
+
+	// 验证新增的校验规则
+	expectedValidations := []string{
+		"必填; IPv4地址",          // server_ip
+		"主机名格式",               // hostname
+		"MAC地址",               // mac_address
+		"CIDR格式",              // cidr
+		"UUIDv4格式",            // uuid
+		"Base64编码",            // base64_data
+		"JSON格式",              // json_data
+		"信用卡号码",               // credit_card
+		"ISBN格式",              // isbn
+		"必填; 大写字母; 长度: 6",     // code
+		"十六进制颜色",              // hex_color
+		"仅允许字母",               // alpha_only
+		"仅允许数字",               // numeric_only
+		"MD5哈希",               // md5_hash
+		"SHA256哈希",            // sha256_hash
+		"语义化版本",               // semver
+		"时区格式",                // timezone
+		"ISO3166-1国家代码(2位字母)", // country_code
+		"ISO4217货币代码",         // currency
+		"与其他字段一起必填: Password; 等于字段: Password", // confirm_password
+		"可为空; 邮箱格式", // optional_field
+	}
+
+	for _, validation := range expectedValidations {
+		if !strings.Contains(help, validation) {
+			t.Errorf("帮助信息应包含校验规则: %s", validation)
+		}
+	}
+}
