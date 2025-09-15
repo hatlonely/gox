@@ -18,15 +18,15 @@ type DatabasePool struct {
 }
 
 type ServerConfig struct {
-	Host    string        `cfg:"host" help:"服务器绑定地址" eg:"0.0.0.0" def:"localhost"`
-	Port    int           `cfg:"port" help:"服务器监听端口" eg:"8080" def:"80"`
-	Timeout time.Duration `cfg:"timeout" help:"请求超时时间" eg:"60s" def:"30s"`
+	Host    string        `cfg:"host" help:"服务器绑定地址" eg:"0.0.0.0" def:"localhost" validate:"required,ip"`
+	Port    int           `cfg:"port" help:"服务器监听端口" eg:"8080" def:"80" validate:"required,min=1,max=65535"`
+	Timeout time.Duration `cfg:"timeout" help:"请求超时时间" eg:"60s" def:"30s" validate:"gte=1s,lte=300s"`
 }
 
 type ComplexConfig struct {
 	// 基本类型
-	Name    string `cfg:"name" help:"应用名称" eg:"my-app" def:"app"`
-	Version string `cfg:"version" help:"应用版本号" eg:"1.2.3" def:"1.0.0"`
+	Name    string `cfg:"name" help:"应用名称" eg:"my-app" def:"app" validate:"required,min=3,max=50"`
+	Version string `cfg:"version" help:"应用版本号" eg:"1.2.3" def:"1.0.0" validate:"required"`
 	Debug   bool   `cfg:"debug" help:"是否启用调试模式" eg:"true" def:"false"`
 
 	// 嵌套结构体
@@ -45,14 +45,14 @@ type ComplexConfig struct {
 
 	// 时间类型
 	StartTime time.Time     `cfg:"start_time" help:"服务启动时间" eg:"2023-12-25T15:30:45Z"`
-	Interval  time.Duration `cfg:"interval" help:"执行间隔" eg:"5m" def:"1m"`
+	Interval  time.Duration `cfg:"interval" help:"执行间隔" eg:"5m" def:"1m" validate:"gte=1s,lte=1h"`
 }
 
 type DatabaseConfig struct {
-	Host     string `cfg:"host" help:"数据库主机" eg:"db.example.com" def:"localhost"`
-	Port     int    `cfg:"port" help:"数据库端口" eg:"5432" def:"5432"`
-	Username string `cfg:"username" help:"数据库用户名" eg:"admin" def:"postgres"`
-	Password string `cfg:"password" help:"数据库密码" eg:"secret123"`
+	Host     string `cfg:"host" help:"数据库主机" eg:"db.example.com" def:"localhost" validate:"required,hostname"`
+	Port     int    `cfg:"port" help:"数据库端口" eg:"5432" def:"5432" validate:"required,min=1,max=65535"`
+	Username string `cfg:"username" help:"数据库用户名" eg:"admin" def:"postgres" validate:"required,alphanum"`
+	Password string `cfg:"password" help:"数据库密码" eg:"secret123" validate:"required,min=8"`
 }
 
 func TestGenerateHelp_BasicTypes(t *testing.T) {
@@ -447,5 +447,51 @@ func TestFieldConfigName_TagPriority(t *testing.T) {
 				t.Errorf("getFieldConfigName() = %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGenerateHelp_ValidateTag(t *testing.T) {
+	type TestConfig struct {
+		Name     string `cfg:"name" help:"用户名" validate:"required,min=3,max=20,alphanum"`
+		Email    string `cfg:"email" help:"邮箱地址" validate:"required,email"`
+		Age      int    `cfg:"age" help:"年龄" validate:"min=18,max=120"`
+		Website  string `cfg:"website" help:"网站地址" validate:"url"`
+		Password string `cfg:"password" help:"密码" validate:"required,min=8"`
+		Status   string `cfg:"status" help:"状态" validate:"oneof=active inactive pending"`
+	}
+
+	config := TestConfig{}
+	help := GenerateHelp(&config, "APP_", "app-")
+
+	// 打印帮助信息用于查看效果
+	fmt.Println("=== Validate 标签测试结果 ===")
+	fmt.Println(help)
+	fmt.Println("=== 测试结果结束 ===")
+
+	// 验证校验规则的显示
+	expectedValidations := []string{
+		"必填; 最小值: 3; 最大值: 20; 仅允许字母数字", // name 字段
+		"必填; 邮箱格式",                       // email 字段
+		"最小值: 18; 最大值: 120",              // age 字段
+		"URL格式",                          // website 字段
+		"必填; 最小值: 8",                     // password 字段
+		"允许值: active, inactive, pending", // status 字段
+	}
+
+	for _, validation := range expectedValidations {
+		if !strings.Contains(help, validation) {
+			t.Errorf("帮助信息应包含校验规则: %s\n实际输出:\n%s", validation, help)
+		}
+	}
+
+	// 验证没有 validate 标签的字段不显示校验规则
+	type SimpleConfig struct {
+		Field string `cfg:"field" help:"普通字段"` // 没有 validate 标签
+	}
+
+	simpleConfig := SimpleConfig{}
+	simpleHelp := GenerateHelp(&simpleConfig, "", "")
+	if strings.Contains(simpleHelp, "校验规则:") {
+		t.Error("没有 validate 标签的字段不应显示校验规则")
 	}
 }

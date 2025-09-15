@@ -18,6 +18,7 @@ type FieldInfo struct {
 	DefaultValue string   // 默认值
 	Required     bool     // 是否必填
 	Examples     []string // 示例值
+	Validation   string   // 校验信息，从 validate 标签获取
 	Order        int      // 字段定义顺序，用于保持原始顺序
 }
 
@@ -215,8 +216,11 @@ func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cm
 	// 获取默认值
 	defaultValue := field.Tag.Get("def")
 
+	// 获取校验信息
+	validation := field.Tag.Get("validate")
+
 	// 检查是否必填
-	required := strings.Contains(field.Tag.Get("validate"), "required") ||
+	required := strings.Contains(validation, "required") ||
 		strings.Contains(field.Tag.Get("binding"), "required")
 
 	return FieldInfo{
@@ -228,6 +232,7 @@ func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cm
 		Required:     required,
 		Examples:     examples,
 		DefaultValue: defaultValue,
+		Validation:   validation,
 		Order:        orderCounter.next(), // 记录字段定义的原始顺序
 	}
 }
@@ -342,6 +347,11 @@ func formatFieldHelp(field FieldInfo) string {
 		sb.WriteString(fmt.Sprintf("    说明: %s\n", field.Help))
 	}
 
+	// 校验信息
+	if field.Validation != "" {
+		sb.WriteString(fmt.Sprintf("    校验规则: %s\n", formatValidationRules(field.Validation)))
+	}
+
 	// 环境变量
 	sb.WriteString(fmt.Sprintf("    环境变量: %s\n", field.EnvName))
 
@@ -388,4 +398,71 @@ func generateTypeHelp() string {
   环境变量: CACHE_REDIS_HOST=localhost, CACHE_MEMCACHED_HOST=mc.com
   命令行: --cache-redis-host=localhost --cache-memcached-host=mc.com
 `
+}
+
+// formatValidationRules 格式化校验规则信息
+func formatValidationRules(validation string) string {
+	if validation == "" {
+		return ""
+	}
+
+	// 将校验规则转换为更易读的格式
+	rules := strings.Split(validation, ",")
+	var formatted []string
+
+	for _, rule := range rules {
+		rule = strings.TrimSpace(rule)
+		if rule == "" {
+			continue
+		}
+
+		// 解析常见的校验规则
+		switch {
+		case rule == "required":
+			formatted = append(formatted, "必填")
+		case strings.HasPrefix(rule, "min="):
+			value := strings.TrimPrefix(rule, "min=")
+			formatted = append(formatted, fmt.Sprintf("最小值: %s", value))
+		case strings.HasPrefix(rule, "max="):
+			value := strings.TrimPrefix(rule, "max=")
+			formatted = append(formatted, fmt.Sprintf("最大值: %s", value))
+		case strings.HasPrefix(rule, "len="):
+			value := strings.TrimPrefix(rule, "len=")
+			formatted = append(formatted, fmt.Sprintf("长度: %s", value))
+		case strings.HasPrefix(rule, "gt="):
+			value := strings.TrimPrefix(rule, "gt=")
+			formatted = append(formatted, fmt.Sprintf("大于: %s", value))
+		case strings.HasPrefix(rule, "gte="):
+			value := strings.TrimPrefix(rule, "gte=")
+			formatted = append(formatted, fmt.Sprintf("大于等于: %s", value))
+		case strings.HasPrefix(rule, "lt="):
+			value := strings.TrimPrefix(rule, "lt=")
+			formatted = append(formatted, fmt.Sprintf("小于: %s", value))
+		case strings.HasPrefix(rule, "lte="):
+			value := strings.TrimPrefix(rule, "lte=")
+			formatted = append(formatted, fmt.Sprintf("小于等于: %s", value))
+		case rule == "email":
+			formatted = append(formatted, "邮箱格式")
+		case rule == "url":
+			formatted = append(formatted, "URL格式")
+		case rule == "alphanum":
+			formatted = append(formatted, "仅允许字母数字")
+		case rule == "alpha":
+			formatted = append(formatted, "仅允许字母")
+		case rule == "numeric":
+			formatted = append(formatted, "仅允许数字")
+		case strings.HasPrefix(rule, "oneof="):
+			value := strings.TrimPrefix(rule, "oneof=")
+			formatted = append(formatted, fmt.Sprintf("允许值: %s", strings.ReplaceAll(value, " ", ", ")))
+		default:
+			// 对于未识别的规则，直接显示原始内容
+			formatted = append(formatted, rule)
+		}
+	}
+
+	if len(formatted) == 0 {
+		return validation // 如果没有识别的规则，返回原始内容
+	}
+
+	return strings.Join(formatted, "; ")
 }
