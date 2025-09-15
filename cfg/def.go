@@ -60,10 +60,17 @@ func setDefaults(rv reflect.Value) error {
 		defTag := field.Tag.Get("def")
 
 		// 处理嵌套结构体（递归处理）
-		if fieldValue.Kind() == reflect.Struct || 
-		   (fieldValue.Kind() == reflect.Ptr && fieldValue.Type().Elem().Kind() == reflect.Struct) {
+		if fieldValue.Kind() == reflect.Struct {
+			// 非指针结构体字段，直接递归处理
 			if err := setDefaults(fieldValue); err != nil {
 				return fmt.Errorf("failed to set defaults for field %s: %v", field.Name, err)
+			}
+		} else if fieldValue.Kind() == reflect.Ptr && fieldValue.Type().Elem().Kind() == reflect.Struct {
+			// 指针结构体字段，只有当指针不为空时才递归处理
+			if !fieldValue.IsNil() {
+				if err := setDefaults(fieldValue); err != nil {
+					return fmt.Errorf("failed to set defaults for field %s: %v", field.Name, err)
+				}
 			}
 		}
 

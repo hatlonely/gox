@@ -19,10 +19,10 @@ type TestConfig struct {
 	Description *string       `def:"default description"`
 	
 	// 嵌套结构体
-	Database DefDatabaseConfig `def:""`
+	Database DefDatabaseConfig
 	
 	// 指针类型的嵌套结构体
-	Cache *CacheConfig `def:""`
+	Cache *CacheConfig
 }
 
 type DefDatabaseConfig struct {
@@ -33,7 +33,7 @@ type DefDatabaseConfig struct {
 }
 
 type CacheConfig struct {
-	Redis RedisConfig `def:""`
+	Redis RedisConfig
 }
 
 type RedisConfig struct {
@@ -83,7 +83,19 @@ func TestSetDefaults_PointerNestedStruct(t *testing.T) {
 	err := SetDefaults(config)
 	assert.NoError(t, err)
 	
-	// 验证指针类型的嵌套结构体
+	// Cache 是指针类型且为空，应该保持为 nil（不会自动创建）
+	assert.Nil(t, config.Cache)
+}
+
+func TestSetDefaults_PointerNestedStructNotNil(t *testing.T) {
+	config := &TestConfig{
+		Cache: &CacheConfig{}, // 手动初始化指针
+	}
+	
+	err := SetDefaults(config)
+	assert.NoError(t, err)
+	
+	// 验证指针类型的嵌套结构体，当指针不为空时会递归处理
 	assert.NotNil(t, config.Cache)
 	assert.Equal(t, "redis-host", config.Cache.Redis.Host)
 	assert.Equal(t, 6379, config.Cache.Redis.Port)
