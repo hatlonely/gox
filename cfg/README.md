@@ -539,6 +539,80 @@ func main() {
 - 结构体字段会自动递归处理（无需 def 标签）
 - 指针结构体字段只有在非空时才会递归处理
 
+### help 标签 - 帮助文档生成
+
+配置库支持多种标签来自动生成详细的配置帮助文档：
+
+```go
+package main
+
+import (
+    "fmt"
+    "time"
+    "github.com/hatlonely/gox/cfg"
+)
+
+type DatabaseConfig struct {
+    Host     string `cfg:"host" help:"数据库主机地址" eg:"localhost" def:"127.0.0.1" validate:"required,hostname"`
+    Port     int    `cfg:"port" help:"数据库端口号" eg:"3306" def:"5432" validate:"required,min=1,max=65535"`
+    Username string `cfg:"username" help:"数据库用户名" eg:"admin" def:"postgres" validate:"required"`
+    Password string `cfg:"password" help:"数据库密码" validate:"required,min=8"`
+}
+
+type AppConfig struct {
+    Name     string        `cfg:"name" help:"应用名称" eg:"my-app" def:"demo" validate:"required,min=3"`
+    Port     int           `cfg:"port" help:"服务端口" eg:"8080" def:"3000" validate:"required,min=1000"`
+    Debug    bool          `cfg:"debug" help:"调试模式" def:"false"`
+    Timeout  time.Duration `cfg:"timeout" help:"超时时间" eg:"30s" def:"10s"`
+    Database DatabaseConfig `cfg:"database" help:"数据库配置"`
+}
+
+func main() {
+    config := &AppConfig{}
+    
+    // 生成帮助文档
+    help := cfg.GenerateHelp(config, "APP_", "app-")
+    fmt.Println(help)
+}
+```
+
+**支持的帮助标签：**
+
+| 标签 | 说明 | 示例 |
+|------|------|------|
+| `help` | 字段说明文本 | `help:"应用名称"` |
+| `eg` | 示例值 | `eg:"my-app"` |
+| `def` | 默认值（也用于SetDefaults） | `def:"demo"` |
+| `validate` | 校验规则 | `validate:"required,min=3"` |
+
+**输出示例：**
+```
+配置参数说明：
+
+  name (string) [必填]
+    说明: 应用名称
+    校验规则: 必填; 最小值: 3
+    环境变量: APP_NAME
+    命令行参数: --app-name
+    默认值: demo
+    示例: my-app
+
+  database.host (string) [必填]
+    说明: 数据库主机地址
+    校验规则: 必填; 主机名格式
+    环境变量: APP_DATABASE_HOST
+    命令行参数: --app-database-host
+    默认值: 127.0.0.1
+    示例: localhost
+```
+
+**功能特点：**
+- 自动生成环境变量和命令行参数名称
+- 支持嵌套结构体的递归文档生成
+- 智能解析 validate 标签并格式化校验规则
+- 包含类型说明和配置优先级说明
+- 保持结构体字段的原始定义顺序
+
 ## 许可证
 
 MIT License
