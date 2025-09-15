@@ -18,6 +18,7 @@ type FieldInfo struct {
 	DefaultValue string   // 默认值
 	Required     bool     // 是否必填
 	Examples     []string // 示例值
+	Order        int      // 字段定义顺序，用于保持原始顺序
 }
 
 // GenerateHelp 生成配置帮助信息
@@ -25,7 +26,8 @@ type FieldInfo struct {
 // envPrefix: 环境变量前缀，如 "APP_"
 // cmdPrefix: 命令行参数前缀，如 "app-"
 func GenerateHelp(config interface{}, envPrefix, cmdPrefix string) string {
-	fields := extractFieldInfo(config, "", envPrefix, cmdPrefix)
+	orderCounter := &orderCounter{}
+	fields := extractFieldInfo(config, "", envPrefix, cmdPrefix, orderCounter)
 
 	if len(fields) == 0 {
 		return "未找到配置字段信息"
@@ -34,9 +36,9 @@ func GenerateHelp(config interface{}, envPrefix, cmdPrefix string) string {
 	var sb strings.Builder
 	sb.WriteString("配置参数说明：\n\n")
 
-	// 按路径排序
+	// 按原始定义顺序排序，保持结构体字段的原始顺序
 	sort.Slice(fields, func(i, j int) bool {
-		return fields[i].Path < fields[j].Path
+		return fields[i].Order < fields[j].Order
 	})
 
 	// 直接显示所有字段信息，不分组
@@ -51,8 +53,18 @@ func GenerateHelp(config interface{}, envPrefix, cmdPrefix string) string {
 	return sb.String()
 }
 
+// orderCounter 用于记录字段的原始顺序
+type orderCounter struct {
+	count int
+}
+
+func (oc *orderCounter) next() int {
+	oc.count++
+	return oc.count
+}
+
 // extractFieldInfo 提取字段信息，只在叶子节点生成 FieldInfo
-func extractFieldInfo(obj interface{}, prefix, envPrefix, cmdPrefix string) []FieldInfo {
+func extractFieldInfo(obj interface{}, prefix, envPrefix, cmdPrefix string, orderCounter *orderCounter) []FieldInfo {
 	var fields []FieldInfo
 
 	rv := reflect.ValueOf(obj)
@@ -94,14 +106,14 @@ func extractFieldInfo(obj interface{}, prefix, envPrefix, cmdPrefix string) []Fi
 		}
 
 		// 递归处理不同类型的字段
-		fields = append(fields, extractFieldsRecursive(fieldValue, field, fullPath, helpText, envPrefix, cmdPrefix)...)
+		fields = append(fields, extractFieldsRecursive(fieldValue, field, fullPath, helpText, envPrefix, cmdPrefix, orderCounter)...)
 	}
 
 	return fields
 }
 
 // extractFieldsRecursive 递归提取字段信息
-func extractFieldsRecursive(fieldValue reflect.Value, field reflect.StructField, fullPath, helpText, envPrefix, cmdPrefix string) []FieldInfo {
+func extractFieldsRecursive(fieldValue reflect.Value, field reflect.StructField, fullPath, helpText, envPrefix, cmdPrefix string, orderCounter *orderCounter) []FieldInfo {
 	var fields []FieldInfo
 
 	switch fieldValue.Kind() {
@@ -109,10 +121,10 @@ func extractFieldsRecursive(fieldValue reflect.Value, field reflect.StructField,
 		// 嵌套结构体，递归处理
 		if isTimeType(fieldValue.Type()) {
 			// time.Time 和 time.Duration 作为基本类型处理
-			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
+			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix, orderCounter))
 		} else {
 			// 递归处理嵌套结构体
-			nestedFields := extractFieldInfo(fieldValue.Interface(), fullPath, envPrefix, cmdPrefix)
+			nestedFields := extractFieldInfo(fieldValue.Interface(), fullPath, envPrefix, cmdPrefix, orderCounter)
 			fields = append(fields, nestedFields...)
 		}
 
@@ -122,11 +134,11 @@ func extractFieldsRecursive(fieldValue reflect.Value, field reflect.StructField,
 			// 创建元素实例来分析字段
 			elemInstance := reflect.New(elemType).Interface()
 			// 生成元素字段信息，使用占位符格式
-			elemFields := extractFieldInfo(elemInstance, fullPath+"[N]", envPrefix, cmdPrefix)
+			elemFields := extractFieldInfo(elemInstance, fullPath+"[N]", envPrefix, cmdPrefix, orderCounter)
 			fields = append(fields, elemFields...)
 		} else {
 			// 基本类型数组，直接作为叶子节点处理
-			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
+			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix, orderCounter))
 		}
 
 	case reflect.Map:
@@ -138,11 +150,11 @@ func extractFieldsRecursive(fieldValue reflect.Value, field reflect.StructField,
 			// 创建值实例来分析字段
 			valueInstance := reflect.New(valueType).Interface()
 			// 生成值字段信息，使用占位符格式
-			valueFields := extractFieldInfo(valueInstance, fullPath+".{KEY}", envPrefix, cmdPrefix)
+			valueFields := extractFieldInfo(valueInstance, fullPath+".{KEY}", envPrefix, cmdPrefix, orderCounter)
 			fields = append(fields, valueFields...)
 		} else {
 			// 基本类型 map，作为叶子节点处理
-			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
+			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix, orderCounter))
 		}
 
 	case reflect.Ptr:
@@ -150,16 +162,16 @@ func extractFieldsRecursive(fieldValue reflect.Value, field reflect.StructField,
 		if fieldValue.IsNil() {
 			// 创建一个新实例来分析结构
 			newValue := reflect.New(fieldValue.Type().Elem())
-			nestedFields := extractFieldsRecursive(newValue.Elem(), field, fullPath, helpText, envPrefix, cmdPrefix)
+			nestedFields := extractFieldsRecursive(newValue.Elem(), field, fullPath, helpText, envPrefix, cmdPrefix, orderCounter)
 			fields = append(fields, nestedFields...)
 		} else {
-			nestedFields := extractFieldsRecursive(fieldValue.Elem(), field, fullPath, helpText, envPrefix, cmdPrefix)
+			nestedFields := extractFieldsRecursive(fieldValue.Elem(), field, fullPath, helpText, envPrefix, cmdPrefix, orderCounter)
 			fields = append(fields, nestedFields...)
 		}
 
 	default:
 		// 基本类型，作为叶子节点处理
-		fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
+		fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix, orderCounter))
 	}
 
 	return fields
@@ -183,7 +195,7 @@ func getFieldConfigName(field reflect.StructField) string {
 }
 
 // createFieldInfo 创建字段信息
-func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cmdPrefix string) FieldInfo {
+func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cmdPrefix string, orderCounter *orderCounter) FieldInfo {
 	fieldType := getTypeName(field.Type)
 
 	// 生成环境变量名
@@ -207,6 +219,7 @@ func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cm
 		CmdName:  cmdName,
 		Required: required,
 		Examples: examples,
+		Order:    orderCounter.next(), // 记录字段定义的原始顺序
 	}
 }
 
@@ -305,12 +318,6 @@ func generateExamples(t reflect.Type) []string {
 
 	return []string{"..."}
 }
-
-
-
-
-
-
 
 // formatFieldHelp 格式化字段帮助信息
 func formatFieldHelp(field FieldInfo) string {
