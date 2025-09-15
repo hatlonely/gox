@@ -10,24 +10,24 @@ import (
 
 // 测试用的复杂配置结构体
 type DatabasePool struct {
-	Name     string        `cfg:"name" help:"连接池名称"`
-	Host     string        `cfg:"host" help:"数据库主机地址"`
-	Port     int           `cfg:"port" help:"数据库端口号"`
-	MaxConns int           `cfg:"max_conns" help:"最大连接数"`
-	Timeout  time.Duration `cfg:"timeout" help:"连接超时时间"`
+	Name     string        `cfg:"name" help:"连接池名称" eg:"main-pool"`
+	Host     string        `cfg:"host" help:"数据库主机地址" eg:"localhost" def:"127.0.0.1"`
+	Port     int           `cfg:"port" help:"数据库端口号" eg:"3306" def:"5432"`
+	MaxConns int           `cfg:"max_conns" help:"最大连接数" eg:"100" def:"10"`
+	Timeout  time.Duration `cfg:"timeout" help:"连接超时时间" eg:"30s" def:"10s"`
 }
 
 type ServerConfig struct {
-	Host    string        `cfg:"host" help:"服务器绑定地址"`
-	Port    int           `cfg:"port" help:"服务器监听端口"`
-	Timeout time.Duration `cfg:"timeout" help:"请求超时时间"`
+	Host    string        `cfg:"host" help:"服务器绑定地址" eg:"0.0.0.0" def:"localhost"`
+	Port    int           `cfg:"port" help:"服务器监听端口" eg:"8080" def:"80"`
+	Timeout time.Duration `cfg:"timeout" help:"请求超时时间" eg:"60s" def:"30s"`
 }
 
 type ComplexConfig struct {
 	// 基本类型
-	Name    string `cfg:"name" help:"应用名称"`
-	Version string `cfg:"version" help:"应用版本号"`
-	Debug   bool   `cfg:"debug" help:"是否启用调试模式"`
+	Name    string `cfg:"name" help:"应用名称" eg:"my-app" def:"app"`
+	Version string `cfg:"version" help:"应用版本号" eg:"1.2.3" def:"1.0.0"`
+	Debug   bool   `cfg:"debug" help:"是否启用调试模式" eg:"true" def:"false"`
 
 	// 嵌套结构体
 	Server ServerConfig `cfg:"server" help:"服务器配置"`
@@ -39,20 +39,20 @@ type ComplexConfig struct {
 	Pools []DatabasePool `cfg:"pools" help:"数据库连接池列表"`
 
 	// Map类型
-	Cache    map[string]string       `cfg:"cache" help:"缓存配置映射"`
-	Features map[string]bool         `cfg:"features" help:"功能开关映射"`
+	Cache    map[string]string       `cfg:"cache" help:"缓存配置映射" eg:"redis=localhost:6379,memcache=localhost:11211"`
+	Features map[string]bool         `cfg:"features" help:"功能开关映射" eg:"feature1=true,feature2=false"`
 	Services map[string]ServerConfig `cfg:"services" help:"服务配置映射"`
 
 	// 时间类型
-	StartTime time.Time     `cfg:"start_time" help:"服务启动时间"`
-	Interval  time.Duration `cfg:"interval" help:"执行间隔"`
+	StartTime time.Time     `cfg:"start_time" help:"服务启动时间" eg:"2023-12-25T15:30:45Z"`
+	Interval  time.Duration `cfg:"interval" help:"执行间隔" eg:"5m" def:"1m"`
 }
 
 type DatabaseConfig struct {
-	Host     string `cfg:"host" help:"数据库主机"`
-	Port     int    `cfg:"port" help:"数据库端口"`
-	Username string `cfg:"username" help:"数据库用户名"`
-	Password string `cfg:"password" help:"数据库密码"`
+	Host     string `cfg:"host" help:"数据库主机" eg:"db.example.com" def:"localhost"`
+	Port     int    `cfg:"port" help:"数据库端口" eg:"5432" def:"5432"`
+	Username string `cfg:"username" help:"数据库用户名" eg:"admin" def:"postgres"`
+	Password string `cfg:"password" help:"数据库密码" eg:"secret123"`
 }
 
 func TestGenerateHelp_BasicTypes(t *testing.T) {
