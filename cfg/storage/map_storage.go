@@ -6,11 +6,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hatlonely/gox/cfg/def"
 )
 
 // MapStorage 基于 map 和 slice 的存储实现
 type MapStorage struct {
-	data interface{}
+	data           interface{}
+	enableDefaults bool // 控制是否启用默认值功能
 }
 
 // Data 获取存储的原始数据
@@ -18,9 +21,28 @@ func (ms *MapStorage) Data() interface{} {
 	return ms.data
 }
 
-// NewMapStorage 创建一个新的 MapStorage 实例
+// NewMapStorage 创建一个新的 MapStorage 实例，默认启用默认值功能
 func NewMapStorage(data interface{}) *MapStorage {
-	return &MapStorage{data: data}
+	return &MapStorage{
+		data:           data,
+		enableDefaults: true,
+	}
+}
+
+// NewMapStorageWithoutDefaults 创建不启用默认值的 MapStorage
+func NewMapStorageWithoutDefaults(data interface{}) *MapStorage {
+	return &MapStorage{
+		data:           data,
+		enableDefaults: false,
+	}
+}
+
+// WithDefaults 启用或禁用默认值功能
+func (ms *MapStorage) WithDefaults(enable bool) *MapStorage {
+	if ms != nil {
+		ms.enableDefaults = enable
+	}
+	return ms
 }
 
 // Sub 获取子配置存储对象
@@ -37,7 +59,13 @@ func (ms *MapStorage) Sub(key string) Storage {
 		var nilStorage *MapStorage = nil
 		return nilStorage
 	}
-	return NewMapStorage(result)
+	
+	// 子配置继承父配置的默认值设置
+	subStorage := NewMapStorage(result)
+	if ms != nil {
+		subStorage.enableDefaults = ms.enableDefaults
+	}
+	return subStorage
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
@@ -46,7 +74,22 @@ func (ms *MapStorage) ConvertTo(object interface{}) error {
 	if ms == nil {
 		return nil
 	}
-	return ms.convertValue(ms.data, reflect.ValueOf(object))
+	
+	// 首先设置默认值，然后用配置数据覆盖
+	if ms.enableDefaults {
+		err := def.SetDefaults(object)
+		if err != nil {
+			return fmt.Errorf("failed to set defaults: %v", err)
+		}
+	}
+	
+	// 用配置数据覆盖默认值
+	err := ms.convertValue(ms.data, reflect.ValueOf(object))
+	if err != nil {
+		return err
+	}
+	
+	return nil
 }
 
 // Equals 比较两个 MapStorage 是否包含相同的数据内容
@@ -221,6 +264,14 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 	if dst.Kind() == reflect.Ptr {
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
+			
+			// 新分配的结构体指针需要设置默认值
+			if ms.enableDefaults && dst.Type().Elem().Kind() == reflect.Struct {
+				err := def.SetDefaults(dst.Interface())
+				if err != nil {
+					return fmt.Errorf("failed to set defaults for new pointer: %v", err)
+				}
+			}
 		}
 		return ms.convertValue(src, dst.Elem())
 	}
