@@ -38,8 +38,9 @@ type ComplexConfig struct {
 	Pools []DatabasePool `cfg:"pools" help:"数据库连接池列表"`
 
 	// Map类型
-	Cache    map[string]string `cfg:"cache" help:"缓存配置映射"`
-	Features map[string]bool   `cfg:"features" help:"功能开关映射"`
+	Cache    map[string]string       `cfg:"cache" help:"缓存配置映射"`
+	Features map[string]bool         `cfg:"features" help:"功能开关映射"`
+	Services map[string]ServerConfig `cfg:"services" help:"服务配置映射"`
 
 	// 时间类型
 	StartTime time.Time     `cfg:"start_time" help:"服务启动时间"`
@@ -160,8 +161,8 @@ func TestGenerateHelp_MapType(t *testing.T) {
 		"缓存配置",
 		"映射类型",
 		"键类型: string, 值类型: string",
-		"APP_CACHE_KEY1",
-		"--app-cache-key1",
+		"APP_CACHE_REDIS", // 新的示例格式
+		"--app-cache-redis",
 		"features",
 		"功能开关",
 		"键类型: string, 值类型: bool",

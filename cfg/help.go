@@ -116,24 +116,40 @@ func extractFieldInfo(obj interface{}, prefix, envPrefix, cmdPrefix string) []Fi
 			}
 
 		case reflect.Slice:
-			// 切片类型
+			// 切片类型，使用占位符展示元素字段
 			sliceHelp := fmt.Sprintf("%s (数组类型)", helpText)
 			if elemType := fieldValue.Type().Elem(); elemType.Kind() == reflect.Struct {
 				sliceHelp += fmt.Sprintf("\n    元素类型: %s", getTypeName(elemType))
 				// 为切片元素提供示例结构
-				if fieldValue.Len() > 0 || elemType.Kind() == reflect.Struct {
-					sliceHelp += generateSliceElementHelp(elemType, fullPath, envPrefix, cmdPrefix)
+				sliceHelp += generateSliceElementHelp(elemType, fullPath, envPrefix, cmdPrefix)
+
+				// 递归处理切片元素的结构体字段，使用占位符 [N]
+				if elemType.Kind() == reflect.Struct {
+					// 创建元素实例来分析字段
+					elemInstance := reflect.New(elemType).Interface()
+					// 生成元素字段信息，使用占位符格式
+					elemFields := extractFieldInfo(elemInstance, fullPath+"[N]", envPrefix, cmdPrefix)
+					fields = append(fields, elemFields...)
 				}
 			}
 			fields = append(fields, createFieldInfoWithCustomHelp(fullPath, field, sliceHelp, envPrefix, cmdPrefix))
 
 		case reflect.Map:
-			// Map 类型
+			// Map类型，使用占位符展示键值字段
 			mapHelp := fmt.Sprintf("%s (映射类型)", helpText)
 			keyType := fieldValue.Type().Key()
 			valueType := fieldValue.Type().Elem()
 			mapHelp += fmt.Sprintf("\n    键类型: %s, 值类型: %s", getTypeName(keyType), getTypeName(valueType))
 			mapHelp += generateMapHelp(fieldValue.Type(), fullPath, envPrefix, cmdPrefix)
+
+			// 如果值类型是结构体，递归处理使用占位符 {KEY}
+			if valueType.Kind() == reflect.Struct {
+				// 创建值实例来分析字段
+				valueInstance := reflect.New(valueType).Interface()
+				// 生成值字段信息，使用占位符格式
+				valueFields := extractFieldInfo(valueInstance, fullPath+".{KEY}", envPrefix, cmdPrefix)
+				fields = append(fields, valueFields...)
+			}
 			fields = append(fields, createFieldInfoWithCustomHelp(fullPath, field, mapHelp, envPrefix, cmdPrefix))
 
 		case reflect.Ptr:
@@ -209,7 +225,12 @@ func createFieldInfoWithCustomHelp(path string, field reflect.StructField, help,
 
 // generateEnvName 生成环境变量名
 func generateEnvName(path, prefix string) string {
-	envName := strings.ToUpper(strings.ReplaceAll(path, ".", "_"))
+	// 处理占位符：[N] -> _N_, {KEY} -> _{KEY}_
+	envPath := strings.ReplaceAll(path, "[N]", "_N")
+	envPath = strings.ReplaceAll(envPath, ".{KEY}", "_{KEY}")
+	envPath = strings.ReplaceAll(envPath, "[0]", "_0") // 兼容已有的 [0] 格式
+
+	envName := strings.ToUpper(strings.ReplaceAll(envPath, ".", "_"))
 	if prefix != "" {
 		return prefix + envName
 	}
@@ -218,7 +239,12 @@ func generateEnvName(path, prefix string) string {
 
 // generateCmdName 生成命令行参数名
 func generateCmdName(path, prefix string) string {
-	cmdName := strings.ToLower(strings.ReplaceAll(path, ".", "-"))
+	// 处理占位符：[N] -> -N-, {KEY} -> -{KEY}-
+	cmdPath := strings.ReplaceAll(path, "[N]", "-N")
+	cmdPath = strings.ReplaceAll(cmdPath, ".{KEY}", "-{KEY}")
+	cmdPath = strings.ReplaceAll(cmdPath, "[0]", "-0") // 兼容已有的 [0] 格式
+
+	cmdName := strings.ToLower(strings.ReplaceAll(cmdPath, ".", "-"))
 	if prefix != "" {
 		return "--" + prefix + cmdName
 	}
@@ -309,6 +335,29 @@ func generateSliceElementHelp(elemType reflect.Type, path, envPrefix, cmdPrefix 
 	}
 	help.WriteString(fmt.Sprintf("\n      命令行: --%s-0-field, --%s-1-field, ...", cmdName, cmdName))
 
+	// 如果是结构体类型，提供具体字段示例
+	if elemType.Kind() == reflect.Struct {
+		help.WriteString("\n    具体字段示例:")
+		// 分析结构体字段
+		for i := 0; i < elemType.NumField(); i++ {
+			field := elemType.Field(i)
+			if !field.IsExported() {
+				continue
+			}
+			fieldConfigName := getFieldConfigName(field)
+			if fieldConfigName == "-" {
+				continue
+			}
+
+			// 生成具体的配置示例
+			fieldEnvName := generateEnvName(path+"_0_"+fieldConfigName, envPrefix)
+			fieldCmdName := generateCmdName(path+"-0-"+fieldConfigName, cmdPrefix)
+
+			help.WriteString(fmt.Sprintf("\n      %s: %s 或 %s",
+				fieldConfigName, fieldEnvName, fieldCmdName))
+		}
+	}
+
 	return help.String()
 }
 
@@ -319,14 +368,21 @@ func generateMapHelp(mapType reflect.Type, path, envPrefix, cmdPrefix string) st
 
 	// 环境变量格式
 	envName := generateEnvName(path, envPrefix)
-	help.WriteString(fmt.Sprintf("\n      环境变量: %s_KEY1=value1, %s_KEY2=value2, ...", envName, envName))
+	help.WriteString(fmt.Sprintf("\n      环境变量: %s (其中 KEY 为具体的键名)",
+		strings.ReplaceAll(envName+"_{KEY}", "_{KEY}", "_REDIS")))
 
 	// 命令行格式
 	cmdName := generateCmdName(path, cmdPrefix)
 	if strings.HasPrefix(cmdName, "--") {
 		cmdName = cmdName[2:]
 	}
-	help.WriteString(fmt.Sprintf("\n      命令行: --%s-key1=value1, --%s-key2=value2, ...", cmdName, cmdName))
+	help.WriteString(fmt.Sprintf("\n      命令行: --%s (其中 KEY 为具体的键名)",
+		strings.ReplaceAll(cmdName+"-{KEY}", "-{KEY}", "-redis")))
+
+	// 为常见的映射类型提供具体示例
+	help.WriteString("\n    示例 (假设键为 redis, memcached):")
+	help.WriteString(fmt.Sprintf("\n      %s_REDIS=value1, %s_MEMCACHED=value2", envName, envName))
+	help.WriteString(fmt.Sprintf("\n      %s-redis=value1, %s-memcached=value2", cmdName, cmdName))
 
 	return help.String()
 }
