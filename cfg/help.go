@@ -237,7 +237,6 @@ func generateEnvName(path, prefix string) string {
 	// 处理占位符：[N] -> _{N}, {KEY} -> _{KEY}
 	envPath := strings.ReplaceAll(path, "[N]", "_{N}")
 	envPath = strings.ReplaceAll(envPath, ".{KEY}", "_{KEY}")
-	envPath = strings.ReplaceAll(envPath, "[0]", "_0") // 兼容已有的 [0] 格式
 
 	envName := strings.ToUpper(strings.ReplaceAll(envPath, ".", "_"))
 	if prefix != "" {
@@ -251,7 +250,6 @@ func generateCmdName(path, prefix string) string {
 	// 处理占位符：[N] -> -{n}, {KEY} -> -{key}
 	cmdPath := strings.ReplaceAll(path, "[N]", "-{n}")
 	cmdPath = strings.ReplaceAll(cmdPath, ".{KEY}", "-{key}")
-	cmdPath = strings.ReplaceAll(cmdPath, "[0]", "-0") // 兼容已有的 [0] 格式
 
 	cmdName := strings.ToLower(strings.ReplaceAll(cmdPath, ".", "-"))
 	if prefix != "" {
