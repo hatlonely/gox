@@ -39,18 +39,9 @@ func GenerateHelp(config interface{}, envPrefix, cmdPrefix string) string {
 		return fields[i].Path < fields[j].Path
 	})
 
-	// 按照层级分组显示
-	groupedFields := groupFieldsByCategory(fields)
-
-	for category, categoryFields := range groupedFields {
-		if category != "" {
-			sb.WriteString(fmt.Sprintf("=== %s ===\n", category))
-		}
-
-		for _, field := range categoryFields {
-			sb.WriteString(formatFieldHelp(field))
-			sb.WriteString("\n")
-		}
+	// 直接显示所有字段信息，不分组
+	for _, field := range fields {
+		sb.WriteString(formatFieldHelp(field))
 		sb.WriteString("\n")
 	}
 
@@ -60,7 +51,7 @@ func GenerateHelp(config interface{}, envPrefix, cmdPrefix string) string {
 	return sb.String()
 }
 
-// extractFieldInfo 提取字段信息
+// extractFieldInfo 提取字段信息，只在叶子节点生成 FieldInfo
 func extractFieldInfo(obj interface{}, prefix, envPrefix, cmdPrefix string) []FieldInfo {
 	var fields []FieldInfo
 
@@ -102,72 +93,73 @@ func extractFieldInfo(obj interface{}, prefix, envPrefix, cmdPrefix string) []Fi
 			helpText = generateDefaultHelp(field)
 		}
 
-		// 处理不同类型的字段
-		switch fieldValue.Kind() {
-		case reflect.Struct:
-			// 嵌套结构体，递归处理
-			if isTimeType(fieldValue.Type()) {
-				// time.Time 和 time.Duration 作为基本类型处理
-				fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
-			} else {
-				// 递归处理嵌套结构体
-				nestedFields := extractFieldInfo(fieldValue.Interface(), fullPath, envPrefix, cmdPrefix)
-				fields = append(fields, nestedFields...)
-			}
+		// 递归处理不同类型的字段
+		fields = append(fields, extractFieldsRecursive(fieldValue, field, fullPath, helpText, envPrefix, cmdPrefix)...)
+	}
 
-		case reflect.Slice:
-			// 切片类型，使用占位符展示元素字段
-			sliceHelp := fmt.Sprintf("%s (数组类型)", helpText)
-			if elemType := fieldValue.Type().Elem(); elemType.Kind() == reflect.Struct {
-				sliceHelp += fmt.Sprintf("\n    元素类型: %s", getTypeName(elemType))
-				// 为切片元素提供示例结构
-				sliceHelp += generateSliceElementHelp(elemType, fullPath, envPrefix, cmdPrefix)
+	return fields
+}
 
-				// 递归处理切片元素的结构体字段，使用占位符 [N]
-				if elemType.Kind() == reflect.Struct {
-					// 创建元素实例来分析字段
-					elemInstance := reflect.New(elemType).Interface()
-					// 生成元素字段信息，使用占位符格式
-					elemFields := extractFieldInfo(elemInstance, fullPath+"[N]", envPrefix, cmdPrefix)
-					fields = append(fields, elemFields...)
-				}
-			}
-			fields = append(fields, createFieldInfoWithCustomHelp(fullPath, field, sliceHelp, envPrefix, cmdPrefix))
+// extractFieldsRecursive 递归提取字段信息
+func extractFieldsRecursive(fieldValue reflect.Value, field reflect.StructField, fullPath, helpText, envPrefix, cmdPrefix string) []FieldInfo {
+	var fields []FieldInfo
 
-		case reflect.Map:
-			// Map类型，使用占位符展示键值字段
-			mapHelp := fmt.Sprintf("%s (映射类型)", helpText)
-			keyType := fieldValue.Type().Key()
-			valueType := fieldValue.Type().Elem()
-			mapHelp += fmt.Sprintf("\n    键类型: %s, 值类型: %s", getTypeName(keyType), getTypeName(valueType))
-			mapHelp += generateMapHelp(fieldValue.Type(), fullPath, envPrefix, cmdPrefix)
+	switch fieldValue.Kind() {
+	case reflect.Struct:
+		// 嵌套结构体，递归处理
+		if isTimeType(fieldValue.Type()) {
+			// time.Time 和 time.Duration 作为基本类型处理
+			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
+		} else {
+			// 递归处理嵌套结构体
+			nestedFields := extractFieldInfo(fieldValue.Interface(), fullPath, envPrefix, cmdPrefix)
+			fields = append(fields, nestedFields...)
+		}
 
-			// 如果值类型是结构体，递归处理使用占位符 {KEY}
-			if valueType.Kind() == reflect.Struct {
-				// 创建值实例来分析字段
-				valueInstance := reflect.New(valueType).Interface()
-				// 生成值字段信息，使用占位符格式
-				valueFields := extractFieldInfo(valueInstance, fullPath+".{KEY}", envPrefix, cmdPrefix)
-				fields = append(fields, valueFields...)
-			}
-			fields = append(fields, createFieldInfoWithCustomHelp(fullPath, field, mapHelp, envPrefix, cmdPrefix))
-
-		case reflect.Ptr:
-			// 指针类型，获取指向的类型
-			if fieldValue.IsNil() {
-				// 创建一个新实例来分析结构
-				newValue := reflect.New(fieldValue.Type().Elem())
-				nestedFields := extractFieldInfo(newValue.Interface(), fullPath, envPrefix, cmdPrefix)
-				fields = append(fields, nestedFields...)
-			} else {
-				nestedFields := extractFieldInfo(fieldValue.Interface(), fullPath, envPrefix, cmdPrefix)
-				fields = append(fields, nestedFields...)
-			}
-
-		default:
-			// 基本类型
+	case reflect.Slice:
+		// 切片类型，递归处理元素字段
+		if elemType := fieldValue.Type().Elem(); elemType.Kind() == reflect.Struct {
+			// 创建元素实例来分析字段
+			elemInstance := reflect.New(elemType).Interface()
+			// 生成元素字段信息，使用占位符格式
+			elemFields := extractFieldInfo(elemInstance, fullPath+"[N]", envPrefix, cmdPrefix)
+			fields = append(fields, elemFields...)
+		} else {
+			// 基本类型数组，直接作为叶子节点处理
 			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
 		}
+
+	case reflect.Map:
+		// Map类型，处理值类型
+		valueType := fieldValue.Type().Elem()
+
+		// 如果值类型是结构体，递归处理使用占位符 {KEY}
+		if valueType.Kind() == reflect.Struct {
+			// 创建值实例来分析字段
+			valueInstance := reflect.New(valueType).Interface()
+			// 生成值字段信息，使用占位符格式
+			valueFields := extractFieldInfo(valueInstance, fullPath+".{KEY}", envPrefix, cmdPrefix)
+			fields = append(fields, valueFields...)
+		} else {
+			// 基本类型 map，作为叶子节点处理
+			fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
+		}
+
+	case reflect.Ptr:
+		// 指针类型，获取指向的类型
+		if fieldValue.IsNil() {
+			// 创建一个新实例来分析结构
+			newValue := reflect.New(fieldValue.Type().Elem())
+			nestedFields := extractFieldsRecursive(newValue.Elem(), field, fullPath, helpText, envPrefix, cmdPrefix)
+			fields = append(fields, nestedFields...)
+		} else {
+			nestedFields := extractFieldsRecursive(fieldValue.Elem(), field, fullPath, helpText, envPrefix, cmdPrefix)
+			fields = append(fields, nestedFields...)
+		}
+
+	default:
+		// 基本类型，作为叶子节点处理
+		fields = append(fields, createFieldInfo(fullPath, field, helpText, envPrefix, cmdPrefix))
 	}
 
 	return fields
@@ -192,11 +184,6 @@ func getFieldConfigName(field reflect.StructField) string {
 
 // createFieldInfo 创建字段信息
 func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cmdPrefix string) FieldInfo {
-	return createFieldInfoWithCustomHelp(path, field, help, envPrefix, cmdPrefix)
-}
-
-// createFieldInfoWithCustomHelp 创建带自定义帮助的字段信息
-func createFieldInfoWithCustomHelp(path string, field reflect.StructField, help, envPrefix, cmdPrefix string) FieldInfo {
 	fieldType := getTypeName(field.Type)
 
 	// 生成环境变量名
@@ -319,90 +306,11 @@ func generateExamples(t reflect.Type) []string {
 	return []string{"..."}
 }
 
-// generateSliceElementHelp 生成切片元素帮助信息
-func generateSliceElementHelp(elemType reflect.Type, path, envPrefix, cmdPrefix string) string {
-	var help strings.Builder
-	help.WriteString("\n    数组元素配置格式:")
 
-	// 环境变量格式
-	envName := generateEnvName(path, envPrefix)
-	help.WriteString(fmt.Sprintf("\n      环境变量: %s_0_FIELD, %s_1_FIELD, ...", envName, envName))
 
-	// 命令行格式
-	cmdName := generateCmdName(path, cmdPrefix)
-	if strings.HasPrefix(cmdName, "--") {
-		cmdName = cmdName[2:]
-	}
-	help.WriteString(fmt.Sprintf("\n      命令行: --%s-0-field, --%s-1-field, ...", cmdName, cmdName))
 
-	// 如果是结构体类型，提供具体字段示例
-	if elemType.Kind() == reflect.Struct {
-		help.WriteString("\n    具体字段示例:")
-		// 分析结构体字段
-		for i := 0; i < elemType.NumField(); i++ {
-			field := elemType.Field(i)
-			if !field.IsExported() {
-				continue
-			}
-			fieldConfigName := getFieldConfigName(field)
-			if fieldConfigName == "-" {
-				continue
-			}
 
-			// 生成具体的配置示例
-			fieldEnvName := generateEnvName(path+"_0_"+fieldConfigName, envPrefix)
-			fieldCmdName := generateCmdName(path+"-0-"+fieldConfigName, cmdPrefix)
 
-			help.WriteString(fmt.Sprintf("\n      %s: %s 或 %s",
-				fieldConfigName, fieldEnvName, fieldCmdName))
-		}
-	}
-
-	return help.String()
-}
-
-// generateMapHelp 生成 Map 帮助信息
-func generateMapHelp(mapType reflect.Type, path, envPrefix, cmdPrefix string) string {
-	var help strings.Builder
-	help.WriteString("\n    映射配置格式:")
-
-	// 环境变量格式
-	envName := generateEnvName(path, envPrefix)
-	help.WriteString(fmt.Sprintf("\n      环境变量: %s (其中 KEY 为具体的键名)",
-		strings.ReplaceAll(envName+"_{KEY}", "_{KEY}", "_REDIS")))
-
-	// 命令行格式
-	cmdName := generateCmdName(path, cmdPrefix)
-	if strings.HasPrefix(cmdName, "--") {
-		cmdName = cmdName[2:]
-	}
-	help.WriteString(fmt.Sprintf("\n      命令行: --%s (其中 KEY 为具体的键名)",
-		strings.ReplaceAll(cmdName+"-{KEY}", "-{KEY}", "-redis")))
-
-	// 为常见的映射类型提供具体示例
-	help.WriteString("\n    示例 (假设键为 redis, memcached):")
-	help.WriteString(fmt.Sprintf("\n      %s_REDIS=value1, %s_MEMCACHED=value2", envName, envName))
-	help.WriteString(fmt.Sprintf("\n      %s-redis=value1, %s-memcached=value2", cmdName, cmdName))
-
-	return help.String()
-}
-
-// groupFieldsByCategory 按类别分组字段
-func groupFieldsByCategory(fields []FieldInfo) map[string][]FieldInfo {
-	groups := make(map[string][]FieldInfo)
-
-	for _, field := range fields {
-		parts := strings.Split(field.Path, ".")
-		category := ""
-		if len(parts) > 1 {
-			category = parts[0]
-		}
-
-		groups[category] = append(groups[category], field)
-	}
-
-	return groups
-}
 
 // formatFieldHelp 格式化字段帮助信息
 func formatFieldHelp(field FieldInfo) string {

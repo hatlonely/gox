@@ -1,6 +1,7 @@
 package cfg
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -127,16 +128,22 @@ func TestGenerateHelp_SliceType(t *testing.T) {
 	config := Config{}
 	help := GenerateHelp(&config, "APP_", "app-")
 
-	// 验证切片类型信息
+	// 验证切片类型信息：现在只展示叶子节点字段
 	expectedContent := []string{
-		"pools",
-		"连接池列表",
-		"数组类型",
-		"APP_POOLS_0",
-		"APP_POOLS_1",
-		"--app-pools-0",
-		"--app-pools-1",
-		"数组元素配置格式",
+		"pools[N].host",
+		"pools[N].port",
+		"pools[N].name",
+		"pools[N].max_conns",
+		"pools[N].timeout",
+		"数据库主机地址",
+		"数据库端口号",
+		"连接池名称",
+		"最大连接数",
+		"连接超时时间",
+		"APP_POOLS_N_HOST",
+		"APP_POOLS_N_PORT",
+		"--app-pools-n-host",
+		"--app-pools-n-port",
 	}
 
 	for _, content := range expectedContent {
@@ -155,18 +162,16 @@ func TestGenerateHelp_MapType(t *testing.T) {
 	config := Config{}
 	help := GenerateHelp(&config, "APP_", "app-")
 
-	// 验证Map类型信息
+	// 验证Map类型信息：现在只展示基本类型 map 的叶子节点
 	expectedContent := []string{
-		"cache",
+		"cache (map[string]string)",
 		"缓存配置",
-		"映射类型",
-		"键类型: string, 值类型: string",
-		"APP_CACHE_REDIS", // 新的示例格式
-		"--app-cache-redis",
-		"features",
+		"APP_CACHE",
+		"--app-cache",
+		"features (map[string]bool)",
 		"功能开关",
-		"键类型: string, 值类型: bool",
-		"映射配置格式",
+		"APP_FEATURES",
+		"--app-features",
 	}
 
 	for _, content := range expectedContent {
@@ -226,40 +231,50 @@ func TestGenerateHelp_PointerType(t *testing.T) {
 	}
 }
 
-func TestGenerateHelp_ComplexStructure(t *testing.T) {
+func TestGenerateHelp_PrintComplexConfig(t *testing.T) {
 	config := ComplexConfig{}
 	help := GenerateHelp(&config, "APP_", "app-")
 
-	// 验证复杂结构的完整性
-	expectedSections := []string{
-		"配置参数说明",
-		"类型说明",
-		"配置优先级",
-		"数组配置示例",
-		"映射配置示例",
+	// 打印完整的帮助信息用于查看效果
+	fmt.Println("=== ComplexConfig 完整帮助信息 ===")
+	fmt.Println(help)
+	fmt.Println("=== 帮助信息结束 ===")
+
+	// 基本验证
+	if !strings.Contains(help, "配置参数说明") {
+		t.Error("帮助信息应包含标题")
 	}
 
-	for _, section := range expectedSections {
-		if !strings.Contains(help, section) {
-			t.Errorf("帮助信息应包含章节: %s", section)
+	// 验证数组类型占位符
+	if !strings.Contains(help, "pools[N]") {
+		t.Error("帮助信息应包含数组占位符 pools[N]")
+	}
+
+	// 验证Map类型占位符
+	if !strings.Contains(help, "services.{KEY}") {
+		t.Error("帮助信息应包含Map占位符 services.{KEY}")
+	}
+
+	// 验证所有复杂类型都有对应的字段信息
+	expectedFields := []string{
+		"pools[N].host",
+		"pools[N].port",
+		"pools[N].name",
+		"pools[N].timeout",
+		"services.{KEY}.host",
+		"services.{KEY}.port",
+		"services.{KEY}.timeout",
+		"database.host",
+		"database.port",
+		"server.host",
+		"server.port",
+	}
+
+	for _, field := range expectedFields {
+		if !strings.Contains(help, field) {
+			t.Errorf("帮助信息应包含字段: %s", field)
 		}
 	}
-
-	// 验证所有字段类型都被包含
-	expectedTypes := []string{
-		"string", "int", "bool",
-		"time.Duration", "time.Time",
-		"数组类型", "映射类型",
-	}
-
-	for _, typeStr := range expectedTypes {
-		if !strings.Contains(help, typeStr) {
-			t.Errorf("帮助信息应包含类型: %s", typeStr)
-		}
-	}
-
-	// 打印完整的帮助信息用于手动验证
-	t.Logf("完整帮助信息:\n%s", help)
 }
 
 func TestGenerateHelp_NoPrefix(t *testing.T) {
