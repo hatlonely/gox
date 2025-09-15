@@ -204,15 +204,13 @@ func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cm
 	// 生成命令行参数名
 	cmdName := generateCmdName(path, cmdPrefix)
 
-	// 获取示例值：优先使用 eg 标签，否则生成默认示例
+	// 获取示例值：只有在有 eg 标签时才显示示例值
 	var examples []string
 	if exampleTag := field.Tag.Get("eg"); exampleTag != "" {
 		// 使用标签中的示例值
 		examples = []string{exampleTag}
-	} else {
-		// 生成默认示例值
-		examples = generateExamples(field.Type)
 	}
+	// 如果没有 eg 标签，不显示示例值（examples 为空）
 
 	// 获取默认值
 	defaultValue := field.Tag.Get("def")

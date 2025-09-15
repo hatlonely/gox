@@ -328,15 +328,15 @@ func TestGenerateHelp_TagSupport(t *testing.T) {
 		t.Error("应该使用 def 标签的默认值")
 	}
 
-	// 验证没有标签时不显示默认值，但会显示生成的示例值
-	// timeout 字段没有 def 标签，不应该有默认值信息
+	// 验证没有 eg 标签时不显示示例值
+	// timeout 字段没有 eg 标签，不应该有示例值信息
 	timeoutSection := extractFieldSection(help, "timeout")
+	if strings.Contains(timeoutSection, "示例:") {
+		t.Error("timeout 字段没有 eg 标签，不应该显示示例值")
+	}
+	// timeout 字段也没有 def 标签，不应该有默认值信息
 	if strings.Contains(timeoutSection, "默认值:") {
 		t.Error("timeout 字段没有 def 标签，不应该显示默认值")
-	}
-	// 但应该有自动生成的示例值
-	if !strings.Contains(timeoutSection, "示例:") {
-		t.Error("timeout 字段应该有自动生成的示例值")
 	}
 
 	t.Logf("帮助信息:\n%s", help)
