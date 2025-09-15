@@ -298,6 +298,75 @@ func TestGenerateHelp_NoPrefix(t *testing.T) {
 	}
 }
 
+func TestGenerateHelp_TagSupport(t *testing.T) {
+	type Config struct {
+		Host    string `cfg:"host" help:"服务器地址" eg:"localhost" def:"127.0.0.1"`
+		Port    int    `cfg:"port" help:"端口号" eg:"8080" def:"80"`
+		Debug   bool   `cfg:"debug" help:"调试模式" def:"false"`
+		Timeout string `cfg:"timeout" help:"超时时间"` // 没有 eg 和 def 标签
+	}
+
+	config := Config{}
+	help := GenerateHelp(&config, "APP_", "app-")
+
+	// 验证 eg 标签的示例值
+	if !strings.Contains(help, "示例: localhost") {
+		t.Error("应该使用 eg 标签的示例值")
+	}
+	if !strings.Contains(help, "示例: 8080") {
+		t.Error("应该使用 eg 标签的示例值")
+	}
+
+	// 验证 def 标签的默认值
+	if !strings.Contains(help, "默认值: 127.0.0.1") {
+		t.Error("应该使用 def 标签的默认值")
+	}
+	if !strings.Contains(help, "默认值: 80") {
+		t.Error("应该使用 def 标签的默认值")
+	}
+	if !strings.Contains(help, "默认值: false") {
+		t.Error("应该使用 def 标签的默认值")
+	}
+
+	// 验证没有标签时不显示默认值，但会显示生成的示例值
+	// timeout 字段没有 def 标签，不应该有默认值信息
+	timeoutSection := extractFieldSection(help, "timeout")
+	if strings.Contains(timeoutSection, "默认值:") {
+		t.Error("timeout 字段没有 def 标签，不应该显示默认值")
+	}
+	// 但应该有自动生成的示例值
+	if !strings.Contains(timeoutSection, "示例:") {
+		t.Error("timeout 字段应该有自动生成的示例值")
+	}
+
+	t.Logf("帮助信息:\n%s", help)
+}
+
+// extractFieldSection 提取指定字段的帮助信息部分
+func extractFieldSection(help, fieldName string) string {
+	lines := strings.Split(help, "\n")
+	var fieldLines []string
+	inField := false
+
+	for _, line := range lines {
+		if strings.Contains(line, fieldName+" (") {
+			inField = true
+			fieldLines = append(fieldLines, line)
+			continue
+		}
+
+		if inField {
+			if strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "    ") {
+				// 新的字段开始
+				break
+			}
+			fieldLines = append(fieldLines, line)
+		}
+	}
+
+	return strings.Join(fieldLines, "\n")
+}
+
 func TestGenerateHelp_IgnoredFields(t *testing.T) {
 	type Config struct {
 		Name         string `cfg:"name" help:"应用名称"`

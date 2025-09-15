@@ -204,22 +204,33 @@ func createFieldInfo(path string, field reflect.StructField, help, envPrefix, cm
 	// 生成命令行参数名
 	cmdName := generateCmdName(path, cmdPrefix)
 
-	// 获取示例值
-	examples := generateExamples(field.Type)
+	// 获取示例值：优先使用 eg 标签，否则生成默认示例
+	var examples []string
+	if exampleTag := field.Tag.Get("eg"); exampleTag != "" {
+		// 使用标签中的示例值
+		examples = []string{exampleTag}
+	} else {
+		// 生成默认示例值
+		examples = generateExamples(field.Type)
+	}
+
+	// 获取默认值
+	defaultValue := field.Tag.Get("def")
 
 	// 检查是否必填
 	required := strings.Contains(field.Tag.Get("validate"), "required") ||
 		strings.Contains(field.Tag.Get("binding"), "required")
 
 	return FieldInfo{
-		Path:     path,
-		Type:     fieldType,
-		Help:     help,
-		EnvName:  envName,
-		CmdName:  cmdName,
-		Required: required,
-		Examples: examples,
-		Order:    orderCounter.next(), // 记录字段定义的原始顺序
+		Path:         path,
+		Type:         fieldType,
+		Help:         help,
+		EnvName:      envName,
+		CmdName:      cmdName,
+		Required:     required,
+		Examples:     examples,
+		DefaultValue: defaultValue,
+		Order:        orderCounter.next(), // 记录字段定义的原始顺序
 	}
 }
 
@@ -340,6 +351,11 @@ func formatFieldHelp(field FieldInfo) string {
 
 	// 命令行参数
 	sb.WriteString(fmt.Sprintf("    命令行参数: %s\n", field.CmdName))
+
+	// 默认值
+	if field.DefaultValue != "" {
+		sb.WriteString(fmt.Sprintf("    默认值: %s\n", field.DefaultValue))
+	}
 
 	// 示例值
 	if len(field.Examples) > 0 {
