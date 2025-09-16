@@ -446,6 +446,13 @@ func (ms *MapStorage) convertToMap(src, dst reflect.Value) error {
 	for _, key := range src.MapKeys() {
 		srcValue := src.MapIndex(key)
 		dstValue := reflect.New(dst.Type().Elem()).Elem()
+		
+		// 如果是结构体类型，为新创建的对象设置默认值
+		if ms.enableDefaults && dstValue.Kind() == reflect.Struct {
+			if err := def.SetDefaults(dstValue.Addr().Interface()); err != nil {
+				return fmt.Errorf("failed to set defaults for new map value: %v", err)
+			}
+		}
 
 		if err := ms.convertValue(srcValue.Interface(), dstValue); err != nil {
 			return err
