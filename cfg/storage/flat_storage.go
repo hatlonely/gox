@@ -1,6 +1,9 @@
 package storage
 
-import "strings"
+import (
+	"reflect"
+	"strings"
+)
 
 //	data := map[string]interface{}{
 //		"name": "test-app",
@@ -75,6 +78,15 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 }
 
 func (fs *FlatStorage) Equals(other Storage) bool {
+	if otherFs, ok := other.(*FlatStorage); ok {
+		return fs.separator == otherFs.separator &&
+			fs.enableDefaults == otherFs.enableDefaults &&
+			fs.uppercase == otherFs.uppercase &&
+			fs.lowercase == otherFs.lowercase &&
+			fs.parent == otherFs.parent &&
+			fs.prefix == otherFs.prefix &&
+			reflect.DeepEqual(fs.data, otherFs.data)
+	}
 	return false
 }
 
