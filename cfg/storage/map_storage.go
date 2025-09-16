@@ -485,6 +485,13 @@ func (ms *MapStorage) convertToSlice(src, dst reflect.Value) error {
 	for i := 0; i < length; i++ {
 		srcItem := src.Index(i)
 		dstItem := dst.Index(i)
+		
+		// 如果是结构体类型，为切片元素设置默认值
+		if ms.enableDefaults && dstItem.Kind() == reflect.Struct {
+			if err := def.SetDefaults(dstItem.Addr().Interface()); err != nil {
+				return fmt.Errorf("failed to set defaults for slice element %d: %v", i, err)
+			}
+		}
 
 		if err := ms.convertValue(srcItem.Interface(), dstItem); err != nil {
 			return err
