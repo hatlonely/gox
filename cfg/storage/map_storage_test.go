@@ -806,6 +806,300 @@ func TestMapStorage_ConvertTo_NestedStruct(t *testing.T) {
 	}
 }
 
+// TestMapStorage_ConvertTo_ComplexNestedStructure 测试复杂嵌套结构转换
+// 包含结构体中有map和slice，而slice/map中也包含结构体的情况
+func TestMapStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
+	// 定义嵌套的结构体类型
+	type Endpoint struct {
+		URL     string `json:"url"`
+		Timeout string `json:"timeout"`
+		Retries int    `json:"retries"`
+	}
+
+	type ServiceConfig struct {
+		Name      string              `json:"name"`
+		Enabled   bool                `json:"enabled"`
+		Endpoints []Endpoint          `json:"endpoints"`
+		Metadata  map[string]string   `json:"metadata"`
+		Advanced  map[string]Endpoint `json:"advanced"`
+	}
+
+	type DatabaseConnection struct {
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Database string `json:"database"`
+		Pool     struct {
+			MinSize int `json:"min_size"`
+			MaxSize int `json:"max_size"`
+		} `json:"pool"`
+	}
+
+	type ComplexConfig struct {
+		Application struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		} `json:"application"`
+		Services    []ServiceConfig                `json:"services"`
+		Databases   map[string]DatabaseConnection  `json:"databases"`
+		Environment map[string]interface{}         `json:"environment"`
+		Features    map[string][]string            `json:"features"`
+	}
+
+	// 构造复杂的测试数据
+	data := map[string]interface{}{
+		"application": map[string]interface{}{
+			"name":    "complex-app",
+			"version": "1.0.0",
+		},
+		"services": []interface{}{
+			map[string]interface{}{
+				"name":    "auth-service",
+				"enabled": true,
+				"endpoints": []interface{}{
+					map[string]interface{}{
+						"url":     "https://auth.example.com/login",
+						"timeout": "30s",
+						"retries": 3,
+					},
+					map[string]interface{}{
+						"url":     "https://auth.example.com/logout",
+						"timeout": "15s",
+						"retries": 1,
+					},
+				},
+				"metadata": map[string]interface{}{
+					"team":        "security",
+					"environment": "production",
+				},
+				"advanced": map[string]interface{}{
+					"health_check": map[string]interface{}{
+						"url":     "https://auth.example.com/health",
+						"timeout": "5s",
+						"retries": 2,
+					},
+					"metrics": map[string]interface{}{
+						"url":     "https://auth.example.com/metrics",
+						"timeout": "10s",
+						"retries": 1,
+					},
+				},
+			},
+			map[string]interface{}{
+				"name":    "notification-service",
+				"enabled": false,
+				"endpoints": []interface{}{
+					map[string]interface{}{
+						"url":     "https://notify.example.com/send",
+						"timeout": "60s",
+						"retries": 5,
+					},
+				},
+				"metadata": map[string]interface{}{
+					"team": "messaging",
+				},
+				"advanced": map[string]interface{}{},
+			},
+		},
+		"databases": map[string]interface{}{
+			"primary": map[string]interface{}{
+				"host":     "primary-db.example.com",
+				"port":     5432,
+				"database": "app_production",
+				"pool": map[string]interface{}{
+					"min_size": 5,
+					"max_size": 20,
+				},
+			},
+			"cache": map[string]interface{}{
+				"host":     "cache.example.com",
+				"port":     6379,
+				"database": "0",
+				"pool": map[string]interface{}{
+					"min_size": 2,
+					"max_size": 10,
+				},
+			},
+		},
+		"environment": map[string]interface{}{
+			"stage":      "production",
+			"debug":      false,
+			"log_level":  "info",
+			"max_memory": "2GB",
+		},
+		"features": map[string]interface{}{
+			"experimental": []interface{}{"feature-a", "feature-b"},
+			"stable":       []interface{}{"feature-x", "feature-y", "feature-z"},
+			"deprecated":   []interface{}{},
+		},
+	}
+
+	storage := NewMapStorage(data)
+	var config ComplexConfig
+	err := storage.ConvertTo(&config)
+	if err != nil {
+		t.Fatalf("ConvertTo failed: %v", err)
+	}
+
+	// 验证应用程序信息
+	if config.Application.Name != "complex-app" {
+		t.Errorf("Expected application name 'complex-app', got %v", config.Application.Name)
+	}
+	if config.Application.Version != "1.0.0" {
+		t.Errorf("Expected application version '1.0.0', got %v", config.Application.Version)
+	}
+
+	// 验证服务配置（slice中包含结构体，结构体中包含slice和map）
+	if len(config.Services) != 2 {
+		t.Fatalf("Expected 2 services, got %v", len(config.Services))
+	}
+
+	// 验证第一个服务
+	authService := config.Services[0]
+	if authService.Name != "auth-service" {
+		t.Errorf("Expected first service name 'auth-service', got %v", authService.Name)
+	}
+	if !authService.Enabled {
+		t.Errorf("Expected first service to be enabled")
+	}
+
+	// 验证服务的endpoints（slice中的结构体）
+	if len(authService.Endpoints) != 2 {
+		t.Fatalf("Expected 2 endpoints for auth service, got %v", len(authService.Endpoints))
+	}
+	
+	loginEndpoint := authService.Endpoints[0]
+	if loginEndpoint.URL != "https://auth.example.com/login" {
+		t.Errorf("Expected login URL 'https://auth.example.com/login', got %v", loginEndpoint.URL)
+	}
+	if loginEndpoint.Timeout != "30s" {
+		t.Errorf("Expected login timeout '30s', got %v", loginEndpoint.Timeout)
+	}
+	if loginEndpoint.Retries != 3 {
+		t.Errorf("Expected login retries 3, got %v", loginEndpoint.Retries)
+	}
+
+	// 验证服务的metadata（map[string]string）
+	if authService.Metadata["team"] != "security" {
+		t.Errorf("Expected metadata team 'security', got %v", authService.Metadata["team"])
+	}
+	if authService.Metadata["environment"] != "production" {
+		t.Errorf("Expected metadata environment 'production', got %v", authService.Metadata["environment"])
+	}
+
+	// 验证服务的advanced配置（map中包含结构体）
+	if len(authService.Advanced) != 2 {
+		t.Fatalf("Expected 2 advanced configs for auth service, got %v", len(authService.Advanced))
+	}
+	
+	healthCheck, exists := authService.Advanced["health_check"]
+	if !exists {
+		t.Error("Expected health_check in advanced config")
+	} else {
+		if healthCheck.URL != "https://auth.example.com/health" {
+			t.Errorf("Expected health check URL 'https://auth.example.com/health', got %v", healthCheck.URL)
+		}
+		if healthCheck.Timeout != "5s" {
+			t.Errorf("Expected health check timeout '5s', got %v", healthCheck.Timeout)
+		}
+		if healthCheck.Retries != 2 {
+			t.Errorf("Expected health check retries 2, got %v", healthCheck.Retries)
+		}
+	}
+
+	// 验证第二个服务
+	notifyService := config.Services[1]
+	if notifyService.Name != "notification-service" {
+		t.Errorf("Expected second service name 'notification-service', got %v", notifyService.Name)
+	}
+	if notifyService.Enabled {
+		t.Errorf("Expected second service to be disabled")
+	}
+	if len(notifyService.Advanced) != 0 {
+		t.Errorf("Expected empty advanced config for notification service, got %v", len(notifyService.Advanced))
+	}
+
+	// 验证数据库配置（map中包含结构体，结构体中包含嵌套结构体）
+	if len(config.Databases) != 2 {
+		t.Fatalf("Expected 2 databases, got %v", len(config.Databases))
+	}
+
+	primaryDB, exists := config.Databases["primary"]
+	if !exists {
+		t.Error("Expected primary database config")
+	} else {
+		if primaryDB.Host != "primary-db.example.com" {
+			t.Errorf("Expected primary DB host 'primary-db.example.com', got %v", primaryDB.Host)
+		}
+		if primaryDB.Port != 5432 {
+			t.Errorf("Expected primary DB port 5432, got %v", primaryDB.Port)
+		}
+		if primaryDB.Database != "app_production" {
+			t.Errorf("Expected primary DB database 'app_production', got %v", primaryDB.Database)
+		}
+		if primaryDB.Pool.MinSize != 5 {
+			t.Errorf("Expected primary DB pool min size 5, got %v", primaryDB.Pool.MinSize)
+		}
+		if primaryDB.Pool.MaxSize != 20 {
+			t.Errorf("Expected primary DB pool max size 20, got %v", primaryDB.Pool.MaxSize)
+		}
+	}
+
+	cacheDB, exists := config.Databases["cache"]
+	if !exists {
+		t.Error("Expected cache database config")
+	} else {
+		if cacheDB.Port != 6379 {
+			t.Errorf("Expected cache DB port 6379, got %v", cacheDB.Port)
+		}
+	}
+
+	// 验证环境变量（map[string]interface{}）
+	if len(config.Environment) != 4 {
+		t.Fatalf("Expected 4 environment variables, got %v", len(config.Environment))
+	}
+	if config.Environment["stage"] != "production" {
+		t.Errorf("Expected environment stage 'production', got %v", config.Environment["stage"])
+	}
+	if config.Environment["debug"] != false {
+		t.Errorf("Expected environment debug false, got %v", config.Environment["debug"])
+	}
+
+	// 验证特性配置（map中包含slice）
+	if len(config.Features) != 3 {
+		t.Fatalf("Expected 3 feature groups, got %v", len(config.Features))
+	}
+
+	experimental, exists := config.Features["experimental"]
+	if !exists {
+		t.Error("Expected experimental features")
+	} else {
+		if len(experimental) != 2 {
+			t.Fatalf("Expected 2 experimental features, got %v", len(experimental))
+		}
+		if experimental[0] != "feature-a" || experimental[1] != "feature-b" {
+			t.Errorf("Expected experimental features [feature-a, feature-b], got %v", experimental)
+		}
+	}
+
+	stable, exists := config.Features["stable"]
+	if !exists {
+		t.Error("Expected stable features")
+	} else {
+		if len(stable) != 3 {
+			t.Fatalf("Expected 3 stable features, got %v", len(stable))
+		}
+	}
+
+	deprecated, exists := config.Features["deprecated"]
+	if !exists {
+		t.Error("Expected deprecated features")
+	} else {
+		if len(deprecated) != 0 {
+			t.Errorf("Expected empty deprecated features, got %v", deprecated)
+		}
+	}
+}
+
 // TestMapStorage_Equals_Basic 测试基本比较功能
 func TestMapStorage_Equals_Basic(t *testing.T) {
 	data1 := map[string]interface{}{
