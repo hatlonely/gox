@@ -2,10 +2,21 @@ package storage
 
 import "strings"
 
+//	data := map[string]interface{}{
+//		"name": "test-app",
+//		"database-host": "localhost",
+//		"database-port": 3306,
+//		"servers-0-host": "server1",
+//		"servers-0-port": 8080,
+//		"servers-1-host": "server2",
+//		"servers-1-port": 8080,
+//	}
 type FlatStorage struct {
 	data           map[string]interface{}
 	separator      string
 	enableDefaults bool
+	uppercase      bool
+	lowercase      bool
 
 	parent *FlatStorage
 	prefix string
@@ -25,6 +36,16 @@ func (fs *FlatStorage) WithDefaults(enable bool) *FlatStorage {
 
 func (fs *FlatStorage) WithSeparator(sep string) *FlatStorage {
 	fs.separator = sep
+	return fs
+}
+
+func (fs *FlatStorage) WithUppercase(enable bool) *FlatStorage {
+	fs.uppercase = enable
+	return fs
+}
+
+func (fs *FlatStorage) WithLowercase(enable bool) *FlatStorage {
+	fs.lowercase = enable
 	return fs
 }
 
