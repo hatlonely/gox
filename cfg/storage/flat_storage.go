@@ -780,6 +780,13 @@ func (fs *FlatStorage) convertToSlice(flatData map[string]interface{}, dst refle
 
 		for i, itemData := range arrayItems {
 			dstItem := dst.Index(i)
+			
+			// 如果是结构体类型，为切片元素设置默认值
+			if fs.enableDefaults && dstItem.Kind() == reflect.Struct {
+				if err := def.SetDefaults(dstItem.Addr().Interface()); err != nil {
+					return fmt.Errorf("failed to set defaults for slice element %d: %v", i, err)
+				}
+			}
 
 			// 根据目标元素类型进行转换
 			if dstItem.Kind() == reflect.Struct {
