@@ -6,33 +6,39 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hatlonely/gox/cfg/def"
 )
 
 // FlatStorage 打平的键值存储实现
 // 使用点号分隔的键名存储嵌套数据，值都是基本类型
 type FlatStorage struct {
-	data map[string]interface{}
+	data           map[string]interface{}
 	// KeySeparator 键名分隔符，默认为 "."
-	KeySeparator string
+	KeySeparator   string
 	// ArrayFormat 数组格式化方式，默认为 "[%d]"
-	ArrayFormat string
+	ArrayFormat    string
+	// enableDefaults 控制是否启用默认值功能
+	enableDefaults bool
 }
 
-// NewFlatStorage 创建一个新的 FlatStorage 实例
+// NewFlatStorage 创建一个新的 FlatStorage 实例，默认启用默认值功能
 func NewFlatStorage(data map[string]interface{}) *FlatStorage {
 	return &FlatStorage{
-		data:         data,
-		KeySeparator: ".",
-		ArrayFormat:  "[%d]",
+		data:           data,
+		KeySeparator:   ".",
+		ArrayFormat:    "[%d]",
+		enableDefaults: true,
 	}
 }
 
-// NewFlatStorageWithOptions 创建带选项的 FlatStorage 实例
+// NewFlatStorageWithOptions 创建带选项的 FlatStorage 实例，默认启用默认值功能
 func NewFlatStorageWithOptions(data map[string]interface{}, separator, arrayFormat string) *FlatStorage {
 	return &FlatStorage{
-		data:         data,
-		KeySeparator: separator,
-		ArrayFormat:  arrayFormat,
+		data:           data,
+		KeySeparator:   separator,
+		ArrayFormat:    arrayFormat,
+		enableDefaults: true,
 	}
 }
 
@@ -46,6 +52,24 @@ func NewFlatStorageFromNested(nestedData interface{}) *FlatStorage {
 // Data 获取存储的原始数据
 func (fs *FlatStorage) Data() map[string]interface{} {
 	return fs.data
+}
+
+// NewFlatStorageWithoutDefaults 创建不启用默认值的 FlatStorage
+func NewFlatStorageWithoutDefaults(data map[string]interface{}) *FlatStorage {
+	return &FlatStorage{
+		data:           data,
+		KeySeparator:   ".",
+		ArrayFormat:    "[%d]",
+		enableDefaults: false,
+	}
+}
+
+// WithDefaults 启用或禁用默认值功能
+func (fs *FlatStorage) WithDefaults(enable bool) *FlatStorage {
+	if fs != nil {
+		fs.enableDefaults = enable
+	}
+	return fs
 }
 
 // Sub 获取子配置存储对象
@@ -62,7 +86,9 @@ func (fs *FlatStorage) Sub(key string) Storage {
 	for k, v := range fs.data {
 		if k == key {
 			// 如果键完全匹配，说明这是一个叶子节点
-			return NewFlatStorageWithOptions(map[string]interface{}{"": v}, fs.KeySeparator, fs.ArrayFormat)
+			subStorage := NewFlatStorageWithOptions(map[string]interface{}{"": v}, fs.KeySeparator, fs.ArrayFormat)
+			subStorage.enableDefaults = fs.enableDefaults
+			return subStorage
 		}
 		if strings.HasPrefix(k, prefix) {
 			// 移除前缀，保留后续部分作为子键
@@ -92,7 +118,10 @@ func (fs *FlatStorage) Sub(key string) Storage {
 		return nilStorage
 	}
 
-	return NewFlatStorageWithOptions(subData, fs.KeySeparator, fs.ArrayFormat)
+	// 子存储继承父存储的默认值设置
+	subStorage := NewFlatStorageWithOptions(subData, fs.KeySeparator, fs.ArrayFormat)
+	subStorage.enableDefaults = fs.enableDefaults
+	return subStorage
 }
 
 // ConvertTo 将配置数据转成结构体或者 map/slice 等任意结构
@@ -105,6 +134,15 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 		return nil
 	}
 
+	// 首先设置默认值，然后用配置数据覆盖
+	if fs.enableDefaults {
+		err := def.SetDefaults(object)
+		if err != nil {
+			return fmt.Errorf("failed to set defaults: %v", err)
+		}
+	}
+
+	// 用配置数据覆盖默认值
 	return fs.convertValue(fs.data, reflect.ValueOf(object))
 }
 
@@ -455,6 +493,14 @@ func (fs *FlatStorage) convertValue(src interface{}, dst reflect.Value) error {
 	if dst.Kind() == reflect.Ptr {
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
+			
+			// 新分配的结构体指针需要设置默认值
+			if fs.enableDefaults && dst.Type().Elem().Kind() == reflect.Struct {
+				err := def.SetDefaults(dst.Interface())
+				if err != nil {
+					return fmt.Errorf("failed to set defaults for new pointer: %v", err)
+				}
+			}
 		}
 		return fs.convertValue(src, dst.Elem())
 	}
@@ -649,6 +695,15 @@ func (fs *FlatStorage) convertToMap(flatData map[string]interface{}, dst reflect
 
 		// 转换值
 		dstValue := reflect.New(dst.Type().Elem()).Elem()
+		
+		// 如果是结构体类型，为新创建的对象设置默认值
+		if fs.enableDefaults && dstValue.Kind() == reflect.Struct {
+			// dstValue 已经是新创建的结构体，直接获取其地址传给 SetDefaults
+			if err := def.SetDefaults(dstValue.Addr().Interface()); err != nil {
+				return fmt.Errorf("failed to set defaults for new map value: %v", err)
+			}
+		}
+		
 		if err := fs.convertDirectValue(value, dstValue); err != nil {
 			return err
 		}
@@ -932,6 +987,14 @@ func (fs *FlatStorage) convertToStructWithPrefix(flatData map[string]interface{}
 					// 存在相关配置，创建指针并递归处理
 					if fieldValue.IsNil() {
 						fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
+						
+						// 新分配的结构体指针需要设置默认值
+						if fs.enableDefaults && fieldValue.Type().Elem().Kind() == reflect.Struct {
+							err := def.SetDefaults(fieldValue.Interface())
+							if err != nil {
+								return fmt.Errorf("failed to set defaults for new pointer field %s: %v", field.Name, err)
+							}
+						}
 					}
 					// 对于指针指向的结构体，使用 convertToStructWithPrefix 递归处理
 					if fieldValue.Elem().Kind() == reflect.Struct {
