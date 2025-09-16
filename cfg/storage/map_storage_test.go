@@ -1100,6 +1100,290 @@ func TestMapStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 	}
 }
 
+// TestMapStorage_ConvertTo_WithDefaults 测试使用def tag的默认值功能
+func TestMapStorage_ConvertTo_WithDefaults(t *testing.T) {
+	// 定义带有默认值的结构体
+	type ServerConfig struct {
+		Host     string        `json:"host" def:"localhost"`
+		Port     int           `json:"port" def:"8080"`
+		Enabled  bool          `json:"enabled" def:"true"`
+		Timeout  time.Duration `json:"timeout" def:"30s"`
+		MaxConns int           `json:"max_conns" def:"100"`
+		Tags     []string      `json:"tags" def:"web,api,service"`
+	}
+
+	type DatabaseConfig struct {
+		Host     string `json:"host" def:"db.example.com"`
+		Port     int    `json:"port" def:"5432"`
+		Database string `json:"database" def:"myapp"`
+		Pool     struct {
+			MinSize int `json:"min_size" def:"5"`
+			MaxSize int `json:"max_size" def:"20"`
+		} `json:"pool"`
+	}
+
+	type AppConfig struct {
+		Name     string         `json:"name" def:"MyApp"`
+		Version  string         `json:"version" def:"1.0.0"`
+		Debug    bool           `json:"debug" def:"false"`
+		Server   ServerConfig   `json:"server"`
+		Database DatabaseConfig `json:"database"`
+	}
+
+	t.Run("完全空配置使用默认值", func(t *testing.T) {
+		// 空的配置数据
+		data := map[string]interface{}{}
+		storage := NewMapStorage(data)
+
+		var config AppConfig
+		err := storage.ConvertTo(&config)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 验证顶级字段的默认值
+		if config.Name != "MyApp" {
+			t.Errorf("Expected default name 'MyApp', got %v", config.Name)
+		}
+		if config.Version != "1.0.0" {
+			t.Errorf("Expected default version '1.0.0', got %v", config.Version)
+		}
+		if config.Debug != false {
+			t.Errorf("Expected default debug false, got %v", config.Debug)
+		}
+
+		// 验证嵌套结构体的默认值
+		if config.Server.Host != "localhost" {
+			t.Errorf("Expected default server host 'localhost', got %v", config.Server.Host)
+		}
+		if config.Server.Port != 8080 {
+			t.Errorf("Expected default server port 8080, got %v", config.Server.Port)
+		}
+		if config.Server.Enabled != true {
+			t.Errorf("Expected default server enabled true, got %v", config.Server.Enabled)
+		}
+		if config.Server.Timeout != 30*time.Second {
+			t.Errorf("Expected default server timeout 30s, got %v", config.Server.Timeout)
+		}
+		if config.Server.MaxConns != 100 {
+			t.Errorf("Expected default server max_conns 100, got %v", config.Server.MaxConns)
+		}
+
+		// 验证切片默认值
+		expectedTags := []string{"web", "api", "service"}
+		if len(config.Server.Tags) != 3 {
+			t.Errorf("Expected 3 default tags, got %v", len(config.Server.Tags))
+		} else {
+			for i, tag := range expectedTags {
+				if config.Server.Tags[i] != tag {
+					t.Errorf("Expected tag %d to be %v, got %v", i, tag, config.Server.Tags[i])
+				}
+			}
+		}
+
+		// 验证数据库配置的默认值
+		if config.Database.Host != "db.example.com" {
+			t.Errorf("Expected default database host 'db.example.com', got %v", config.Database.Host)
+		}
+		if config.Database.Port != 5432 {
+			t.Errorf("Expected default database port 5432, got %v", config.Database.Port)
+		}
+		if config.Database.Database != "myapp" {
+			t.Errorf("Expected default database name 'myapp', got %v", config.Database.Database)
+		}
+
+		// 验证嵌套结构体字段的默认值
+		if config.Database.Pool.MinSize != 5 {
+			t.Errorf("Expected default pool min_size 5, got %v", config.Database.Pool.MinSize)
+		}
+		if config.Database.Pool.MaxSize != 20 {
+			t.Errorf("Expected default pool max_size 20, got %v", config.Database.Pool.MaxSize)
+		}
+	})
+
+	t.Run("部分配置覆盖默认值", func(t *testing.T) {
+		// 部分配置数据
+		data := map[string]interface{}{
+			"name": "CustomApp",
+			"server": map[string]interface{}{
+				"host": "custom.example.com",
+				"port": 9090,
+				// enabled 和 timeout 使用默认值
+			},
+			"database": map[string]interface{}{
+				"host": "custom-db.example.com",
+				// port 和 database 使用默认值
+				"pool": map[string]interface{}{
+					"max_size": 50,
+					// min_size 使用默认值
+				},
+			},
+		}
+		storage := NewMapStorage(data)
+
+		var config AppConfig
+		err := storage.ConvertTo(&config)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 验证被覆盖的值
+		if config.Name != "CustomApp" {
+			t.Errorf("Expected overridden name 'CustomApp', got %v", config.Name)
+		}
+		if config.Server.Host != "custom.example.com" {
+			t.Errorf("Expected overridden server host 'custom.example.com', got %v", config.Server.Host)
+		}
+		if config.Server.Port != 9090 {
+			t.Errorf("Expected overridden server port 9090, got %v", config.Server.Port)
+		}
+		if config.Database.Host != "custom-db.example.com" {
+			t.Errorf("Expected overridden database host 'custom-db.example.com', got %v", config.Database.Host)
+		}
+		if config.Database.Pool.MaxSize != 50 {
+			t.Errorf("Expected overridden pool max_size 50, got %v", config.Database.Pool.MaxSize)
+		}
+
+		// 验证使用默认值的字段
+		if config.Version != "1.0.0" {
+			t.Errorf("Expected default version '1.0.0', got %v", config.Version)
+		}
+		if config.Server.Enabled != true {
+			t.Errorf("Expected default server enabled true, got %v", config.Server.Enabled)
+		}
+		if config.Server.Timeout != 30*time.Second {
+			t.Errorf("Expected default server timeout 30s, got %v", config.Server.Timeout)
+		}
+		if config.Database.Port != 5432 {
+			t.Errorf("Expected default database port 5432, got %v", config.Database.Port)
+		}
+		if config.Database.Database != "myapp" {
+			t.Errorf("Expected default database name 'myapp', got %v", config.Database.Database)
+		}
+		if config.Database.Pool.MinSize != 5 {
+			t.Errorf("Expected default pool min_size 5, got %v", config.Database.Pool.MinSize)
+		}
+	})
+
+	t.Run("禁用默认值功能", func(t *testing.T) {
+		// 空配置数据
+		data := map[string]interface{}{}
+		storage := NewMapStorageWithoutDefaults(data)
+
+		var config AppConfig
+		err := storage.ConvertTo(&config)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 验证所有字段都是零值（没有应用默认值）
+		if config.Name != "" {
+			t.Errorf("Expected empty name when defaults disabled, got %v", config.Name)
+		}
+		if config.Version != "" {
+			t.Errorf("Expected empty version when defaults disabled, got %v", config.Version)
+		}
+		if config.Debug != false { // bool 的零值是 false
+			t.Errorf("Expected false debug when defaults disabled, got %v", config.Debug)
+		}
+		if config.Server.Host != "" {
+			t.Errorf("Expected empty server host when defaults disabled, got %v", config.Server.Host)
+		}
+		if config.Server.Port != 0 {
+			t.Errorf("Expected zero server port when defaults disabled, got %v", config.Server.Port)
+		}
+		if config.Server.Enabled != false {
+			t.Errorf("Expected false server enabled when defaults disabled, got %v", config.Server.Enabled)
+		}
+		if config.Server.Timeout != 0 {
+			t.Errorf("Expected zero server timeout when defaults disabled, got %v", config.Server.Timeout)
+		}
+		if len(config.Server.Tags) != 0 {
+			t.Errorf("Expected empty server tags when defaults disabled, got %v", config.Server.Tags)
+		}
+	})
+}
+
+// TestMapStorage_ConvertTo_DefaultsWithPointers 测试指针字段的默认值处理
+func TestMapStorage_ConvertTo_DefaultsWithPointers(t *testing.T) {
+	type DatabaseConfig struct {
+		Host     string `json:"host" def:"localhost"`
+		Port     int    `json:"port" def:"5432"`
+		Username string `json:"username" def:"admin"`
+	}
+
+	type AppConfig struct {
+		Name     string           `json:"name" def:"TestApp"`
+		Database *DatabaseConfig  `json:"database"`
+		Optional *DatabaseConfig  `json:"optional"`
+	}
+
+	t.Run("指针字段在配置中存在时应用默认值", func(t *testing.T) {
+		data := map[string]interface{}{
+			"database": map[string]interface{}{
+				"host": "custom.db.com",
+				// port 和 username 使用默认值
+			},
+		}
+		storage := NewMapStorage(data)
+
+		var config AppConfig
+		err := storage.ConvertTo(&config)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		// 验证顶级默认值
+		if config.Name != "TestApp" {
+			t.Errorf("Expected default name 'TestApp', got %v", config.Name)
+		}
+
+		// 验证指针字段不为空且应用了默认值
+		if config.Database == nil {
+			t.Fatal("Expected database config to be created")
+		}
+		if config.Database.Host != "custom.db.com" {
+			t.Errorf("Expected overridden host 'custom.db.com', got %v", config.Database.Host)
+		}
+		if config.Database.Port != 5432 {
+			t.Errorf("Expected default port 5432, got %v", config.Database.Port)
+		}
+		if config.Database.Username != "admin" {
+			t.Errorf("Expected default username 'admin', got %v", config.Database.Username)
+		}
+
+		// 验证可选字段保持nil
+		if config.Optional != nil {
+			t.Error("Expected optional config to remain nil")
+		}
+	})
+
+	t.Run("指针字段在配置中不存在时保持nil", func(t *testing.T) {
+		data := map[string]interface{}{
+			"name": "OnlyName",
+		}
+		storage := NewMapStorage(data)
+
+		var config AppConfig
+		err := storage.ConvertTo(&config)
+		if err != nil {
+			t.Fatalf("ConvertTo failed: %v", err)
+		}
+
+		if config.Name != "OnlyName" {
+			t.Errorf("Expected name 'OnlyName', got %v", config.Name)
+		}
+
+		// 指针字段应该保持nil，因为配置中没有对应的数据
+		if config.Database != nil {
+			t.Error("Expected database config to remain nil when not in config")
+		}
+		if config.Optional != nil {
+			t.Error("Expected optional config to remain nil when not in config")
+		}
+	})
+}
+
 // TestMapStorage_Equals_Basic 测试基本比较功能
 func TestMapStorage_Equals_Basic(t *testing.T) {
 	data1 := map[string]interface{}{
