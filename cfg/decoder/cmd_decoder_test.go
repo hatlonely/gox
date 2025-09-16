@@ -126,11 +126,11 @@ config-map-name=app-config
 secret-tls-cert-path=/etc/ssl/certs/tls.crt
 ingress-class-name=nginx`,
 			want: map[string]interface{}{
-				"namespace":             "default",
-				"service-account":       "myapp",
-				"config-map-name":       "app-config",
-				"secret-tls-cert-path":  "/etc/ssl/certs/tls.crt",
-				"ingress-class-name":    "nginx",
+				"namespace":            "default",
+				"service-account":      "myapp",
+				"config-map-name":      "app-config",
+				"secret-tls-cert-path": "/etc/ssl/certs/tls.crt",
+				"ingress-class-name":   "nginx",
 			},
 			wantErr: false,
 		},
@@ -256,10 +256,10 @@ string=hello`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			decoder := NewCmdDecoder()
-			
+
 			// 创建 FlatStorage，使用固定的默认配置
-			storage := storage.NewFlatStorageWithOptions(tt.input, "-", "-%d")
-			
+			storage := storage.NewFlatStorage(tt.input).WithSeparator("-")
+
 			data, err := decoder.Encode(storage)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CmdDecoder.Encode() error = %v, wantErr %v", err, tt.wantErr)
@@ -442,9 +442,9 @@ features-new-ui-enabled=true`
 func TestCmdDecoder_ConvertToSimpleStruct(t *testing.T) {
 	// 简单结构体测试
 	type SimpleConfig struct {
-		AppName        string `cfg:"app-name"`
-		MaxConnections int    `cfg:"max-connections"`
-		EnableLogging  bool   `cfg:"enable-logging"`
+		AppName        string  `cfg:"app-name"`
+		MaxConnections int     `cfg:"max-connections"`
+		EnableLogging  bool    `cfg:"enable-logging"`
 		Timeout        float64 `cfg:"timeout"`
 		EmptyValue     string  `cfg:"empty-value"`
 	}
