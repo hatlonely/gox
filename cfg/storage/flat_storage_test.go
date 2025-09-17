@@ -9,17 +9,17 @@ import (
 
 // 测试用的扁平化数据集
 var testFlatData = map[string]interface{}{
-	"database.host":            "localhost",
-	"database.port":            3306,
+	"database.host":               "localhost",
+	"database.port":               3306,
 	"database.connections.0.name": "primary",
 	"database.connections.0.user": "admin",
 	"database.connections.1.name": "secondary",
 	"database.connections.1.user": "readonly",
-	"servers.0":                "server1",
-	"servers.1":                "server2",
-	"config.timeout":           "30s",
-	"config.created_at":        "2023-12-25T15:30:45Z",
-	"config.enabled":           true,
+	"servers.0":                   "server1",
+	"servers.1":                   "server2",
+	"config.timeout":              "30s",
+	"config.created_at":           "2023-12-25T15:30:45Z",
+	"config.enabled":              true,
 }
 
 // TestFlatStorage_Creation 测试 FlatStorage 的各种创建方式
@@ -121,7 +121,7 @@ func TestFlatStorage_ConvertTo_BasicTypes(t *testing.T) {
 				"name": "hello world",
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var result string
 			err := storage.Sub("name").ConvertTo(&result)
 			So(err, ShouldBeNil)
@@ -133,7 +133,7 @@ func TestFlatStorage_ConvertTo_BasicTypes(t *testing.T) {
 				"port": 42,
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var result int
 			err := storage.Sub("port").ConvertTo(&result)
 			So(err, ShouldBeNil)
@@ -145,7 +145,7 @@ func TestFlatStorage_ConvertTo_BasicTypes(t *testing.T) {
 				"ratio": 3.14,
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var result float64
 			err := storage.Sub("ratio").ConvertTo(&result)
 			So(err, ShouldBeNil)
@@ -157,7 +157,7 @@ func TestFlatStorage_ConvertTo_BasicTypes(t *testing.T) {
 				"enabled": true,
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var result bool
 			err := storage.Sub("enabled").ConvertTo(&result)
 			So(err, ShouldBeNil)
@@ -166,7 +166,7 @@ func TestFlatStorage_ConvertTo_BasicTypes(t *testing.T) {
 
 		Convey("直接在根级别转换", func() {
 			storage := NewFlatStorage(testFlatData)
-			
+
 			var host string
 			err := storage.Sub("database.host").ConvertTo(&host)
 			So(err, ShouldBeNil)
@@ -199,7 +199,7 @@ func TestFlatStorage_ConvertTo_Struct(t *testing.T) {
 			storage := NewFlatStorage(data)
 			var config ServerConfig
 			err := storage.ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 			So(config.Host, ShouldEqual, "test-server")
 			So(config.Port, ShouldEqual, 8080)
@@ -270,11 +270,11 @@ func TestFlatStorage_ConvertTo_Slice(t *testing.T) {
 				"servers.1": "server2",
 				"servers.2": "server3",
 			}
-			
+
 			storage := NewFlatStorage(data)
 			var servers []string
 			err := storage.Sub("servers").ConvertTo(&servers)
-			
+
 			So(err, ShouldBeNil)
 			So(len(servers), ShouldEqual, 3)
 			So(servers[0], ShouldEqual, "server1")
@@ -288,11 +288,11 @@ func TestFlatStorage_ConvertTo_Slice(t *testing.T) {
 				"ports.1": 8081,
 				"ports.2": 8082,
 			}
-			
+
 			storage := NewFlatStorage(data)
 			var ports []int
 			err := storage.Sub("ports").ConvertTo(&ports)
-			
+
 			So(err, ShouldBeNil)
 			So(len(ports), ShouldEqual, 3)
 			So(ports[0], ShouldEqual, 8080)
@@ -312,11 +312,11 @@ func TestFlatStorage_ConvertTo_Slice(t *testing.T) {
 				"servers.1.name": "web2",
 				"servers.1.port": 8081,
 			}
-			
+
 			storage := NewFlatStorage(data)
 			var servers []Server
 			err := storage.Sub("servers").ConvertTo(&servers)
-			
+
 			So(err, ShouldBeNil)
 			So(len(servers), ShouldEqual, 2)
 			So(servers[0].Name, ShouldEqual, "web1")
@@ -329,11 +329,11 @@ func TestFlatStorage_ConvertTo_Slice(t *testing.T) {
 			data := map[string]interface{}{
 				"other": "value",
 			}
-			
+
 			storage := NewFlatStorage(data)
 			var servers []string
 			err := storage.Sub("servers").ConvertTo(&servers)
-			
+
 			So(err, ShouldBeNil)
 			So(len(servers), ShouldEqual, 0)
 		})
@@ -345,15 +345,15 @@ func TestFlatStorage_ConvertTo_Map(t *testing.T) {
 	Convey("FlatStorage Map转换测试", t, func() {
 		Convey("简单map转换", func() {
 			data := map[string]interface{}{
-				"config.timeout":  "30s",
-				"config.retries":  3,
-				"config.enabled":  true,
+				"config.timeout": "30s",
+				"config.retries": 3,
+				"config.enabled": true,
 			}
-			
+
 			storage := NewFlatStorage(data)
 			var config map[string]interface{}
 			err := storage.Sub("config").ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 			So(len(config), ShouldEqual, 3)
 			So(config["timeout"], ShouldEqual, "30s")
@@ -367,11 +367,11 @@ func TestFlatStorage_ConvertTo_Map(t *testing.T) {
 				"labels.team": "backend",
 				"labels.app":  "api",
 			}
-			
+
 			storage := NewFlatStorage(data)
 			var labels map[string]string
 			err := storage.Sub("labels").ConvertTo(&labels)
-			
+
 			So(err, ShouldBeNil)
 			So(len(labels), ShouldEqual, 3)
 			So(labels["env"], ShouldEqual, "production")
@@ -391,17 +391,35 @@ func TestFlatStorage_ConvertTo_Map(t *testing.T) {
 				"databases.secondary.host": "db2.example.com",
 				"databases.secondary.port": 5433,
 			}
-			
+
 			storage := NewFlatStorage(data)
 			var databases map[string]DatabaseConfig
 			err := storage.Sub("databases").ConvertTo(&databases)
-			
+
 			So(err, ShouldBeNil)
 			So(len(databases), ShouldEqual, 2)
 			So(databases["primary"].Host, ShouldEqual, "db1.example.com")
 			So(databases["primary"].Port, ShouldEqual, 5432)
 			So(databases["secondary"].Host, ShouldEqual, "db2.example.com")
 			So(databases["secondary"].Port, ShouldEqual, 5433)
+		})
+
+		Convey("直接转换flat map", func() {
+			data := map[string]interface{}{
+				"config.timeout": "30s",
+				"config.retries": 3,
+				"config.enabled": true,
+			}
+
+			storage := NewFlatStorage(data)
+			var config map[string]interface{}
+			err := storage.ConvertTo(&config)
+
+			So(err, ShouldBeNil)
+			So(len(config), ShouldEqual, 3)
+			So(config["config.timeout"], ShouldEqual, "30s")
+			So(config["config.retries"], ShouldEqual, 3)
+			So(config["config.enabled"], ShouldEqual, true)
 		})
 	})
 }
@@ -414,10 +432,10 @@ func TestFlatStorage_ConvertTo_Time(t *testing.T) {
 				"created_at": "2023-12-25T15:30:45Z",
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var timeValue time.Time
 			err := storage.Sub("created_at").ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Date(2023, 12, 25, 15, 30, 45, 0, time.UTC)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -428,10 +446,10 @@ func TestFlatStorage_ConvertTo_Time(t *testing.T) {
 				"birth_date": "2023-12-25",
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var timeValue time.Time
 			err := storage.Sub("birth_date").ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Date(2023, 12, 25, 0, 0, 0, 0, time.UTC)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -442,10 +460,10 @@ func TestFlatStorage_ConvertTo_Time(t *testing.T) {
 				"timestamp": int64(1703517045),
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var timeValue time.Time
 			err := storage.Sub("timestamp").ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Unix(1703517045, 0)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -456,10 +474,10 @@ func TestFlatStorage_ConvertTo_Time(t *testing.T) {
 				"timestamp": 1703517045.5,
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var timeValue time.Time
 			err := storage.Sub("timestamp").ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Unix(1703517045, 500000000)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -475,10 +493,10 @@ func TestFlatStorage_ConvertTo_Duration(t *testing.T) {
 				"timeout": "5m30s",
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var duration time.Duration
 			err := storage.Sub("timeout").ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, 5*time.Minute+30*time.Second)
 		})
@@ -488,10 +506,10 @@ func TestFlatStorage_ConvertTo_Duration(t *testing.T) {
 				"cache_ttl": "2h15m",
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var duration time.Duration
 			err := storage.Sub("cache_ttl").ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, 2*time.Hour+15*time.Minute)
 		})
@@ -501,10 +519,10 @@ func TestFlatStorage_ConvertTo_Duration(t *testing.T) {
 				"delay": int64(1000000000),
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var duration time.Duration
 			err := storage.Sub("delay").ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, time.Second)
 		})
@@ -514,10 +532,10 @@ func TestFlatStorage_ConvertTo_Duration(t *testing.T) {
 				"interval": 2.5,
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var duration time.Duration
 			err := storage.Sub("interval").ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, 2*time.Second+500*time.Millisecond)
 		})
@@ -573,7 +591,7 @@ func TestFlatStorage_ConvertTo_WithDefaults(t *testing.T) {
 			So(config.Name, ShouldEqual, "CustomApp")
 			So(config.Server.Host, ShouldEqual, "custom.example.com")
 			So(config.Server.Port, ShouldEqual, 9090)
-			So(config.Server.Enabled, ShouldBeTrue)   // 使用默认值
+			So(config.Server.Enabled, ShouldBeTrue)                // 使用默认值
 			So(config.Server.Timeout, ShouldEqual, 30*time.Second) // 使用默认值
 		})
 
@@ -609,7 +627,7 @@ func TestFlatStorage_CaseConversion(t *testing.T) {
 				"PORT": 8080,
 			}
 			storage := NewFlatStorage(data).WithUppercase(true)
-			
+
 			var config ServerConfig
 			err := storage.ConvertTo(&config)
 			So(err, ShouldBeNil)
@@ -623,7 +641,7 @@ func TestFlatStorage_CaseConversion(t *testing.T) {
 				"port": 8080,
 			}
 			storage := NewFlatStorage(data).WithLowercase(true)
-			
+
 			var config ServerConfig
 			err := storage.ConvertTo(&config)
 			So(err, ShouldBeNil)
@@ -643,7 +661,7 @@ func TestFlatStorage_CaseConversion(t *testing.T) {
 				"SERVER.PORT": 3306,
 			}
 			storage := NewFlatStorage(data).WithUppercase(true)
-			
+
 			var config AppConfig
 			err := storage.ConvertTo(&config)
 			So(err, ShouldBeNil)
@@ -658,7 +676,7 @@ func TestFlatStorage_CaseConversion(t *testing.T) {
 				"SERVERS.1": "server2",
 			}
 			storage := NewFlatStorage(data).WithUppercase(true)
-			
+
 			var servers []string
 			err := storage.Sub("servers").ConvertTo(&servers)
 			So(err, ShouldBeNil)
@@ -673,7 +691,7 @@ func TestFlatStorage_CaseConversion(t *testing.T) {
 				"CONFIG.RETRIES": 3,
 			}
 			storage := NewFlatStorage(data).WithUppercase(true)
-			
+
 			var config map[string]interface{}
 			err := storage.Sub("config").ConvertTo(&config)
 			So(err, ShouldBeNil)
@@ -824,7 +842,7 @@ func TestFlatStorage_EdgeCases(t *testing.T) {
 				"host": "localhost",
 			}
 			storage := NewFlatStorage(data).WithSeparator("")
-			
+
 			var host string
 			err := storage.Sub("host").ConvertTo(&host)
 			So(err, ShouldBeNil)
@@ -837,7 +855,7 @@ func TestFlatStorage_EdgeCases(t *testing.T) {
 				"database#port": 3306,
 			}
 			storage := NewFlatStorage(data).WithSeparator("#")
-			
+
 			var host string
 			err := storage.Sub("database").Sub("host").ConvertTo(&host)
 			So(err, ShouldBeNil)
@@ -848,7 +866,7 @@ func TestFlatStorage_EdgeCases(t *testing.T) {
 			var storage *FlatStorage = nil
 			result := storage.WithDefaults(true)
 			So(result, ShouldBeNil)
-			
+
 			err := storage.ConvertTo(nil)
 			So(err, ShouldBeNil)
 		})
@@ -858,7 +876,7 @@ func TestFlatStorage_EdgeCases(t *testing.T) {
 				"value": "hello",
 			}
 			storage := NewFlatStorage(data)
-			
+
 			var result interface{}
 			err := storage.Sub("value").ConvertTo(&result)
 			So(err, ShouldBeNil)
@@ -888,11 +906,11 @@ func TestFlatStorage_EdgeCases(t *testing.T) {
 
 		Convey("复杂嵌套结构", func() {
 			data := map[string]interface{}{
-				"app.name":                  "test-app",
-				"app.services.0.name":       "web",
+				"app.name":                   "test-app",
+				"app.services.0.name":        "web",
 				"app.services.0.endpoints.0": "http://localhost:8080",
 				"app.services.0.endpoints.1": "http://localhost:8081",
-				"app.services.1.name":       "api",
+				"app.services.1.name":        "api",
 				"app.services.1.endpoints.0": "http://localhost:9090",
 			}
 
@@ -909,7 +927,7 @@ func TestFlatStorage_EdgeCases(t *testing.T) {
 			storage := NewFlatStorage(data)
 			var app App
 			err := storage.Sub("app").ConvertTo(&app)
-			
+
 			So(err, ShouldBeNil)
 			So(app.Name, ShouldEqual, "test-app")
 			So(len(app.Services), ShouldEqual, 2)
@@ -956,61 +974,61 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 				Name    string `json:"name"`
 				Version string `json:"version"`
 			} `json:"application"`
-			Services    []ServiceConfig                `json:"services"`
-			Databases   map[string]DatabaseConnection  `json:"databases"`
-			Environment map[string]interface{}         `json:"environment"`
-			Features    map[string][]string            `json:"features"`
+			Services    []ServiceConfig               `json:"services"`
+			Databases   map[string]DatabaseConnection `json:"databases"`
+			Environment map[string]interface{}        `json:"environment"`
+			Features    map[string][]string           `json:"features"`
 		}
 
 		// 构造复杂的扁平化测试数据
 		flatData := map[string]interface{}{
 			"application.name":    "complex-app",
 			"application.version": "1.0.0",
-			
+
 			// 第一个服务
-			"services.0.name":    "auth-service",
-			"services.0.enabled": true,
-			"services.0.endpoints.0.url":     "https://auth.example.com/login",
-			"services.0.endpoints.0.timeout": "30s",
-			"services.0.endpoints.0.retries": 3,
-			"services.0.endpoints.1.url":     "https://auth.example.com/logout",
-			"services.0.endpoints.1.timeout": "15s",
-			"services.0.endpoints.1.retries": 1,
-			"services.0.metadata.team":        "security",
-			"services.0.metadata.environment": "production",
+			"services.0.name":                          "auth-service",
+			"services.0.enabled":                       true,
+			"services.0.endpoints.0.url":               "https://auth.example.com/login",
+			"services.0.endpoints.0.timeout":           "30s",
+			"services.0.endpoints.0.retries":           3,
+			"services.0.endpoints.1.url":               "https://auth.example.com/logout",
+			"services.0.endpoints.1.timeout":           "15s",
+			"services.0.endpoints.1.retries":           1,
+			"services.0.metadata.team":                 "security",
+			"services.0.metadata.environment":          "production",
 			"services.0.advanced.health_check.url":     "https://auth.example.com/health",
 			"services.0.advanced.health_check.timeout": "5s",
 			"services.0.advanced.health_check.retries": 2,
-			"services.0.advanced.metrics.url":     "https://auth.example.com/metrics",
-			"services.0.advanced.metrics.timeout": "10s",
-			"services.0.advanced.metrics.retries": 1,
-			
+			"services.0.advanced.metrics.url":          "https://auth.example.com/metrics",
+			"services.0.advanced.metrics.timeout":      "10s",
+			"services.0.advanced.metrics.retries":      1,
+
 			// 第二个服务
-			"services.1.name":    "notification-service",
-			"services.1.enabled": false,
+			"services.1.name":                "notification-service",
+			"services.1.enabled":             false,
 			"services.1.endpoints.0.url":     "https://notify.example.com/send",
 			"services.1.endpoints.0.timeout": "60s",
 			"services.1.endpoints.0.retries": 5,
-			"services.1.metadata.team": "messaging",
-			
+			"services.1.metadata.team":       "messaging",
+
 			// 数据库配置
-			"databases.primary.host":     "primary-db.example.com",
-			"databases.primary.port":     5432,
-			"databases.primary.database": "app_production",
+			"databases.primary.host":          "primary-db.example.com",
+			"databases.primary.port":          5432,
+			"databases.primary.database":      "app_production",
 			"databases.primary.pool.min_size": 5,
 			"databases.primary.pool.max_size": 20,
-			"databases.cache.host":     "cache.example.com",
-			"databases.cache.port":     6379,
-			"databases.cache.database": "0",
-			"databases.cache.pool.min_size": 2,
-			"databases.cache.pool.max_size": 10,
-			
+			"databases.cache.host":            "cache.example.com",
+			"databases.cache.port":            6379,
+			"databases.cache.database":        "0",
+			"databases.cache.pool.min_size":   2,
+			"databases.cache.pool.max_size":   10,
+
 			// 环境变量
 			"environment.stage":      "production",
 			"environment.debug":      false,
 			"environment.log_level":  "info",
 			"environment.max_memory": "2GB",
-			
+
 			// 特性配置
 			"features.experimental.0": "feature-a",
 			"features.experimental.1": "feature-b",
@@ -1023,7 +1041,7 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 			storage := NewFlatStorage(flatData)
 			var config ComplexConfig
 			err := storage.ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 
 			Convey("验证应用程序信息", func() {
@@ -1041,7 +1059,7 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 
 					Convey("验证endpoints", func() {
 						So(len(authService.Endpoints), ShouldEqual, 2)
-						
+
 						loginEndpoint := authService.Endpoints[0]
 						So(loginEndpoint.URL, ShouldEqual, "https://auth.example.com/login")
 						So(loginEndpoint.Timeout, ShouldEqual, "30s")
@@ -1055,7 +1073,7 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 
 					Convey("验证advanced配置", func() {
 						So(len(authService.Advanced), ShouldEqual, 2)
-						
+
 						healthCheck, exists := authService.Advanced["health_check"]
 						So(exists, ShouldBeTrue)
 						So(healthCheck.URL, ShouldEqual, "https://auth.example.com/health")
@@ -1125,7 +1143,7 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 			storage := NewFlatStorage(customSeparatorData).WithSeparator("-")
 			var config ComplexConfig
 			err := storage.ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 			So(config.Application.Name, ShouldEqual, "custom-app")
 			So(config.Application.Version, ShouldEqual, "2.0.0")
@@ -1145,7 +1163,7 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 			storage := NewFlatStorage(uppercaseData).WithUppercase(true)
 			var config ComplexConfig
 			err := storage.ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 			So(config.Application.Name, ShouldEqual, "UPPERCASE-APP")
 			So(config.Application.Version, ShouldEqual, "3.0.0")
@@ -1156,10 +1174,10 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 
 		Convey("默认值和复杂结构混合测试", func() {
 			type ServiceWithDefaults struct {
-				Name      string              `json:"name" def:"default-service"`
-				Enabled   bool                `json:"enabled" def:"false"`
-				Endpoints []Endpoint          `json:"endpoints"`
-				Metadata  map[string]string   `json:"metadata"`
+				Name      string            `json:"name" def:"default-service"`
+				Enabled   bool              `json:"enabled" def:"false"`
+				Endpoints []Endpoint        `json:"endpoints"`
+				Metadata  map[string]string `json:"metadata"`
 			}
 
 			type ConfigWithDefaults struct {
@@ -1171,8 +1189,8 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 			}
 
 			partialData := map[string]interface{}{
-				"services.0.name": "partial-service",
-				"services.0.endpoints.0.url": "http://example.com",
+				"services.0.name":                "partial-service",
+				"services.0.endpoints.0.url":     "http://example.com",
 				"services.0.endpoints.0.timeout": "30s",
 				"services.0.endpoints.0.retries": 3,
 			}
@@ -1180,7 +1198,7 @@ func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 			storage := NewFlatStorage(partialData).WithDefaults(true)
 			var config ConfigWithDefaults
 			err := storage.ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 			So(config.Application.Name, ShouldEqual, "default-app")
 			So(config.Application.Version, ShouldEqual, "1.0.0")
