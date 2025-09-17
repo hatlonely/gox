@@ -544,13 +544,29 @@ func (fs *FlatStorage) convertToTime(src, dst reflect.Value) error {
 
 func (fs *FlatStorage) Equals(other Storage) bool {
 	if otherFs, ok := other.(*FlatStorage); ok {
-		return fs.separator == otherFs.separator &&
-			fs.enableDefaults == otherFs.enableDefaults &&
-			fs.uppercase == otherFs.uppercase &&
-			fs.lowercase == otherFs.lowercase &&
-			fs.parent == otherFs.parent &&
-			fs.prefix == otherFs.prefix &&
-			reflect.DeepEqual(fs.data, otherFs.data)
+		// 比较基本配置
+		if fs.separator != otherFs.separator ||
+			fs.enableDefaults != otherFs.enableDefaults ||
+			fs.uppercase != otherFs.uppercase ||
+			fs.lowercase != otherFs.lowercase ||
+			fs.prefix != otherFs.prefix {
+			return false
+		}
+
+		// 比较数据源：如果都有 parent，比较 parent 的数据；否则比较自身数据
+		var fsData, otherData map[string]interface{}
+		if fs.parent != nil {
+			fsData = fs.parent.data
+		} else {
+			fsData = fs.data
+		}
+		if otherFs.parent != nil {
+			otherData = otherFs.parent.data
+		} else {
+			otherData = otherFs.data
+		}
+
+		return reflect.DeepEqual(fsData, otherData)
 	}
 	return false
 }
