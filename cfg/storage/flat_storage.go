@@ -96,16 +96,36 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 }
 
 func (fs *FlatStorage) get(key string) interface{} {
+	// 构建完整的键路径
+	var fullKey string
 	if fs.prefix != "" {
-		return fs.parent.get(fs.prefix + "." + key)
+		if key != "" {
+			fullKey = fs.prefix + fs.separator + key
+		} else {
+			fullKey = fs.prefix
+		}
+	} else {
+		fullKey = key
+	}
+
+	// 如果有父节点，使用父节点的数据和配置
+	if fs.parent != nil {
+		// 应用父节点的大小写转换
+		actualKey := fullKey
+		if fs.parent.uppercase {
+			actualKey = strings.ToUpper(fullKey)
+		} else if fs.parent.lowercase {
+			actualKey = strings.ToLower(fullKey)
+		}
+		return fs.parent.data[actualKey]
 	}
 
 	// 应用大小写转换
-	actualKey := key
+	actualKey := fullKey
 	if fs.uppercase {
-		actualKey = strings.ToUpper(key)
+		actualKey = strings.ToUpper(fullKey)
 	} else if fs.lowercase {
-		actualKey = strings.ToLower(key)
+		actualKey = strings.ToLower(fullKey)
 	}
 
 	return fs.data[actualKey]
@@ -276,15 +296,40 @@ func (fs *FlatStorage) convertToSlice(keyPath string, dst reflect.Value) error {
 		prefix += fs.separator
 	}
 
+	// 构建完整的前缀路径
+	var fullPrefix string
+	if fs.prefix != "" {
+		if prefix != "" {
+			fullPrefix = fs.prefix + fs.separator + prefix
+		} else {
+			fullPrefix = fs.prefix + fs.separator
+		}
+	} else {
+		fullPrefix = prefix
+	}
+
+	// 获取数据源和配置
+	var dataSource map[string]interface{}
+	var useUppercase, useLowercase bool
+	if fs.parent != nil {
+		dataSource = fs.parent.data
+		useUppercase = fs.parent.uppercase
+		useLowercase = fs.parent.lowercase
+	} else {
+		dataSource = fs.data
+		useUppercase = fs.uppercase
+		useLowercase = fs.lowercase
+	}
+
 	// 扫描所有 key 找出最大索引
-	actualPrefix := prefix
-	if fs.uppercase {
-		actualPrefix = strings.ToUpper(prefix)
-	} else if fs.lowercase {
-		actualPrefix = strings.ToLower(prefix)
+	actualPrefix := fullPrefix
+	if useUppercase {
+		actualPrefix = strings.ToUpper(fullPrefix)
+	} else if useLowercase {
+		actualPrefix = strings.ToLower(fullPrefix)
 	}
 	
-	for key := range fs.data {
+	for key := range dataSource {
 		if strings.HasPrefix(key, actualPrefix) {
 			remaining := strings.TrimPrefix(key, actualPrefix)
 			// 查找第一个分隔符或结束
@@ -347,16 +392,41 @@ func (fs *FlatStorage) convertToMap(keyPath string, dst reflect.Value) error {
 		prefix += fs.separator
 	}
 
+	// 构建完整的前缀路径
+	var fullPrefix string
+	if fs.prefix != "" {
+		if prefix != "" {
+			fullPrefix = fs.prefix + fs.separator + prefix
+		} else {
+			fullPrefix = fs.prefix + fs.separator
+		}
+	} else {
+		fullPrefix = prefix
+	}
+
+	// 获取数据源和配置
+	var dataSource map[string]interface{}
+	var useUppercase, useLowercase bool
+	if fs.parent != nil {
+		dataSource = fs.parent.data
+		useUppercase = fs.parent.uppercase
+		useLowercase = fs.parent.lowercase
+	} else {
+		dataSource = fs.data
+		useUppercase = fs.uppercase
+		useLowercase = fs.lowercase
+	}
+
 	// 收集所有直接子键
-	actualPrefix := prefix
-	if fs.uppercase {
-		actualPrefix = strings.ToUpper(prefix)
-	} else if fs.lowercase {
-		actualPrefix = strings.ToLower(prefix)
+	actualPrefix := fullPrefix
+	if useUppercase {
+		actualPrefix = strings.ToUpper(fullPrefix)
+	} else if useLowercase {
+		actualPrefix = strings.ToLower(fullPrefix)
 	}
 	
 	subKeys := make(map[string]bool)
-	for key := range fs.data {
+	for key := range dataSource {
 		if strings.HasPrefix(key, actualPrefix) {
 			remaining := strings.TrimPrefix(key, actualPrefix)
 			if remaining != "" {
