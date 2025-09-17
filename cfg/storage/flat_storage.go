@@ -133,6 +133,17 @@ func (fs *FlatStorage) convertValue(keyPath string, dst reflect.Value) error {
 		return fs.convertValue(keyPath, dst.Elem())
 	}
 
+	// 先检查时间类型（在检查 struct 之前）
+	value := fs.get(keyPath)
+	if value != nil {
+		// 尝试时间类型转换
+		if err := fs.convertTimeTypes(reflect.ValueOf(value), dst); err == nil {
+			return nil
+		} else if err.Error() != "not a time type" {
+			return err
+		}
+	}
+
 	// 根据目标类型处理转换
 	switch dst.Kind() {
 	case reflect.Map:
@@ -144,21 +155,17 @@ func (fs *FlatStorage) convertValue(keyPath string, dst reflect.Value) error {
 	case reflect.Interface:
 		if dst.Type().NumMethod() == 0 {
 			// 对于 interface{} 类型，直接获取值
-			if keyPath != "" {
-				value := fs.get(keyPath)
-				if value != nil {
-					dst.Set(reflect.ValueOf(value))
-				}
+			value := fs.get(keyPath)
+			if value != nil {
+				dst.Set(reflect.ValueOf(value))
 			}
 			return nil
 		}
 	default:
 		// 基本类型，直接从扁平存储中获取值
-		if keyPath != "" {
-			value := fs.get(keyPath)
-			if value != nil {
-				return fs.convertBasicValue(value, dst)
-			}
+		value := fs.get(keyPath)
+		if value != nil {
+			return fs.convertBasicValue(value, dst)
 		}
 	}
 
@@ -178,13 +185,6 @@ func (fs *FlatStorage) convertBasicValue(src interface{}, dst reflect.Value) err
 			return nil
 		}
 		srcValue = srcValue.Elem()
-	}
-
-	// 特殊类型转换：time.Duration 和 time.Time
-	if err := fs.convertTimeTypes(srcValue, dst); err == nil {
-		return nil
-	} else if err.Error() != "not a time type" {
-		return err
 	}
 
 	// 类型完全匹配
