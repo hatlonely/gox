@@ -921,3 +921,274 @@ func TestFlatStorage_EdgeCases(t *testing.T) {
 		})
 	})
 }
+
+// TestFlatStorage_ConvertTo_ComplexNestedStructure 测试复杂嵌套结构转换
+// 包含结构体中有map和slice，而slice/map中也包含结构体的情况
+func TestFlatStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
+	Convey("FlatStorage 复杂嵌套结构转换测试", t, func() {
+		// 定义嵌套的结构体类型
+		type Endpoint struct {
+			URL     string `json:"url"`
+			Timeout string `json:"timeout"`
+			Retries int    `json:"retries"`
+		}
+
+		type ServiceConfig struct {
+			Name      string              `json:"name"`
+			Enabled   bool                `json:"enabled"`
+			Endpoints []Endpoint          `json:"endpoints"`
+			Metadata  map[string]string   `json:"metadata"`
+			Advanced  map[string]Endpoint `json:"advanced"`
+		}
+
+		type DatabaseConnection struct {
+			Host     string `json:"host"`
+			Port     int    `json:"port"`
+			Database string `json:"database"`
+			Pool     struct {
+				MinSize int `json:"min_size"`
+				MaxSize int `json:"max_size"`
+			} `json:"pool"`
+		}
+
+		type ComplexConfig struct {
+			Application struct {
+				Name    string `json:"name"`
+				Version string `json:"version"`
+			} `json:"application"`
+			Services    []ServiceConfig                `json:"services"`
+			Databases   map[string]DatabaseConnection  `json:"databases"`
+			Environment map[string]interface{}         `json:"environment"`
+			Features    map[string][]string            `json:"features"`
+		}
+
+		// 构造复杂的扁平化测试数据
+		flatData := map[string]interface{}{
+			"application.name":    "complex-app",
+			"application.version": "1.0.0",
+			
+			// 第一个服务
+			"services.0.name":    "auth-service",
+			"services.0.enabled": true,
+			"services.0.endpoints.0.url":     "https://auth.example.com/login",
+			"services.0.endpoints.0.timeout": "30s",
+			"services.0.endpoints.0.retries": 3,
+			"services.0.endpoints.1.url":     "https://auth.example.com/logout",
+			"services.0.endpoints.1.timeout": "15s",
+			"services.0.endpoints.1.retries": 1,
+			"services.0.metadata.team":        "security",
+			"services.0.metadata.environment": "production",
+			"services.0.advanced.health_check.url":     "https://auth.example.com/health",
+			"services.0.advanced.health_check.timeout": "5s",
+			"services.0.advanced.health_check.retries": 2,
+			"services.0.advanced.metrics.url":     "https://auth.example.com/metrics",
+			"services.0.advanced.metrics.timeout": "10s",
+			"services.0.advanced.metrics.retries": 1,
+			
+			// 第二个服务
+			"services.1.name":    "notification-service",
+			"services.1.enabled": false,
+			"services.1.endpoints.0.url":     "https://notify.example.com/send",
+			"services.1.endpoints.0.timeout": "60s",
+			"services.1.endpoints.0.retries": 5,
+			"services.1.metadata.team": "messaging",
+			
+			// 数据库配置
+			"databases.primary.host":     "primary-db.example.com",
+			"databases.primary.port":     5432,
+			"databases.primary.database": "app_production",
+			"databases.primary.pool.min_size": 5,
+			"databases.primary.pool.max_size": 20,
+			"databases.cache.host":     "cache.example.com",
+			"databases.cache.port":     6379,
+			"databases.cache.database": "0",
+			"databases.cache.pool.min_size": 2,
+			"databases.cache.pool.max_size": 10,
+			
+			// 环境变量
+			"environment.stage":      "production",
+			"environment.debug":      false,
+			"environment.log_level":  "info",
+			"environment.max_memory": "2GB",
+			
+			// 特性配置
+			"features.experimental.0": "feature-a",
+			"features.experimental.1": "feature-b",
+			"features.stable.0":       "feature-x",
+			"features.stable.1":       "feature-y",
+			"features.stable.2":       "feature-z",
+		}
+
+		Convey("完整复杂结构转换", func() {
+			storage := NewFlatStorage(flatData)
+			var config ComplexConfig
+			err := storage.ConvertTo(&config)
+			
+			So(err, ShouldBeNil)
+
+			Convey("验证应用程序信息", func() {
+				So(config.Application.Name, ShouldEqual, "complex-app")
+				So(config.Application.Version, ShouldEqual, "1.0.0")
+			})
+
+			Convey("验证服务配置", func() {
+				So(len(config.Services), ShouldEqual, 2)
+
+				Convey("第一个服务（auth-service）", func() {
+					authService := config.Services[0]
+					So(authService.Name, ShouldEqual, "auth-service")
+					So(authService.Enabled, ShouldBeTrue)
+
+					Convey("验证endpoints", func() {
+						So(len(authService.Endpoints), ShouldEqual, 2)
+						
+						loginEndpoint := authService.Endpoints[0]
+						So(loginEndpoint.URL, ShouldEqual, "https://auth.example.com/login")
+						So(loginEndpoint.Timeout, ShouldEqual, "30s")
+						So(loginEndpoint.Retries, ShouldEqual, 3)
+					})
+
+					Convey("验证metadata", func() {
+						So(authService.Metadata["team"], ShouldEqual, "security")
+						So(authService.Metadata["environment"], ShouldEqual, "production")
+					})
+
+					Convey("验证advanced配置", func() {
+						So(len(authService.Advanced), ShouldEqual, 2)
+						
+						healthCheck, exists := authService.Advanced["health_check"]
+						So(exists, ShouldBeTrue)
+						So(healthCheck.URL, ShouldEqual, "https://auth.example.com/health")
+						So(healthCheck.Timeout, ShouldEqual, "5s")
+						So(healthCheck.Retries, ShouldEqual, 2)
+					})
+				})
+
+				Convey("第二个服务（notification-service）", func() {
+					notifyService := config.Services[1]
+					So(notifyService.Name, ShouldEqual, "notification-service")
+					So(notifyService.Enabled, ShouldBeFalse)
+					So(len(notifyService.Advanced), ShouldEqual, 0)
+				})
+			})
+
+			Convey("验证数据库配置", func() {
+				So(len(config.Databases), ShouldEqual, 2)
+
+				Convey("主数据库配置", func() {
+					primaryDB, exists := config.Databases["primary"]
+					So(exists, ShouldBeTrue)
+					So(primaryDB.Host, ShouldEqual, "primary-db.example.com")
+					So(primaryDB.Port, ShouldEqual, 5432)
+					So(primaryDB.Database, ShouldEqual, "app_production")
+					So(primaryDB.Pool.MinSize, ShouldEqual, 5)
+					So(primaryDB.Pool.MaxSize, ShouldEqual, 20)
+				})
+
+				Convey("缓存数据库配置", func() {
+					cacheDB, exists := config.Databases["cache"]
+					So(exists, ShouldBeTrue)
+					So(cacheDB.Port, ShouldEqual, 6379)
+				})
+			})
+
+			Convey("验证环境变量", func() {
+				So(len(config.Environment), ShouldEqual, 4)
+				So(config.Environment["stage"], ShouldEqual, "production")
+				So(config.Environment["debug"], ShouldEqual, false)
+			})
+
+			Convey("验证特性配置", func() {
+				So(len(config.Features), ShouldEqual, 2)
+
+				experimental, exists := config.Features["experimental"]
+				So(exists, ShouldBeTrue)
+				So(len(experimental), ShouldEqual, 2)
+				So(experimental[0], ShouldEqual, "feature-a")
+				So(experimental[1], ShouldEqual, "feature-b")
+
+				stable, exists := config.Features["stable"]
+				So(exists, ShouldBeTrue)
+				So(len(stable), ShouldEqual, 3)
+			})
+		})
+
+		Convey("分隔符自定义测试", func() {
+			// 使用不同分隔符的扁平化数据
+			customSeparatorData := map[string]interface{}{
+				"application-name":    "custom-app",
+				"application-version": "2.0.0",
+				"services-0-name":     "test-service",
+				"services-0-enabled":  true,
+			}
+
+			storage := NewFlatStorage(customSeparatorData).WithSeparator("-")
+			var config ComplexConfig
+			err := storage.ConvertTo(&config)
+			
+			So(err, ShouldBeNil)
+			So(config.Application.Name, ShouldEqual, "custom-app")
+			So(config.Application.Version, ShouldEqual, "2.0.0")
+			So(len(config.Services), ShouldEqual, 1)
+			So(config.Services[0].Name, ShouldEqual, "test-service")
+			So(config.Services[0].Enabled, ShouldBeTrue)
+		})
+
+		Convey("大小写转换测试", func() {
+			uppercaseData := map[string]interface{}{
+				"APPLICATION.NAME":    "UPPERCASE-APP",
+				"APPLICATION.VERSION": "3.0.0",
+				"SERVICES.0.NAME":     "UPPER-SERVICE",
+				"SERVICES.0.ENABLED":  true,
+			}
+
+			storage := NewFlatStorage(uppercaseData).WithUppercase(true)
+			var config ComplexConfig
+			err := storage.ConvertTo(&config)
+			
+			So(err, ShouldBeNil)
+			So(config.Application.Name, ShouldEqual, "UPPERCASE-APP")
+			So(config.Application.Version, ShouldEqual, "3.0.0")
+			So(len(config.Services), ShouldEqual, 1)
+			So(config.Services[0].Name, ShouldEqual, "UPPER-SERVICE")
+			So(config.Services[0].Enabled, ShouldBeTrue)
+		})
+
+		Convey("默认值和复杂结构混合测试", func() {
+			type ServiceWithDefaults struct {
+				Name      string              `json:"name" def:"default-service"`
+				Enabled   bool                `json:"enabled" def:"false"`
+				Endpoints []Endpoint          `json:"endpoints"`
+				Metadata  map[string]string   `json:"metadata"`
+			}
+
+			type ConfigWithDefaults struct {
+				Application struct {
+					Name    string `json:"name" def:"default-app"`
+					Version string `json:"version" def:"1.0.0"`
+				} `json:"application"`
+				Services []ServiceWithDefaults `json:"services"`
+			}
+
+			partialData := map[string]interface{}{
+				"services.0.name": "partial-service",
+				"services.0.endpoints.0.url": "http://example.com",
+				"services.0.endpoints.0.timeout": "30s",
+				"services.0.endpoints.0.retries": 3,
+			}
+
+			storage := NewFlatStorage(partialData).WithDefaults(true)
+			var config ConfigWithDefaults
+			err := storage.ConvertTo(&config)
+			
+			So(err, ShouldBeNil)
+			So(config.Application.Name, ShouldEqual, "default-app")
+			So(config.Application.Version, ShouldEqual, "1.0.0")
+			So(len(config.Services), ShouldEqual, 1)
+			So(config.Services[0].Name, ShouldEqual, "partial-service")
+			So(config.Services[0].Enabled, ShouldBeFalse) // 使用默认值
+			So(len(config.Services[0].Endpoints), ShouldEqual, 1)
+			So(config.Services[0].Endpoints[0].URL, ShouldEqual, "http://example.com")
+		})
+	})
+}
