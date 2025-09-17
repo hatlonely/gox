@@ -10,6 +10,7 @@ import (
 	"github.com/hatlonely/gox/cfg/def"
 )
 
+
 //	data := map[string]interface{}{
 //		"name": "test-app",
 //		"database-host": "localhost",
@@ -38,6 +39,9 @@ func NewFlatStorage(data map[string]interface{}) *FlatStorage {
 }
 
 func (fs *FlatStorage) WithDefaults(enable bool) *FlatStorage {
+	if fs == nil {
+		return nil
+	}
 	fs.enableDefaults = enable
 	return fs
 }
@@ -73,8 +77,9 @@ func (fs *FlatStorage) Sub(key string) Storage {
 	keys := fs.parseKey(key)
 
 	return &FlatStorage{
-		parent: fs,
-		prefix: strings.Join(keys, fs.separator),
+		parent:    fs,
+		prefix:    strings.Join(keys, fs.separator),
+		separator: fs.separator,
 	}
 }
 
@@ -95,40 +100,41 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 	return fs.convertValue("", reflect.ValueOf(object))
 }
 
-func (fs *FlatStorage) get(key string) interface{} {
-	// 构建完整的键路径
-	var fullKey string
+// buildFullKey 构建完整的键路径
+func (fs *FlatStorage) buildFullKey(key string) string {
 	if fs.prefix != "" {
 		if key != "" {
-			fullKey = fs.prefix + fs.separator + key
+			return fs.prefix + fs.separator + key
 		} else {
-			fullKey = fs.prefix
+			return fs.prefix
 		}
-	} else {
-		fullKey = key
 	}
+	return key
+}
 
-	// 如果有父节点，使用父节点的数据和配置
+// getDataSourceAndConfig 获取数据源和大小写配置
+func (fs *FlatStorage) getDataSourceAndConfig() (map[string]interface{}, bool, bool) {
 	if fs.parent != nil {
-		// 应用父节点的大小写转换
-		actualKey := fullKey
-		if fs.parent.uppercase {
-			actualKey = strings.ToUpper(fullKey)
-		} else if fs.parent.lowercase {
-			actualKey = strings.ToLower(fullKey)
-		}
-		return fs.parent.data[actualKey]
+		return fs.parent.data, fs.parent.uppercase, fs.parent.lowercase
 	}
+	return fs.data, fs.uppercase, fs.lowercase
+}
 
-	// 应用大小写转换
-	actualKey := fullKey
-	if fs.uppercase {
-		actualKey = strings.ToUpper(fullKey)
-	} else if fs.lowercase {
-		actualKey = strings.ToLower(fullKey)
+// applyCaseConversion 应用大小写转换
+func applyCaseConversion(key string, uppercase, lowercase bool) string {
+	if uppercase {
+		return strings.ToUpper(key)
+	} else if lowercase {
+		return strings.ToLower(key)
 	}
+	return key
+}
 
-	return fs.data[actualKey]
+func (fs *FlatStorage) get(key string) interface{} {
+	fullKey := fs.buildFullKey(key)
+	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
+	actualKey := applyCaseConversion(fullKey, useUppercase, useLowercase)
+	return dataSource[actualKey]
 }
 
 // convertValue 将扁平存储的数据转换为目标类型
@@ -291,50 +297,29 @@ func (fs *FlatStorage) convertToStruct(keyPath string, dst reflect.Value) error 
 func (fs *FlatStorage) convertToSlice(keyPath string, dst reflect.Value) error {
 	// 查找所有以 keyPath 开头的索引项
 	var maxIndex = -1
-	prefix := keyPath
-	if prefix != "" {
-		prefix += fs.separator
-	}
-
+	
 	// 构建完整的前缀路径
-	var fullPrefix string
-	if fs.prefix != "" {
-		if prefix != "" {
-			fullPrefix = fs.prefix + fs.separator + prefix
-		} else {
-			fullPrefix = fs.prefix + fs.separator
-		}
-	} else {
-		fullPrefix = prefix
+	fullPrefix := fs.buildFullKey(keyPath)
+	if fullPrefix != "" {
+		fullPrefix += fs.separator
 	}
-
+	
 	// 获取数据源和配置
-	var dataSource map[string]interface{}
-	var useUppercase, useLowercase bool
-	if fs.parent != nil {
-		dataSource = fs.parent.data
-		useUppercase = fs.parent.uppercase
-		useLowercase = fs.parent.lowercase
-	} else {
-		dataSource = fs.data
-		useUppercase = fs.uppercase
-		useLowercase = fs.lowercase
-	}
+	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
 
 	// 扫描所有 key 找出最大索引
-	actualPrefix := fullPrefix
-	if useUppercase {
-		actualPrefix = strings.ToUpper(fullPrefix)
-	} else if useLowercase {
-		actualPrefix = strings.ToLower(fullPrefix)
-	}
+	actualPrefix := applyCaseConversion(fullPrefix, useUppercase, useLowercase)
 	
 	for key := range dataSource {
 		if strings.HasPrefix(key, actualPrefix) {
 			remaining := strings.TrimPrefix(key, actualPrefix)
+			// 如果remaining以分隔符开头，去掉它
+			if strings.HasPrefix(remaining, fs.separator) {
+				remaining = strings.TrimPrefix(remaining, fs.separator)
+			}
 			// 查找第一个分隔符或结束
 			parts := strings.SplitN(remaining, fs.separator, 2)
-			if len(parts) > 0 {
+			if len(parts) > 0 && parts[0] != "" {
 				if index, err := strconv.Atoi(parts[0]); err == nil {
 					if index > maxIndex {
 						maxIndex = index
@@ -386,44 +371,17 @@ func (fs *FlatStorage) convertToMap(keyPath string, dst reflect.Value) error {
 		dst.Set(reflect.MakeMap(dst.Type()))
 	}
 
-	// 查找所有以 keyPath 开头的键
-	prefix := keyPath
-	if prefix != "" {
-		prefix += fs.separator
-	}
-
 	// 构建完整的前缀路径
-	var fullPrefix string
-	if fs.prefix != "" {
-		if prefix != "" {
-			fullPrefix = fs.prefix + fs.separator + prefix
-		} else {
-			fullPrefix = fs.prefix + fs.separator
-		}
-	} else {
-		fullPrefix = prefix
+	fullPrefix := fs.buildFullKey(keyPath)
+	if fullPrefix != "" {
+		fullPrefix += fs.separator
 	}
-
+	
 	// 获取数据源和配置
-	var dataSource map[string]interface{}
-	var useUppercase, useLowercase bool
-	if fs.parent != nil {
-		dataSource = fs.parent.data
-		useUppercase = fs.parent.uppercase
-		useLowercase = fs.parent.lowercase
-	} else {
-		dataSource = fs.data
-		useUppercase = fs.uppercase
-		useLowercase = fs.lowercase
-	}
+	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
 
 	// 收集所有直接子键
-	actualPrefix := fullPrefix
-	if useUppercase {
-		actualPrefix = strings.ToUpper(fullPrefix)
-	} else if useLowercase {
-		actualPrefix = strings.ToLower(fullPrefix)
-	}
+	actualPrefix := applyCaseConversion(fullPrefix, useUppercase, useLowercase)
 	
 	subKeys := make(map[string]bool)
 	for key := range dataSource {
