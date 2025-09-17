@@ -99,40 +99,44 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 	return fs.convertValue("", reflect.ValueOf(object))
 }
 
-// buildFullKey 构建完整的键路径
-func (fs *FlatStorage) buildFullKey(key string) string {
+// prepareKey 构建完整的键路径并应用大小写转换，同时返回数据源
+func (fs *FlatStorage) prepareKey(key string) (dataSource map[string]interface{}, actualKey string) {
+	// 构建完整的键路径
+	fullKey := key
 	if fs.prefix != "" {
 		if key != "" {
-			return fs.prefix + fs.separator + key
+			fullKey = fs.prefix + fs.separator + key
 		} else {
-			return fs.prefix
+			fullKey = fs.prefix
 		}
 	}
-	return key
-}
 
-// getDataSourceAndConfig 获取数据源和大小写配置
-func (fs *FlatStorage) getDataSourceAndConfig() (map[string]interface{}, bool, bool) {
+	// 获取数据源和大小写配置
+	var useUppercase, useLowercase bool
 	if fs.parent != nil {
-		return fs.parent.data, fs.parent.uppercase, fs.parent.lowercase
+		dataSource = fs.parent.data
+		useUppercase = fs.parent.uppercase
+		useLowercase = fs.parent.lowercase
+	} else {
+		dataSource = fs.data
+		useUppercase = fs.uppercase
+		useLowercase = fs.lowercase
 	}
-	return fs.data, fs.uppercase, fs.lowercase
-}
 
-// applyCaseConversion 应用大小写转换
-func applyCaseConversion(key string, uppercase, lowercase bool) string {
-	if uppercase {
-		return strings.ToUpper(key)
-	} else if lowercase {
-		return strings.ToLower(key)
+	// 应用大小写转换
+	if useUppercase {
+		actualKey = strings.ToUpper(fullKey)
+	} else if useLowercase {
+		actualKey = strings.ToLower(fullKey)
+	} else {
+		actualKey = fullKey
 	}
-	return key
+
+	return dataSource, actualKey
 }
 
 func (fs *FlatStorage) get(key string) interface{} {
-	fullKey := fs.buildFullKey(key)
-	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
-	actualKey := applyCaseConversion(fullKey, useUppercase, useLowercase)
+	dataSource, actualKey := fs.prepareKey(key)
 	return dataSource[actualKey]
 }
 
@@ -297,17 +301,11 @@ func (fs *FlatStorage) convertToSlice(keyPath string, dst reflect.Value) error {
 	// 查找所有以 keyPath 开头的索引项
 	var maxIndex = -1
 
-	// 构建完整的前缀路径
-	fullPrefix := fs.buildFullKey(keyPath)
-	if fullPrefix != "" {
-		fullPrefix += fs.separator
+	// 构建完整的前缀路径并应用大小写转换
+	dataSource, actualPrefix := fs.prepareKey(keyPath)
+	if actualPrefix != "" {
+		actualPrefix += fs.separator
 	}
-
-	// 获取数据源和配置
-	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
-
-	// 扫描所有 key 找出最大索引
-	actualPrefix := applyCaseConversion(fullPrefix, useUppercase, useLowercase)
 
 	for key := range dataSource {
 		if strings.HasPrefix(key, actualPrefix) {
@@ -368,18 +366,11 @@ func (fs *FlatStorage) convertToMap(keyPath string, dst reflect.Value) error {
 		dst.Set(reflect.MakeMap(dst.Type()))
 	}
 
-	// 构建完整的前缀路径
-	// 构建完整的前缀路径
-	fullPrefix := fs.buildFullKey(keyPath)
-	if fullPrefix != "" {
-		fullPrefix += fs.separator
+	// 构建完整的前缀路径并应用大小写转换
+	dataSource, finalPrefix := fs.prepareKey(keyPath)
+	if finalPrefix != "" {
+		finalPrefix += fs.separator
 	}
-
-	// 获取数据源和配置
-	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
-
-	// 收集所有子键和对应的值
-	finalPrefix := applyCaseConversion(fullPrefix, useUppercase, useLowercase)
 
 	// 检查目标值类型，如果是interface{}，则保留完整键名
 	isInterfaceValue := dst.Type().Elem().Kind() == reflect.Interface && dst.Type().Elem().NumMethod() == 0
