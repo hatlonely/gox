@@ -9,8 +9,8 @@ func TestEnvDecoder_BasicParsing(t *testing.T) {
 	decoder := NewEnvDecoder()
 
 	envData := `# 应用基本配置
-APP_NAME=test-app
-APP_VERSION=1.0.0
+NAME=test-app
+VERSION=1.0.0
 DEBUG=true
 PORT=8080
 TIMEOUT=30.5`
@@ -231,7 +231,7 @@ func TestEnvDecoder_CommentsAndEmptyLines(t *testing.T) {
 	decoder := NewEnvDecoder()
 
 	envData := `# 这是注释
-APP_NAME=test
+NAME=test
 
 // 这也是注释
 DEBUG=true
@@ -317,7 +317,7 @@ func TestEnvDecoder_Encode(t *testing.T) {
 	decoder := NewEnvDecoder()
 
 	// 原始数据
-	originalData := `APP_NAME=test-app
+	originalData := `NAME=test-app
 DEBUG=true
 PORT=8080
 MESSAGE="Hello World"
@@ -372,8 +372,8 @@ func TestEnvDecoder_CustomOptions(t *testing.T) {
 	decoder := NewEnvDecoder()
 
 	// 使用和 FlatStorage 测试中相似的数据格式
-	envData := `APP_NAME=test-service
-APP_VERSION=1.0.0
+	envData := `NAME=test-service
+VERSION=1.0.0
 DATABASE_PRIMARY_HOST=db1.example.com
 DATABASE_PRIMARY_PORT=5432
 CACHE_REDIS_HOST=redis.example.com

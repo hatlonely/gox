@@ -53,7 +53,7 @@ func (e *EnvDecoder) Decode(data []byte) (storage.Storage, error) {
 	}
 
 	// 创建FlatStorage，使用固定的默认配置
-	return storage.NewFlatStorage(result).WithSeparator("_"), nil
+	return storage.NewFlatStorage(result).WithSeparator("_").WithUppercase(true), nil
 }
 
 // parseLine 解析单行数据
