@@ -371,63 +371,91 @@ func (fs *FlatStorage) convertToMap(keyPath string, dst reflect.Value) error {
 
 	// 构建完整的前缀路径
 	fullPrefix := fs.buildFullKey(keyPath)
+	var actualPrefix string
 	if fullPrefix != "" {
-		fullPrefix += fs.separator
+		actualPrefix = fullPrefix + fs.separator
+	} else {
+		actualPrefix = ""
 	}
 	
 	// 获取数据源和配置
 	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
 
-	// 收集所有直接子键
-	actualPrefix := applyCaseConversion(fullPrefix, useUppercase, useLowercase)
+	// 收集所有子键和对应的值
+	finalPrefix := applyCaseConversion(actualPrefix, useUppercase, useLowercase)
 	
-	subKeys := make(map[string]bool)
-	for key := range dataSource {
-		if strings.HasPrefix(key, actualPrefix) {
-			remaining := strings.TrimPrefix(key, actualPrefix)
+	// 检查目标值类型，如果是interface{}，则保留完整键名
+	isInterfaceValue := dst.Type().Elem().Kind() == reflect.Interface && dst.Type().Elem().NumMethod() == 0
+	
+	keyValueMap := make(map[string]interface{})
+	for key, value := range dataSource {
+		if strings.HasPrefix(key, finalPrefix) {
+			remaining := strings.TrimPrefix(key, finalPrefix)
 			if remaining != "" {
-				// 获取第一级子键
-				parts := strings.SplitN(remaining, fs.separator, 2)
-				subKeys[parts[0]] = true
+				if isInterfaceValue {
+					// 对于interface{}类型，保留完整的剩余键名
+					keyValueMap[remaining] = value
+				} else {
+					// 对于其他类型，只取第一级键名
+					parts := strings.SplitN(remaining, fs.separator, 2)
+					if _, exists := keyValueMap[parts[0]]; !exists {
+						keyValueMap[parts[0]] = nil // 占位符，后续会被正确值替换
+					}
+				}
 			}
 		}
 	}
 
-	// 处理每个子键
-	for subKey := range subKeys {
-		var subKeyPath string
-		if keyPath == "" {
-			subKeyPath = subKey
+	// 处理每个键值对
+	for mapKey, mapValue := range keyValueMap {
+		if isInterfaceValue {
+			// 对于interface{}类型，直接设置值
+			keyValue := reflect.ValueOf(mapKey)
+			if !keyValue.Type().AssignableTo(dst.Type().Key()) {
+				if keyValue.Type().ConvertibleTo(dst.Type().Key()) {
+					keyValue = keyValue.Convert(dst.Type().Key())
+				} else {
+					return fmt.Errorf("cannot convert key %v to %v", keyValue.Type(), dst.Type().Key())
+				}
+			}
+			
+			dst.SetMapIndex(keyValue, reflect.ValueOf(mapValue))
 		} else {
-			subKeyPath = keyPath + fs.separator + subKey
-		}
-
-		// 创建 map 值
-		dstValue := reflect.New(dst.Type().Elem()).Elem()
-		
-		// 如果是结构体类型，为新创建的对象设置默认值
-		if fs.enableDefaults && dstValue.Kind() == reflect.Struct {
-			if err := def.SetDefaults(dstValue.Addr().Interface()); err != nil {
-				return fmt.Errorf("failed to set defaults for new map value: %v", err)
-			}
-		}
-
-		// 递归转换值
-		if err := fs.convertValue(subKeyPath, dstValue); err != nil {
-			return err
-		}
-
-		// 转换键类型
-		keyValue := reflect.ValueOf(subKey)
-		if !keyValue.Type().AssignableTo(dst.Type().Key()) {
-			if keyValue.Type().ConvertibleTo(dst.Type().Key()) {
-				keyValue = keyValue.Convert(dst.Type().Key())
+			// 对于其他类型，递归转换
+			var subKeyPath string
+			if keyPath == "" {
+				subKeyPath = mapKey
 			} else {
-				return fmt.Errorf("cannot convert key %v to %v", keyValue.Type(), dst.Type().Key())
+				subKeyPath = keyPath + fs.separator + mapKey
 			}
-		}
 
-		dst.SetMapIndex(keyValue, dstValue)
+			// 创建 map 值
+			dstValue := reflect.New(dst.Type().Elem()).Elem()
+			
+			// 如果是结构体类型，为新创建的对象设置默认值
+			if fs.enableDefaults && dstValue.Kind() == reflect.Struct {
+				if err := def.SetDefaults(dstValue.Addr().Interface()); err != nil {
+					return fmt.Errorf("failed to set defaults for new map value: %v", err)
+				}
+			}
+
+			// 递归转换值
+			if err := fs.convertValue(subKeyPath, dstValue); err != nil {
+				return err
+			}
+
+			// 转换键类型
+			keyValue := reflect.ValueOf(mapKey)
+			if !keyValue.Type().AssignableTo(dst.Type().Key()) {
+				if keyValue.Type().ConvertibleTo(dst.Type().Key()) {
+					keyValue = keyValue.Convert(dst.Type().Key())
+				} else {
+					return fmt.Errorf("cannot convert key %v to %v", keyValue.Type(), dst.Type().Key())
+				}
+			}
+
+			dst.SetMapIndex(keyValue, dstValue)
+		}
 	}
 
 	return nil

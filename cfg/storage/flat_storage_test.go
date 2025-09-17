@@ -421,6 +421,24 @@ func TestFlatStorage_ConvertTo_Map(t *testing.T) {
 			So(config["config.retries"], ShouldEqual, 3)
 			So(config["config.enabled"], ShouldEqual, true)
 		})
+
+		Convey("直接多层转换flat map", func() {
+			data := map[string]interface{}{
+				"server.config.timeout": "30s",
+				"server.config.retries": 3,
+				"server.config.enabled": true,
+			}
+
+			storage := NewFlatStorage(data)
+			var config map[string]interface{}
+			err := storage.Sub("server").ConvertTo(&config)
+
+			So(err, ShouldBeNil)
+			So(len(config), ShouldEqual, 3)
+			So(config["config.timeout"], ShouldEqual, "30s")
+			So(config["config.retries"], ShouldEqual, 3)
+			So(config["config.enabled"], ShouldEqual, true)
+		})
 	})
 }
 
