@@ -77,6 +77,14 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 	return nil
 }
 
+func (fs *FlatStorage) Get(key string) interface{} {
+	if fs.prefix != "" {
+		return fs.parent.Get(fs.prefix + "." + key)
+	}
+
+	return fs.data[key]
+}
+
 func (fs *FlatStorage) Equals(other Storage) bool {
 	if otherFs, ok := other.(*FlatStorage); ok {
 		return fs.separator == otherFs.separator &&
