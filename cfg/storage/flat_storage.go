@@ -77,9 +77,9 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 	return nil
 }
 
-func (fs *FlatStorage) Get(key string) interface{} {
+func (fs *FlatStorage) get(key string) interface{} {
 	if fs.prefix != "" {
-		return fs.parent.Get(fs.prefix + "." + key)
+		return fs.parent.get(fs.prefix + "." + key)
 	}
 
 	return fs.data[key]
