@@ -10,7 +10,6 @@ import (
 	"github.com/hatlonely/gox/cfg/def"
 )
 
-
 //	data := map[string]interface{}{
 //		"name": "test-app",
 //		"database-host": "localhost",
@@ -87,7 +86,7 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 	if fs == nil {
 		return nil
 	}
-	
+
 	// 首先设置默认值
 	if fs.enableDefaults {
 		err := def.SetDefaults(object)
@@ -95,7 +94,7 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 			return fmt.Errorf("failed to set defaults: %v", err)
 		}
 	}
-	
+
 	// 转换值
 	return fs.convertValue("", reflect.ValueOf(object))
 }
@@ -147,7 +146,7 @@ func (fs *FlatStorage) convertValue(keyPath string, dst reflect.Value) error {
 	if dst.Kind() == reflect.Ptr {
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
-			
+
 			// 新分配的结构体指针需要设置默认值
 			if fs.enableDefaults && dst.Type().Elem().Kind() == reflect.Struct {
 				err := def.SetDefaults(dst.Interface())
@@ -297,19 +296,19 @@ func (fs *FlatStorage) convertToStruct(keyPath string, dst reflect.Value) error 
 func (fs *FlatStorage) convertToSlice(keyPath string, dst reflect.Value) error {
 	// 查找所有以 keyPath 开头的索引项
 	var maxIndex = -1
-	
+
 	// 构建完整的前缀路径
 	fullPrefix := fs.buildFullKey(keyPath)
 	if fullPrefix != "" {
 		fullPrefix += fs.separator
 	}
-	
+
 	// 获取数据源和配置
 	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
 
 	// 扫描所有 key 找出最大索引
 	actualPrefix := applyCaseConversion(fullPrefix, useUppercase, useLowercase)
-	
+
 	for key := range dataSource {
 		if strings.HasPrefix(key, actualPrefix) {
 			remaining := strings.TrimPrefix(key, actualPrefix)
@@ -347,7 +346,7 @@ func (fs *FlatStorage) convertToSlice(keyPath string, dst reflect.Value) error {
 		}
 
 		dstItem := dst.Index(i)
-		
+
 		// 如果是结构体类型，为切片元素设置默认值
 		if fs.enableDefaults && dstItem.Kind() == reflect.Struct {
 			if err := def.SetDefaults(dstItem.Addr().Interface()); err != nil {
@@ -370,23 +369,21 @@ func (fs *FlatStorage) convertToMap(keyPath string, dst reflect.Value) error {
 	}
 
 	// 构建完整的前缀路径
+	// 构建完整的前缀路径
 	fullPrefix := fs.buildFullKey(keyPath)
-	var actualPrefix string
 	if fullPrefix != "" {
-		actualPrefix = fullPrefix + fs.separator
-	} else {
-		actualPrefix = ""
+		fullPrefix += fs.separator
 	}
-	
+
 	// 获取数据源和配置
 	dataSource, useUppercase, useLowercase := fs.getDataSourceAndConfig()
 
 	// 收集所有子键和对应的值
-	finalPrefix := applyCaseConversion(actualPrefix, useUppercase, useLowercase)
-	
+	finalPrefix := applyCaseConversion(fullPrefix, useUppercase, useLowercase)
+
 	// 检查目标值类型，如果是interface{}，则保留完整键名
 	isInterfaceValue := dst.Type().Elem().Kind() == reflect.Interface && dst.Type().Elem().NumMethod() == 0
-	
+
 	keyValueMap := make(map[string]interface{})
 	for key, value := range dataSource {
 		if strings.HasPrefix(key, finalPrefix) {
@@ -418,7 +415,7 @@ func (fs *FlatStorage) convertToMap(keyPath string, dst reflect.Value) error {
 					return fmt.Errorf("cannot convert key %v to %v", keyValue.Type(), dst.Type().Key())
 				}
 			}
-			
+
 			dst.SetMapIndex(keyValue, reflect.ValueOf(mapValue))
 		} else {
 			// 对于其他类型，递归转换
@@ -431,7 +428,7 @@ func (fs *FlatStorage) convertToMap(keyPath string, dst reflect.Value) error {
 
 			// 创建 map 值
 			dstValue := reflect.New(dst.Type().Elem()).Elem()
-			
+
 			// 如果是结构体类型，为新创建的对象设置默认值
 			if fs.enableDefaults && dstValue.Kind() == reflect.Struct {
 				if err := def.SetDefaults(dstValue.Addr().Interface()); err != nil {
