@@ -314,9 +314,7 @@ func (fs *FlatStorage) convertToSlice(keyPath string, dst reflect.Value) error {
 		if strings.HasPrefix(key, actualPrefix) {
 			remaining := strings.TrimPrefix(key, actualPrefix)
 			// 如果remaining以分隔符开头，去掉它
-			if strings.HasPrefix(remaining, fs.separator) {
-				remaining = strings.TrimPrefix(remaining, fs.separator)
-			}
+			remaining = strings.TrimPrefix(remaining, fs.separator)
 			// 查找第一个分隔符或结束
 			parts := strings.SplitN(remaining, fs.separator, 2)
 			if len(parts) > 0 && parts[0] != "" {
