@@ -1485,3 +1485,227 @@ func TestMapStorage_EdgeCases(t *testing.T) {
 		})
 	})
 }
+
+// TestMapStorage_ValidateStruct 测试结构体校验功能
+func TestMapStorage_ValidateStruct(t *testing.T) {
+	Convey("MapStorage 结构体校验测试", t, func() {
+		
+		// 定义测试用的结构体
+		type User struct {
+			Name  string `json:"name" validate:"required,min=2,max=50"`
+			Email string `json:"email" validate:"required,email"`
+			Age   int    `json:"age" validate:"min=0,max=150"`
+		}
+
+		type Address struct {
+			Street string `json:"street" validate:"required"`
+			City   string `json:"city" validate:"required"`
+		}
+
+		type UserWithAddress struct {
+			Name    string  `json:"name" validate:"required"`
+			Email   string  `json:"email" validate:"required,email"`
+			Address Address `json:"address" validate:"required"`
+		}
+
+		type UserWithPointer struct {
+			Name     string   `json:"name" validate:"required"`
+			Email    string   `json:"email" validate:"required,email"`
+			Address  *Address `json:"address,omitempty" validate:"omitempty"`
+		}
+
+		Convey("有效的结构体校验", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "john@example.com",
+				"age":   30,
+			}
+			storage := NewMapStorage(data)
+			var user User
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldBeNil)
+			So(user.Name, ShouldEqual, "John Doe")
+			So(user.Email, ShouldEqual, "john@example.com")
+			So(user.Age, ShouldEqual, 30)
+		})
+
+		Convey("校验失败 - 必填字段为空", func() {
+			data := map[string]interface{}{
+				"name":  "",
+				"email": "john@example.com",
+				"age":   30,
+			}
+			storage := NewMapStorage(data)
+			var user User
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "validation failed")
+		})
+
+		Convey("校验失败 - 邮箱格式错误", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "invalid-email",
+				"age":   30,
+			}
+			storage := NewMapStorage(data)
+			var user User
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "validation failed")
+		})
+
+		Convey("校验失败 - 年龄超出范围", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "john@example.com",
+				"age":   200,
+			}
+			storage := NewMapStorage(data)
+			var user User
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "validation failed")
+		})
+
+		Convey("嵌套结构体校验 - 有效", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "john@example.com",
+				"address": map[string]interface{}{
+					"street": "123 Main St",
+					"city":   "New York",
+				},
+			}
+			storage := NewMapStorage(data)
+			var user UserWithAddress
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldBeNil)
+			So(user.Name, ShouldEqual, "John Doe")
+			So(user.Address.Street, ShouldEqual, "123 Main St")
+			So(user.Address.City, ShouldEqual, "New York")
+		})
+
+		Convey("嵌套结构体校验 - 失败", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "john@example.com",
+				"address": map[string]interface{}{
+					"street": "",  // 必填字段为空
+					"city":   "New York",
+				},
+			}
+			storage := NewMapStorage(data)
+			var user UserWithAddress
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "validation failed")
+		})
+
+		Convey("指针结构体校验 - nil 指针", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "john@example.com",
+			}
+			storage := NewMapStorage(data)
+			var user UserWithPointer
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldBeNil)
+			So(user.Name, ShouldEqual, "John Doe")
+			So(user.Address, ShouldBeNil)
+		})
+
+		Convey("指针结构体校验 - 有效指针", func() {
+			data := map[string]interface{}{
+				"name":  "John Doe",
+				"email": "john@example.com",
+				"address": map[string]interface{}{
+					"street": "123 Main St",
+					"city":   "New York",
+				},
+			}
+			storage := NewMapStorage(data)
+			var user UserWithPointer
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldBeNil)
+			So(user.Name, ShouldEqual, "John Doe")
+			So(user.Address, ShouldNotBeNil)
+			So(user.Address.Street, ShouldEqual, "123 Main St")
+		})
+
+		Convey("time.Time 类型跳过校验", func() {
+			storage := NewMapStorage("2023-12-25T15:30:45Z")
+			var timeValue time.Time
+			err := storage.ConvertTo(&timeValue)
+			
+			So(err, ShouldBeNil)
+			expected := time.Date(2023, 12, 25, 15, 30, 45, 0, time.UTC)
+			So(timeValue.Equal(expected), ShouldBeTrue)
+		})
+
+		Convey("基本类型跳过校验", func() {
+			storage := NewMapStorage(42)
+			var intValue int
+			err := storage.ConvertTo(&intValue)
+			
+			So(err, ShouldBeNil)
+			So(intValue, ShouldEqual, 42)
+		})
+
+		Convey("nil storage 跳过校验", func() {
+			// 获取一个 nil storage（通过不存在的 key）
+			normalStorage := NewMapStorage(testData)
+			nilStorage := normalStorage.Sub("nonexistent")
+			var user *User
+			err := nilStorage.ConvertTo(&user)
+			
+			So(err, ShouldBeNil)
+			So(user, ShouldBeNil)
+		})
+		
+		Convey("nil 数据跳过校验", func() {
+			storage := NewMapStorage(nil)
+			var user *User
+			err := storage.ConvertTo(&user)
+			
+			So(err, ShouldBeNil)
+			// 当数据为 nil 时，会创建零值结构体但跳过校验
+			So(user, ShouldNotBeNil)
+			So(user.Name, ShouldEqual, "")
+			So(user.Email, ShouldEqual, "")
+		})
+
+		Convey("map 类型跳过校验", func() {
+			data := map[string]interface{}{
+				"key1": "value1",
+				"key2": "value2",
+			}
+			storage := NewMapStorage(data)
+			var result map[string]string
+			err := storage.ConvertTo(&result)
+			
+			So(err, ShouldBeNil)
+			So(result["key1"], ShouldEqual, "value1")
+			So(result["key2"], ShouldEqual, "value2")
+		})
+
+		Convey("slice 类型跳过校验", func() {
+			data := []interface{}{"item1", "item2", "item3"}
+			storage := NewMapStorage(data)
+			var result []string
+			err := storage.ConvertTo(&result)
+			
+			So(err, ShouldBeNil)
+			So(len(result), ShouldEqual, 3)
+			So(result[0], ShouldEqual, "item1")
+		})
+	})
+}
