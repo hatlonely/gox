@@ -119,6 +119,9 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 			return nil, fmt.Errorf("failed to decode data from source %d: %w", i, err)
 		}
 
+		// 用 ValidateStorage 包装 storage 以提供自动校验功能
+		stor = storage.NewValidateStorage(stor)
+
 		sources[i] = ConfigSource{
 			provider: prov,
 			decoder:  dec,
@@ -207,6 +210,9 @@ func (c *MultiConfig) handleSourceChange(sourceIndex int, newData []byte) error 
 	if err != nil {
 		return fmt.Errorf("failed to decode new data from source %d: %w", sourceIndex, err)
 	}
+
+	// 用 ValidateStorage 包装新的 storage 以提供自动校验功能
+	newStorage = storage.NewValidateStorage(newStorage)
 
 	// 更新存储
 	source.storage = newStorage
