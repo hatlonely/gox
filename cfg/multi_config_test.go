@@ -1,9 +1,12 @@
 package cfg
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/log"
@@ -337,5 +340,291 @@ func TestMultiConfig_HandlerExecution(t *testing.T) {
 		assert.Equal(t, true, config.handlerExecution.Async)
 		assert.Equal(t, "continue", config.handlerExecution.ErrorPolicy)
 	})
+}
+
+// TestMultiConfig_ValidateStorageIntegration 测试 MultiConfig 的 ValidateStorage 集成功能
+func TestMultiConfig_ValidateStorageIntegration(t *testing.T) {
+	t.Run("ConvertTo with validation success", func(t *testing.T) {
+		// 创建配置源：第一个基础配置，第二个覆盖配置
+		baseConfig := map[string]interface{}{
+			"user": map[string]interface{}{
+				"name":  "testuser",
+				"email": "test@example.com",
+				"age":   25,
+			},
+		}
+
+		overrideConfig := map[string]interface{}{
+			"user": map[string]interface{}{
+				"age": 30, // 覆盖年龄
+			},
+		}
+
+		// 创建临时 JSON 文件用于测试
+		baseConfigData, _ := json.Marshal(baseConfig)
+		os.WriteFile("/tmp/test_config_base.json", baseConfigData, 0644)
+		overrideConfigData, _ := json.Marshal(overrideConfig)
+		os.WriteFile("/tmp/test_config_override.json", overrideConfigData, 0644)
+
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "FileProvider",
+						Options: &provider.FileProviderOptions{
+							FilePath: "/tmp/test_config_base.json",
+						},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "JsonDecoder",
+						Options:   &decoder.JsonDecoderOptions{},
+					},
+				},
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "FileProvider",
+						Options: &provider.FileProviderOptions{
+							FilePath: "/tmp/test_config_override.json",
+						},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "JsonDecoder",
+						Options:   &decoder.JsonDecoderOptions{},
+					},
+				},
+			},
+		}
+
+		config, err := NewMultiConfigWithOptions(options)
+		require.NoError(t, err)
+		defer config.Close()
+
+		// 定义用于测试的结构体，包含校验标签
+		type User struct {
+			Name  string `cfg:"name" validate:"required,min=3,max=20"`
+			Email string `cfg:"email" validate:"required,email"`
+			Age   int    `cfg:"age" validate:"min=18,max=120"`
+		}
+
+		var user User
+		userConfig := config.Sub("user")
+
+		// 测试 ConvertTo 方法的自动校验
+		err = userConfig.ConvertTo(&user)
+		require.NoError(t, err, "ConvertTo should succeed with valid data")
+
+		// 验证数据正确合并和校验
+		assert.Equal(t, "testuser", user.Name)
+		assert.Equal(t, "test@example.com", user.Email)
+		assert.Equal(t, 30, user.Age) // 应该是覆盖后的值
+	})
+
+	t.Run("ConvertTo with validation failure", func(t *testing.T) {
+		// 创建包含无效数据的配置
+		invalidConfig := map[string]interface{}{
+			"user": map[string]interface{}{
+				"name":  "ab",             // 太短，不满足 min=3
+				"email": "invalid-email",  // 无效邮箱
+				"age":   15,               // 太小，不满足 min=18
+			},
+		}
+
+		// 创建临时 JSON 文件用于测试
+		invalidConfigData, _ := json.Marshal(invalidConfig)
+		os.WriteFile("/tmp/test_config_invalid.json", invalidConfigData, 0644)
+
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "FileProvider",
+						Options: &provider.FileProviderOptions{
+							FilePath: "/tmp/test_config_invalid.json",
+						},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "JsonDecoder",
+						Options:   &decoder.JsonDecoderOptions{},
+					},
+				},
+			},
+		}
+
+		config, err := NewMultiConfigWithOptions(options)
+		require.NoError(t, err)
+		defer config.Close()
+
+		type User struct {
+			Name  string `cfg:"name" validate:"required,min=3,max=20"`
+			Email string `cfg:"email" validate:"required,email"`
+			Age   int    `cfg:"age" validate:"min=18,max=120"`
+		}
+
+		var user User
+		userConfig := config.Sub("user")
+
+		// 测试 ConvertTo 方法的自动校验失败
+		err = userConfig.ConvertTo(&user)
+		require.Error(t, err, "ConvertTo should fail with invalid data")
+		assert.Contains(t, err.Error(), "validation failed")
+	})
+
+	t.Run("Root config validation", func(t *testing.T) {
+		// 测试根配置的校验
+		appConfig := map[string]interface{}{
+			"app": map[string]interface{}{
+				"name":    "testapp",
+				"version": "1.0.0",
+				"debug":   true,
+			},
+		}
+
+		// 创建临时 JSON 文件用于测试
+		appConfigData, _ := json.Marshal(appConfig)
+		os.WriteFile("/tmp/test_config_app.json", appConfigData, 0644)
+
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "FileProvider",
+						Options: &provider.FileProviderOptions{
+							FilePath: "/tmp/test_config_app.json",
+						},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "JsonDecoder",
+						Options:   &decoder.JsonDecoderOptions{},
+					},
+				},
+			},
+		}
+
+		config, err := NewMultiConfigWithOptions(options)
+		require.NoError(t, err)
+		defer config.Close()
+
+		type AppConfig struct {
+			App struct {
+				Name    string `cfg:"name" validate:"required,min=3"`
+				Version string `cfg:"version" validate:"required"`
+				Debug   bool   `cfg:"debug"`
+			} `cfg:"app"`
+		}
+
+		var appConfigStruct AppConfig
+		// 测试根配置的 ConvertTo 自动校验
+		err = config.ConvertTo(&appConfigStruct)
+		require.NoError(t, err, "Root config ConvertTo should succeed")
+
+		assert.Equal(t, "testapp", appConfigStruct.App.Name)
+		assert.Equal(t, "1.0.0", appConfigStruct.App.Version)
+		assert.Equal(t, true, appConfigStruct.App.Debug)
+	})
+
+	t.Run("Multiple source priority and validation", func(t *testing.T) {
+		// 测试多配置源的优先级和校验
+		baseConfig := map[string]interface{}{
+			"database": map[string]interface{}{
+				"host":     "localhost",
+				"port":     3306,
+				"username": "testuser",
+				"password": "testpass123",
+			},
+		}
+
+		// 高优先级配置覆盖一些字段
+		highPriorityConfig := map[string]interface{}{
+			"database": map[string]interface{}{
+				"host": "production.db.com",
+				"port": 5432,
+			},
+		}
+
+		// 创建临时 JSON 文件用于测试
+		baseConfigData, _ := json.Marshal(baseConfig)
+		os.WriteFile("/tmp/test_config_base_db.json", baseConfigData, 0644)
+		highPriorityConfigData, _ := json.Marshal(highPriorityConfig)
+		os.WriteFile("/tmp/test_config_high_priority.json", highPriorityConfigData, 0644)
+
+		options := &MultiConfigOptions{
+			Sources: []*ConfigSourceOptions{
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "FileProvider",
+						Options: &provider.FileProviderOptions{
+							FilePath: "/tmp/test_config_base_db.json",
+						},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "JsonDecoder",
+						Options:   &decoder.JsonDecoderOptions{},
+					},
+				},
+				{
+					Provider: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/provider",
+						Type:      "FileProvider",
+						Options: &provider.FileProviderOptions{
+							FilePath: "/tmp/test_config_high_priority.json",
+						},
+					},
+					Decoder: refx.TypeOptions{
+						Namespace: "github.com/hatlonely/gox/cfg/decoder",
+						Type:      "JsonDecoder",
+						Options:   &decoder.JsonDecoderOptions{},
+					},
+				},
+			},
+		}
+
+		config, err := NewMultiConfigWithOptions(options)
+		require.NoError(t, err)
+		defer config.Close()
+
+		type DatabaseConfig struct {
+			Host     string `cfg:"host" validate:"required"`
+			Port     int    `cfg:"port" validate:"min=1,max=65535"`
+			Username string `cfg:"username" validate:"required,min=3"`
+			Password string `cfg:"password" validate:"required,min=8"`
+		}
+
+		var dbConfig DatabaseConfig
+		// 测试嵌套配置的自动校验和优先级合并
+		dbSubConfig := config.Sub("database")
+		err = dbSubConfig.ConvertTo(&dbConfig)
+		require.NoError(t, err, "Database config ConvertTo should succeed")
+
+		// 验证高优先级配置覆盖了低优先级配置
+		assert.Equal(t, "production.db.com", dbConfig.Host) // 来自高优先级配置
+		assert.Equal(t, 5432, dbConfig.Port)                // 来自高优先级配置
+		assert.Equal(t, "testuser", dbConfig.Username)      // 来自基础配置
+		assert.Equal(t, "testpass123", dbConfig.Password)   // 来自基础配置
+	})
+}
+
+func TestMain(m *testing.M) {
+	// 运行测试
+	code := m.Run()
+	
+	// 清理临时文件
+	os.Remove("/tmp/test_config_base.json")
+	os.Remove("/tmp/test_config_override.json")
+	os.Remove("/tmp/test_config_invalid.json")
+	os.Remove("/tmp/test_config_app.json")
+	os.Remove("/tmp/test_config_base_db.json")
+	os.Remove("/tmp/test_config_high_priority.json")
+	
+	os.Exit(code)
 }
 
