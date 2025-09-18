@@ -335,37 +335,43 @@ func generateExamples(t reflect.Type) []string {
 func formatFieldHelp(field FieldInfo) string {
 	var sb strings.Builder
 
-	// 字段路径和类型
-	sb.WriteString(fmt.Sprintf("  %s (%s)", field.Path, field.Type))
+	// 第一行：符号 + 字段路径 + 类型 + 必填标识 + 默认值
+	symbol := "○"
+	if field.Required {
+		symbol = "●"
+	}
+
+	sb.WriteString(fmt.Sprintf("    %s %s: %s", symbol, field.Path, field.Type))
+
 	if field.Required {
 		sb.WriteString(" [必填]")
 	}
+
+	if field.DefaultValue != "" {
+		sb.WriteString(fmt.Sprintf(" = %s", field.DefaultValue))
+	}
 	sb.WriteString("\n")
 
-	// 帮助信息
+	// 第二行：帮助信息 + 校验信息
 	if field.Help != "" {
-		sb.WriteString(fmt.Sprintf("    说明: %s\n", field.Help))
+		sb.WriteString(fmt.Sprintf("      %s", field.Help))
+
+		// 添加校验信息到描述后面
+		if field.Validation != "" {
+			validationDesc := formatValidationRules(field.Validation)
+			if validationDesc != "" {
+				sb.WriteString(fmt.Sprintf(" (%s)", validationDesc))
+			}
+		}
+		sb.WriteString("\n")
 	}
 
-	// 校验信息
-	if field.Validation != "" {
-		sb.WriteString(fmt.Sprintf("    校验规则: %s\n", formatValidationRules(field.Validation)))
-	}
+	// 第三行：环境变量和命令行参数
+	sb.WriteString(fmt.Sprintf("      → %s | %s\n", field.EnvName, field.CmdName))
 
-	// 环境变量
-	sb.WriteString(fmt.Sprintf("    环境变量: %s\n", field.EnvName))
-
-	// 命令行参数
-	sb.WriteString(fmt.Sprintf("    命令行参数: %s\n", field.CmdName))
-
-	// 默认值
-	if field.DefaultValue != "" {
-		sb.WriteString(fmt.Sprintf("    默认值: %s\n", field.DefaultValue))
-	}
-
-	// 示例值
+	// 第四行：示例值
 	if len(field.Examples) > 0 {
-		sb.WriteString("    示例: ")
+		sb.WriteString("      例: ")
 		sb.WriteString(strings.Join(field.Examples, ", "))
 		sb.WriteString("\n")
 	}
@@ -412,16 +418,12 @@ func formatValidationRules(validation string) string {
 
 	for _, rule := range rules {
 		rule = strings.TrimSpace(rule)
-		if rule == "" {
+		if rule == "" || rule == "required" {
 			continue
 		}
 
 		// 解析校验规则
 		formatted = append(formatted, formatSingleRule(rule))
-	}
-
-	if len(formatted) == 0 {
-		return validation // 如果没有识别的规则，返回原始内容
 	}
 
 	return strings.Join(formatted, "; ")
