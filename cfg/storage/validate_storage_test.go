@@ -196,9 +196,8 @@ func TestValidateStorage_Equals(t *testing.T) {
 			validateStorage2 := NewValidateStorage(nil)
 			validateStorageWithData := NewValidateStorage(baseStorage1)
 			
-			// 两个都是 ValidateStorage，即使内部 storage 都是 nil，也不相等
-			// 因为 validateStorage2 本身不是 nil，所以 other == nil 返回 false
-			So(validateStorage1.Equals(validateStorage2), ShouldBeFalse)
+			// 两个都是 ValidateStorage 且内部 storage 都是 nil，应该相等
+			So(validateStorage1.Equals(validateStorage2), ShouldBeTrue)
 			// nil ValidateStorage 与真正的 nil 比较为 true
 			So(validateStorage1.Equals(nil), ShouldBeTrue)
 			So(validateStorage1.Equals(validateStorageWithData), ShouldBeFalse)

@@ -38,14 +38,22 @@ func (vs *ValidateStorage) ConvertTo(object interface{}) error {
 }
 
 func (vs *ValidateStorage) Equals(other Storage) bool {
-	if vs.storage == nil {
-		return other == nil
-	}
 	if other == nil {
-		return false
+		return vs.storage == nil
 	}
 	if o, ok := other.(*ValidateStorage); ok {
+		// 两个 ValidateStorage 对象，比较它们的内部 storage
+		if vs.storage == nil && o.storage == nil {
+			return true
+		}
+		if vs.storage == nil || o.storage == nil {
+			return false
+		}
 		return vs.storage.Equals(o.storage)
+	}
+	// 与非 ValidateStorage 对象比较，直接委托给内部 storage
+	if vs.storage == nil {
+		return false
 	}
 	return vs.storage.Equals(other)
 }
