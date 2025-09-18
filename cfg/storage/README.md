@@ -1,278 +1,204 @@
-# Storage 存储实现
+# Storage
 
-配置管理的存储实现，支持层次化访问、类型转换和智能 nil 处理。
+配置数据存储模块，提供统一的配置访问接口和多种存储实现。
 
 ## 核心接口
 
 ```go
 type Storage interface {
-    Sub(key string) Storage
-    ConvertTo(object interface{}) error
-    Equals(other Storage) bool
+    Sub(key string) Storage              // 获取子配置存储对象
+    ConvertTo(object interface{}) error  // 将配置数据转换为结构体
+    Equals(other Storage) bool           // 比较两个存储是否相同
 }
 ```
 
-## 新特性
+## 存储实现
 
-### 智能 Nil 处理
+### MapStorage
 
-#### Nil Storage 安全返回
-当访问不存在的配置项时，`Sub` 方法返回类型化的 nil Storage，支持安全的链式调用：
-
-```go
-// 即使路径不存在也不会 panic
-storage := NewMapStorage(data)
-nilStorage := storage.Sub("nonexistent.deeply.nested.key")
-err := nilStorage.ConvertTo(&config) // 不会修改 config，返回 nil
-```
-
-#### 智能指针字段处理
-`ConvertTo` 方法对结构体中的指针字段进行智能处理：
-
-**处理规则**：
-- **配置中没有该字段**：保持指针字段的原始状态（nil 保持 nil，非 nil 保持不变）
-- **配置中存在该字段**：即使指针字段为 nil，也会创建新实例并赋值
+基于 map 和 slice 的层级化存储，适用于嵌套配置数据。
 
 ```go
-type Config struct {
-    Name     string
-    Database *DatabaseConfig
-    Cache    *CacheConfig
-}
-
-// 场景1：配置中没有对应字段
-storage := NewMapStorage(map[string]interface{}{
-    "name": "test",
-    // 注意：没有 "database" 和 "cache" 字段
-})
-
-config := &Config{
-    Name:     "original",
-    Database: nil,                           // nil 指针
-    Cache:    &CacheConfig{TTL: 300},       // 非 nil 指针
-}
-
-storage.ConvertTo(config)
-// 结果：
-// config.Name = "test"      (被覆盖)
-// config.Database = nil     (保持 nil - 重要特性!)
-// config.Cache.TTL = 300    (保持原值 - 重要特性!)
-```
-
-#### Nil Storage 比较规则
-```go
-var nilStorage1 *MapStorage = nil
-var nilStorage2 *MapStorage = nil
-var nilInterface Storage = nil
-
-nilStorage1.Equals(nilStorage2) // true - 两个 nil Storage 相等
-nilStorage1.Equals(nilInterface) // false - nil Storage != nil interface
-```
-
-## 实现方式
-
-### MapStorage 映射存储
-
-基于嵌套 map 和 slice 的层次化配置存储。
-
-```go
+// 准备层级化数据
 data := map[string]interface{}{
     "database": map[string]interface{}{
         "host": "localhost",
-        "port": 5432,
+        "port": 3306,
+        "connections": []interface{}{
+            map[string]interface{}{
+                "name": "primary",
+                "user": "admin",
+            },
+            map[string]interface{}{
+                "name": "secondary", 
+                "user": "readonly",
+            },
+        },
     },
-    "servers": []string{"server1", "server2"},
+    "servers": []interface{}{"web1", "web2"},
+    "config": map[string]interface{}{
+        "timeout":    "30s",
+        "created_at": "2023-12-25T15:30:45Z",
+        "enabled":    true,
+    },
+}
+
+// 创建存储
+storage := NewMapStorage(data)
+
+// 配置选项
+storage.WithDefaults(false)  // 禁用默认值
+
+// 获取子配置
+dbConfig := storage.Sub("database")
+dbHost := storage.Sub("database.host")
+
+// 转换为结构体
+var config Config
+storage.ConvertTo(&config)
+```
+
+支持的 key 格式：
+- `"database.host"` - 多级嵌套访问
+- `"servers[0].port"` - 数组索引访问
+
+### FlatStorage
+
+扁平化存储，所有配置项存储在单层 map 中，使用分隔符表示层级。
+
+```go
+data := map[string]interface{}{
+    "database.host":     "localhost",
+    "database.port":     3306,
+    "servers.0.host":    "server1",
+    "servers.1.host":    "server2",
+}
+
+storage := NewFlatStorage(data)
+storage.WithSeparator("-")     // 自定义分隔符，默认为 "."
+storage.WithUppercase(true)    // 键名转大写
+storage.WithLowercase(true)    // 键名转小写
+```
+
+### MultiStorage
+
+多配置源存储，支持按优先级合并多个配置源。
+
+```go
+sources := []Storage{
+    NewMapStorage(defaultConfig),  // 低优先级
+    NewMapStorage(userConfig),     // 高优先级
+}
+
+// 创建多源存储，索引越大优先级越高
+multiStorage := NewMultiStorage(sources)
+
+// 动态更新配置源
+changed := multiStorage.UpdateStorage(1, newUserConfig)
+```
+
+### ValidateStorage
+
+配置验证存储，在配置转换后自动进行结构体验证。
+
+```go
+storage := NewValidateStorage(baseStorage)
+
+// 转换时会自动验证结构体字段
+var config Config
+err := storage.ConvertTo(&config) // 验证失败时返回错误
+```
+
+## 主要特性
+
+### 类型转换
+
+自动支持多种类型转换：
+- 基本类型：字符串、数字、布尔值
+- 时间类型：`time.Time`、`time.Duration`
+- 集合类型：map、slice、array
+- 结构体字段映射
+
+### 标签支持
+
+结构体字段映射支持多种标签，优先级从高到低：
+
+```go
+type Config struct {
+    Host string `cfg:"host" json:"hostname"`
+    Port int    `yaml:"port"`
+}
+```
+
+支持标签：`cfg` > `json` > `yaml` > `toml` > `ini` > 字段名
+
+### 默认值
+
+支持自动设置默认值（需配合 `def` 包）：
+
+```go
+type Config struct {
+    Host string `def:"localhost"`
+    Port int    `def:"8080"`
 }
 
 storage := NewMapStorage(data)
-
-// 访问嵌套值
-hostStorage := storage.Sub("database.host")
-var host string
-hostStorage.ConvertTo(&host) // "localhost"
-
-// 数组访问
-serverStorage := storage.Sub("servers[0]")
-var server string
-serverStorage.ConvertTo(&server) // "server1"
+storage.ConvertTo(&config) // 自动设置未配置字段的默认值
 ```
 
-### FlatStorage 打平存储
+### 智能指针处理
 
-支持智能字段路径匹配的扁平化键值存储，非常适合环境变量和 .env 文件。
-
-```go
-// 环境变量风格
-data := map[string]interface{}{
-    "DATABASE_HOST":     "localhost",
-    "DATABASE_PORT":     5432,
-    "APP_NAME":          "my-service",
-    "CACHE_REDIS_HOST":  "redis.example.com",
-}
-
-storage := NewFlatStorageWithOptions(data, "_", "_%d")
-
-type Config struct {
-    Database struct {
-        Host string `cfg:"host"`
-        Port int    `cfg:"port"`
-    } `cfg:"database"`
-    Name string `cfg:"name"`
-    Cache struct {
-        Redis struct {
-            Host string `cfg:"host"`
-        } `cfg:"redis"`
-    } `cfg:"cache"`
-}
-
-var config Config
-storage.ConvertTo(&config)
-// 自动匹配：
-// database.host -> DATABASE_HOST
-// database.port -> DATABASE_PORT  
-// name -> APP_NAME
-// cache.redis.host -> CACHE_REDIS_HOST
-```
-
-#### 复杂嵌套结构支持
-
-```go
-// 同时支持 struct、map、slice 混合嵌套
-data := map[string]interface{}{
-    "APP_NAME": "service",
-    "DATABASE_POOLS_0_HOST": "db1.com",
-    "DATABASE_POOLS_1_HOST": "db2.com", 
-    "CACHE_REDIS_URL": "redis://localhost",
-    "FEATURES_AUTH_ENABLED": true,
-}
-
-type Config struct {
-    Name string `cfg:"name"`
-    Database struct {
-        Pools []struct {
-            Host string `cfg:"host"`
-        } `cfg:"pools"`
-    } `cfg:"database"`
-    Cache    map[string]string `cfg:"cache"`    // redis_url: redis://localhost
-    Features map[string]bool   `cfg:"features"` // auth_enabled: true
-}
-```
-
-## 功能特性
-
-- **智能 Nil 处理**：类型化 nil Storage 返回，支持安全链式调用和智能指针字段处理
-- **层次化访问**：使用点号表示法 (`database.host`) 和数组索引 (`servers[0]`) 访问嵌套结构
-- **智能字段匹配**：自动将结构体字段匹配到不同命名约定的扁平化键名
-- **类型转换**：支持基本类型、time.Duration、time.Time 和自定义结构体
-- **标签支持**：按优先级支持 `cfg`、`json`、`yaml`、`toml` 和 `ini` 标签
-- **灵活分隔符**：自定义键分隔符和数组格式
-
-## 时间类型转换
-
-### Duration 转换
-```go
-type Config struct {
-    Timeout time.Duration `cfg:"timeout"`
-}
-
-// 支持的格式：
-// - 字符串: "30s", "5m", "1h"
-// - 整数: 纳秒数
-// - 浮点数: 秒数
-```
-
-### Time 转换
-```go
-type Config struct {
-    CreatedAt time.Time `cfg:"created_at"`
-}
-
-// 支持的格式：
-// - RFC3339: "2023-01-01T12:00:00Z"
-// - 日期: "2023-01-01"
-// - Unix 时间戳: 1672574400
-```
-
-## 智能匹配规则 (FlatStorage)
-
-1. **精确匹配**：`name` → `name`
-2. **大小写转换**：`name` → `NAME`、`Name`
-3. **分隔符转换**：`database.host` ↔ `database_host`
-4. **前缀匹配**：`name` → `APP_NAME`、`app_name`
-5. **组合模式**：以上所有规则的组合
-
-特别适用于：
-- 环境变量 (`DATABASE_HOST`、`REDIS_URL`)
-- .env 文件 (`APP_NAME=my-service`)
-- 命名约定不一致的配置系统
+- 配置不存在时：保持指针原状态（nil 保持 nil）
+- 配置存在时：自动创建实例并赋值
 
 ## 使用示例
 
-### 基本用法
 ```go
-// 创建存储
-storage := NewMapStorage(map[string]interface{}{
-    "app": map[string]interface{}{
-        "name":    "myapp",
-        "version": "1.0.0",
-        "database": map[string]interface{}{
-            "host": "localhost",
-            "port": 3306,
-        },
+// 准备配置数据
+data := map[string]interface{}{
+    "database": map[string]interface{}{
+        "host": "localhost",
+        "port": 3306,
     },
-})
-
-// 获取子配置
-appStorage := storage.Sub("app")
-dbStorage := appStorage.Sub("database")
-
-// 转换为结构体
-type DatabaseConfig struct {
-    Host string `cfg:"host"`
-    Port int    `cfg:"port"`
+    "servers": []interface{}{"web1", "web2"},
 }
 
-var dbConfig DatabaseConfig
-err := dbStorage.ConvertTo(&dbConfig)
-```
+// 创建存储
+storage := NewMapStorage(data)
 
-### 安全的链式访问
-```go
-// 安全的链式访问，即使中间路径不存在也不会 panic
-var config DatabaseConfig
-err := storage.Sub("app.database").ConvertTo(&config)
-
-// nil Storage 处理
-nilStorage := storage.Sub("nonexistent")
-err = nilStorage.ConvertTo(&config) // err == nil, config 不变
-```
-
-### 智能指针字段处理
-```go
+// 定义配置结构
 type Config struct {
-    Required string
-    Optional *OptionalConfig
+    Database struct {
+        Host string `json:"host"`
+        Port int    `json:"port"`
+    } `json:"database"`
+    Servers []string `json:"servers"`
 }
 
-// 即使配置中没有 "optional" 字段，Optional 指针也会保持原状
-config := &Config{Optional: nil}
-storage.Sub("incomplete").ConvertTo(config) // Optional 仍为 nil
+// 转换配置
+var config Config
+err := storage.ConvertTo(&config)
+if err != nil {
+    log.Fatal(err)
+}
 
-// 如果配置中有 "optional" 字段，即使 Optional 为 nil 也会创建实例
-storage.Sub("complete").ConvertTo(config) // Optional 被创建并赋值
+// 使用配置
+fmt.Printf("Database: %s:%d\n", config.Database.Host, config.Database.Port)
+fmt.Printf("Servers: %v\n", config.Servers)
 ```
 
-## 测试
+## 最佳实践
 
-运行测试：
-```bash
-go test ./cfg/storage/...
-```
+1. **选择合适的存储类型**：
+   - 层级数据使用 `MapStorage`
+   - 扁平数据使用 `FlatStorage`
+   - 多源配置使用 `MultiStorage`
+   - 需要验证使用 `ValidateStorage`
 
-## 注意事项
+2. **合理使用默认值**：
+   - 生产环境建议启用默认值功能
+   - 测试环境可禁用以便发现配置缺失
 
-1. **Nil Safety**: 所有方法都支持 nil receiver 调用，确保链式操作的安全性
-2. **指针字段**: 指针字段的处理遵循智能规则，保持向后兼容的同时提供灵活的配置绑定
-3. **类型转换**: 支持丰富的类型转换，包括时间类型的智能解析
-4. **标签优先级**: 配置标签按优先级匹配，`cfg` 标签具有最高优先级
-5. **向后兼容**: 所有新特性都保持与现有代码的向后兼容性
+3. **优化性能**：
+   - 频繁访问的配置可缓存转换结果
+   - 大型配置建议分模块使用 `Sub()` 方法
