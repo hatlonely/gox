@@ -1356,19 +1356,10 @@ func TestFlatStorage_ValidateStruct(t *testing.T) {
 			var user UserWithPointer
 			err := storage.ConvertTo(&user)
 			
-			// FlatStorage 会创建零值结构体，但在校验时应该通过 omitempty 标签跳过
-			// 让我们检查 FlatStorage 的实际行为，可能需要调整校验逻辑
+			So(err, ShouldBeNil)
 			So(user.Name, ShouldEqual, "John Doe")
 			So(user.Email, ShouldEqual, "john@example.com")
-			if user.Address != nil {
-				// 如果创建了 Address，但它是零值，校验可能会失败
-				// 这种情况下我们需要在 validateStruct 中特殊处理
-				So(err, ShouldNotBeNil)
-				So(err.Error(), ShouldContainSubstring, "validation failed")
-			} else {
-				So(err, ShouldBeNil)
-				So(user.Address, ShouldBeNil)
-			}
+			So(user.Address, ShouldBeNil)
 		})
 
 		Convey("指针结构体校验 - 有效指针", func() {

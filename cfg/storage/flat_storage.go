@@ -208,6 +208,31 @@ func (fs *FlatStorage) get(key string) interface{} {
 	return dataSource[actualKey]
 }
 
+// hasDataForKey 检查是否有与指定键路径相关的数据
+// 对于结构体字段，检查是否有以该键路径为前缀的任何数据
+func (fs *FlatStorage) hasDataForKey(keyPath string) bool {
+	dataSource, actualKey := fs.prepareKey(keyPath)
+	
+	// 直接检查是否有该键
+	if _, exists := dataSource[actualKey]; exists {
+		return true
+	}
+	
+	// 检查是否有以该键路径为前缀的键（用于结构体）
+	keyPrefix := actualKey
+	if keyPrefix != "" {
+		keyPrefix += fs.separator
+	}
+	
+	for key := range dataSource {
+		if strings.HasPrefix(key, keyPrefix) {
+			return true
+		}
+	}
+	
+	return false
+}
+
 // convertValue 将扁平存储的数据转换为目标类型
 func (fs *FlatStorage) convertValue(keyPath string, dst reflect.Value) error {
 	if !dst.CanSet() && dst.Kind() != reflect.Ptr {
@@ -216,6 +241,11 @@ func (fs *FlatStorage) convertValue(keyPath string, dst reflect.Value) error {
 
 	// 处理目标为指针的情况
 	if dst.Kind() == reflect.Ptr {
+		// 检查是否有相关数据，如果没有则保持指针为 nil
+		if !fs.hasDataForKey(keyPath) {
+			return nil
+		}
+		
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
 
