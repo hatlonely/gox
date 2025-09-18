@@ -32,8 +32,9 @@ type FlatStorage struct {
 
 func NewFlatStorage(data map[string]interface{}) *FlatStorage {
 	return &FlatStorage{
-		data:      data,
-		separator: ".",
+		data:           data,
+		separator:      ".",
+		enableDefaults: true,
 	}
 }
 

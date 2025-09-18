@@ -26,7 +26,7 @@ var testFlatData = map[string]interface{}{
 func TestFlatStorage_Creation(t *testing.T) {
 	Convey("FlatStorage 创建测试", t, func() {
 		Convey("创建基本的 FlatStorage", func() {
-			storage := NewFlatStorage(testFlatData)
+			storage := NewFlatStorage(testFlatData).WithDefaults(false)
 			So(storage, ShouldNotBeNil)
 			So(storage.Data(), ShouldResemble, testFlatData)
 			So(storage.separator, ShouldEqual, ".")

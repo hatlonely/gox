@@ -29,14 +29,6 @@ func NewMapStorage(data interface{}) *MapStorage {
 	}
 }
 
-// NewMapStorageWithoutDefaults 创建不启用默认值的 MapStorage
-func NewMapStorageWithoutDefaults(data interface{}) *MapStorage {
-	return &MapStorage{
-		data:           data,
-		enableDefaults: false,
-	}
-}
-
 // WithDefaults 启用或禁用默认值功能
 func (ms *MapStorage) WithDefaults(enable bool) *MapStorage {
 	if ms != nil {
@@ -59,7 +51,7 @@ func (ms *MapStorage) Sub(key string) Storage {
 		var nilStorage *MapStorage = nil
 		return nilStorage
 	}
-	
+
 	// 子配置继承父配置的默认值设置
 	subStorage := NewMapStorage(result)
 	if ms != nil {
@@ -74,7 +66,7 @@ func (ms *MapStorage) ConvertTo(object interface{}) error {
 	if ms == nil {
 		return nil
 	}
-	
+
 	// 首先设置默认值，然后用配置数据覆盖
 	if ms.enableDefaults {
 		err := def.SetDefaults(object)
@@ -82,13 +74,13 @@ func (ms *MapStorage) ConvertTo(object interface{}) error {
 			return fmt.Errorf("failed to set defaults: %v", err)
 		}
 	}
-	
+
 	// 用配置数据覆盖默认值
 	err := ms.convertValue(ms.data, reflect.ValueOf(object))
 	if err != nil {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -264,7 +256,7 @@ func (ms *MapStorage) convertValue(src interface{}, dst reflect.Value) error {
 	if dst.Kind() == reflect.Ptr {
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
-			
+
 			// 新分配的结构体指针需要设置默认值
 			if ms.enableDefaults && dst.Type().Elem().Kind() == reflect.Struct {
 				err := def.SetDefaults(dst.Interface())
@@ -446,7 +438,7 @@ func (ms *MapStorage) convertToMap(src, dst reflect.Value) error {
 	for _, key := range src.MapKeys() {
 		srcValue := src.MapIndex(key)
 		dstValue := reflect.New(dst.Type().Elem()).Elem()
-		
+
 		// 如果是结构体类型，为新创建的对象设置默认值
 		if ms.enableDefaults && dstValue.Kind() == reflect.Struct {
 			if err := def.SetDefaults(dstValue.Addr().Interface()); err != nil {
@@ -485,7 +477,7 @@ func (ms *MapStorage) convertToSlice(src, dst reflect.Value) error {
 	for i := 0; i < length; i++ {
 		srcItem := src.Index(i)
 		dstItem := dst.Index(i)
-		
+
 		// 如果是结构体类型，为切片元素设置默认值
 		if ms.enableDefaults && dstItem.Kind() == reflect.Struct {
 			if err := def.SetDefaults(dstItem.Addr().Interface()); err != nil {

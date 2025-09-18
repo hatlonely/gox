@@ -19,7 +19,7 @@ var testData = map[string]interface{}{
 				"user": "admin",
 			},
 			map[string]interface{}{
-				"name": "secondary", 
+				"name": "secondary",
 				"user": "readonly",
 			},
 		},
@@ -43,7 +43,7 @@ func TestMapStorage_Creation(t *testing.T) {
 		})
 
 		Convey("创建不带默认值的 MapStorage", func() {
-			storage := NewMapStorageWithoutDefaults(testData)
+			storage := NewMapStorage(testData).WithDefaults(false)
 			So(storage, ShouldNotBeNil)
 			So(storage.Data(), ShouldResemble, testData)
 			So(storage.enableDefaults, ShouldBeFalse)
@@ -78,17 +78,17 @@ func TestMapStorage_Creation(t *testing.T) {
 func TestMapStorage_WithDefaults(t *testing.T) {
 	Convey("MapStorage 默认值开关测试", t, func() {
 		storage := NewMapStorage(testData)
-		
+
 		Convey("开启默认值", func() {
 			result := storage.WithDefaults(true)
 			So(result.enableDefaults, ShouldBeTrue)
 		})
-		
+
 		Convey("关闭默认值", func() {
 			result := storage.WithDefaults(false)
 			So(result.enableDefaults, ShouldBeFalse)
 		})
-		
+
 		Convey("nil storage 的处理", func() {
 			var nilStorage *MapStorage = nil
 			result := nilStorage.WithDefaults(true)
@@ -138,7 +138,7 @@ func TestMapStorage_Sub_Basic(t *testing.T) {
 		Convey("空key返回自身", func() {
 			result := storage.Sub("")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -148,7 +148,7 @@ func TestMapStorage_Sub_Basic(t *testing.T) {
 		Convey("简单字段访问", func() {
 			result := storage.Sub("servers")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -158,7 +158,7 @@ func TestMapStorage_Sub_Basic(t *testing.T) {
 		Convey("嵌套map访问", func() {
 			result := storage.Sub("database")
 			So(result, ShouldNotBeNil)
-			
+
 			expected := map[string]interface{}{
 				"host": "localhost",
 				"port": 3306,
@@ -167,7 +167,7 @@ func TestMapStorage_Sub_Basic(t *testing.T) {
 					map[string]interface{}{"name": "secondary", "user": "readonly"},
 				},
 			}
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -176,7 +176,7 @@ func TestMapStorage_Sub_Basic(t *testing.T) {
 
 		Convey("不存在的key", func() {
 			result := storage.Sub("nonexistent")
-			
+
 			// 检查返回的是否是 nil MapStorage
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
@@ -193,7 +193,7 @@ func TestMapStorage_Sub_NestedPath(t *testing.T) {
 		Convey("两级嵌套访问", func() {
 			result := storage.Sub("database.host")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -203,7 +203,7 @@ func TestMapStorage_Sub_NestedPath(t *testing.T) {
 		Convey("两级嵌套数字访问", func() {
 			result := storage.Sub("database.port")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -213,7 +213,7 @@ func TestMapStorage_Sub_NestedPath(t *testing.T) {
 		Convey("三级嵌套访问", func() {
 			result := storage.Sub("config.timeout")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -222,7 +222,7 @@ func TestMapStorage_Sub_NestedPath(t *testing.T) {
 
 		Convey("不存在的嵌套路径", func() {
 			result := storage.Sub("database.nonexistent")
-			
+
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
 			So(ms, ShouldBeNil)
@@ -230,7 +230,7 @@ func TestMapStorage_Sub_NestedPath(t *testing.T) {
 
 		Convey("部分存在的路径", func() {
 			result := storage.Sub("nonexistent.field")
-			
+
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
 			So(ms, ShouldBeNil)
@@ -246,7 +246,7 @@ func TestMapStorage_Sub_ArrayIndex(t *testing.T) {
 		Convey("数组第一个元素", func() {
 			result := storage.Sub("servers[0]")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -256,7 +256,7 @@ func TestMapStorage_Sub_ArrayIndex(t *testing.T) {
 		Convey("数组第二个元素", func() {
 			result := storage.Sub("servers[1]")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -265,7 +265,7 @@ func TestMapStorage_Sub_ArrayIndex(t *testing.T) {
 
 		Convey("数组越界访问", func() {
 			result := storage.Sub("servers[2]")
-			
+
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
 			So(ms, ShouldBeNil)
@@ -273,7 +273,7 @@ func TestMapStorage_Sub_ArrayIndex(t *testing.T) {
 
 		Convey("负数索引", func() {
 			result := storage.Sub("servers[-1]")
-			
+
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
 			So(ms, ShouldBeNil)
@@ -281,7 +281,7 @@ func TestMapStorage_Sub_ArrayIndex(t *testing.T) {
 
 		Convey("非数字索引", func() {
 			result := storage.Sub("servers[abc]")
-			
+
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
 			So(ms, ShouldBeNil)
@@ -297,7 +297,7 @@ func TestMapStorage_Sub_ComplexPath(t *testing.T) {
 		Convey("数组元素的字段", func() {
 			result := storage.Sub("database.connections[0].name")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -307,7 +307,7 @@ func TestMapStorage_Sub_ComplexPath(t *testing.T) {
 		Convey("数组第二个元素的字段", func() {
 			result := storage.Sub("database.connections[1].user")
 			So(result, ShouldNotBeNil)
-			
+
 			var actualData interface{}
 			err := result.ConvertTo(&actualData)
 			So(err, ShouldBeNil)
@@ -316,7 +316,7 @@ func TestMapStorage_Sub_ComplexPath(t *testing.T) {
 
 		Convey("数组越界的字段访问", func() {
 			result := storage.Sub("database.connections[2].name")
-			
+
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
 			So(ms, ShouldBeNil)
@@ -324,7 +324,7 @@ func TestMapStorage_Sub_ComplexPath(t *testing.T) {
 
 		Convey("数组元素不存在的字段", func() {
 			result := storage.Sub("database.connections[0].nonexistent")
-			
+
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
 			So(ms, ShouldBeNil)
@@ -338,19 +338,19 @@ func TestMapStorage_Sub_DefaultsInheritance(t *testing.T) {
 		Convey("带默认值的Storage", func() {
 			storageWithDefaults := NewMapStorage(testData)
 			sub1 := storageWithDefaults.Sub("database")
-			
+
 			So(sub1, ShouldNotBeNil)
-			
+
 			subMS := sub1.(*MapStorage)
 			So(subMS.enableDefaults, ShouldBeTrue)
 		})
 
 		Convey("不带默认值的Storage", func() {
-			storageWithoutDefaults := NewMapStorageWithoutDefaults(testData)
+			storageWithoutDefaults := NewMapStorage(testData).WithDefaults(false)
 			sub2 := storageWithoutDefaults.Sub("database")
-			
+
 			So(sub2, ShouldNotBeNil)
-			
+
 			subMS2 := sub2.(*MapStorage)
 			So(subMS2.enableDefaults, ShouldBeFalse)
 		})
@@ -369,7 +369,7 @@ func TestMapStorage_ConvertTo_BasicTypes(t *testing.T) {
 			storage := NewMapStorage("hello world")
 			target := new(string)
 			err := storage.ConvertTo(target)
-			
+
 			So(err, ShouldBeNil)
 			actual := reflect.ValueOf(target).Elem().Interface()
 			So(actual, ShouldEqual, "hello world")
@@ -379,7 +379,7 @@ func TestMapStorage_ConvertTo_BasicTypes(t *testing.T) {
 			storage := NewMapStorage(42)
 			target := new(int)
 			err := storage.ConvertTo(target)
-			
+
 			So(err, ShouldBeNil)
 			actual := reflect.ValueOf(target).Elem().Interface()
 			So(actual, ShouldEqual, 42)
@@ -389,7 +389,7 @@ func TestMapStorage_ConvertTo_BasicTypes(t *testing.T) {
 			storage := NewMapStorage(3.14)
 			target := new(float64)
 			err := storage.ConvertTo(target)
-			
+
 			So(err, ShouldBeNil)
 			actual := reflect.ValueOf(target).Elem().Interface()
 			So(actual, ShouldEqual, 3.14)
@@ -399,7 +399,7 @@ func TestMapStorage_ConvertTo_BasicTypes(t *testing.T) {
 			storage := NewMapStorage(true)
 			target := new(bool)
 			err := storage.ConvertTo(target)
-			
+
 			So(err, ShouldBeNil)
 			actual := reflect.ValueOf(target).Elem().Interface()
 			So(actual, ShouldEqual, true)
@@ -426,7 +426,7 @@ func TestMapStorage_ConvertTo_Struct(t *testing.T) {
 			storage := NewMapStorage(data)
 			var config ServerConfig
 			err := storage.ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 			So(config.Name, ShouldEqual, "test-server")
 			So(config.Port, ShouldEqual, 8080)
@@ -443,7 +443,7 @@ func TestMapStorage_ConvertTo_Slice(t *testing.T) {
 			target := &[]string{}
 			storage := NewMapStorage(data)
 			err := storage.ConvertTo(target)
-			
+
 			So(err, ShouldBeNil)
 			actual := reflect.ValueOf(target).Elem().Interface()
 			So(deepEqual(actual, []string{"item1", "item2", "item3"}), ShouldBeTrue)
@@ -454,7 +454,7 @@ func TestMapStorage_ConvertTo_Slice(t *testing.T) {
 			target := &[]int{}
 			storage := NewMapStorage(data)
 			err := storage.ConvertTo(target)
-			
+
 			So(err, ShouldBeNil)
 			actual := reflect.ValueOf(target).Elem().Interface()
 			So(deepEqual(actual, []int{1, 2, 3}), ShouldBeTrue)
@@ -465,7 +465,7 @@ func TestMapStorage_ConvertTo_Slice(t *testing.T) {
 			target := &[]string{}
 			storage := NewMapStorage(data)
 			err := storage.ConvertTo(target)
-			
+
 			So(err, ShouldBeNil)
 			actual := reflect.ValueOf(target).Elem().Interface()
 			So(deepEqual(actual, []string{}), ShouldBeTrue)
@@ -486,7 +486,7 @@ func TestMapStorage_ConvertTo_Map(t *testing.T) {
 			storage := NewMapStorage(data)
 			var result1 map[string]interface{}
 			err := storage.ConvertTo(&result1)
-			
+
 			So(err, ShouldBeNil)
 			So(deepEqual(result1, data), ShouldBeTrue)
 		})
@@ -494,12 +494,12 @@ func TestMapStorage_ConvertTo_Map(t *testing.T) {
 		Convey("转换为 map[string]string", func() {
 			stringData := map[string]interface{}{
 				"key1": "value1",
-				"key2": "value2", 
+				"key2": "value2",
 			}
 			storage2 := NewMapStorage(stringData)
 			var result2 map[string]string
 			err := storage2.ConvertTo(&result2)
-			
+
 			So(err, ShouldBeNil)
 			expected := map[string]string{
 				"key1": "value1",
@@ -517,7 +517,7 @@ func TestMapStorage_ConvertTo_Time(t *testing.T) {
 			storage := NewMapStorage("2023-12-25T15:30:45Z")
 			var timeValue time.Time
 			err := storage.ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Date(2023, 12, 25, 15, 30, 45, 0, time.UTC)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -527,7 +527,7 @@ func TestMapStorage_ConvertTo_Time(t *testing.T) {
 			storage := NewMapStorage("2023-12-25")
 			var timeValue time.Time
 			err := storage.ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Date(2023, 12, 25, 0, 0, 0, 0, time.UTC)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -537,7 +537,7 @@ func TestMapStorage_ConvertTo_Time(t *testing.T) {
 			storage := NewMapStorage("2023-12-25 15:30:45")
 			var timeValue time.Time
 			err := storage.ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Date(2023, 12, 25, 15, 30, 45, 0, time.UTC)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -547,7 +547,7 @@ func TestMapStorage_ConvertTo_Time(t *testing.T) {
 			storage := NewMapStorage(int64(1703517045))
 			var timeValue time.Time
 			err := storage.ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Unix(1703517045, 0)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -557,7 +557,7 @@ func TestMapStorage_ConvertTo_Time(t *testing.T) {
 			storage := NewMapStorage(1703517045.5)
 			var timeValue time.Time
 			err := storage.ConvertTo(&timeValue)
-			
+
 			So(err, ShouldBeNil)
 			expected := time.Unix(1703517045, 500000000)
 			So(timeValue.Equal(expected), ShouldBeTrue)
@@ -572,7 +572,7 @@ func TestMapStorage_ConvertTo_Duration(t *testing.T) {
 			storage := NewMapStorage("5m30s")
 			var duration time.Duration
 			err := storage.ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, 5*time.Minute+30*time.Second)
 		})
@@ -581,7 +581,7 @@ func TestMapStorage_ConvertTo_Duration(t *testing.T) {
 			storage := NewMapStorage("2h15m")
 			var duration time.Duration
 			err := storage.ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, 2*time.Hour+15*time.Minute)
 		})
@@ -590,7 +590,7 @@ func TestMapStorage_ConvertTo_Duration(t *testing.T) {
 			storage := NewMapStorage(int64(1000000000))
 			var duration time.Duration
 			err := storage.ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, time.Second)
 		})
@@ -599,7 +599,7 @@ func TestMapStorage_ConvertTo_Duration(t *testing.T) {
 			storage := NewMapStorage(2.5)
 			var duration time.Duration
 			err := storage.ConvertTo(&duration)
-			
+
 			So(err, ShouldBeNil)
 			So(duration, ShouldEqual, 2*time.Second+500*time.Millisecond)
 		})
@@ -716,10 +716,10 @@ func TestMapStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 				Name    string `json:"name"`
 				Version string `json:"version"`
 			} `json:"application"`
-			Services    []ServiceConfig                `json:"services"`
-			Databases   map[string]DatabaseConnection  `json:"databases"`
-			Environment map[string]interface{}         `json:"environment"`
-			Features    map[string][]string            `json:"features"`
+			Services    []ServiceConfig               `json:"services"`
+			Databases   map[string]DatabaseConnection `json:"databases"`
+			Environment map[string]interface{}        `json:"environment"`
+			Features    map[string][]string           `json:"features"`
 		}
 
 		// 构造复杂的测试数据
@@ -814,7 +814,7 @@ func TestMapStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 			storage := NewMapStorage(data)
 			var config ComplexConfig
 			err := storage.ConvertTo(&config)
-			
+
 			So(err, ShouldBeNil)
 
 			Convey("验证应用程序信息", func() {
@@ -832,7 +832,7 @@ func TestMapStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 
 					Convey("验证endpoints", func() {
 						So(len(authService.Endpoints), ShouldEqual, 2)
-						
+
 						loginEndpoint := authService.Endpoints[0]
 						So(loginEndpoint.URL, ShouldEqual, "https://auth.example.com/login")
 						So(loginEndpoint.Timeout, ShouldEqual, "30s")
@@ -846,7 +846,7 @@ func TestMapStorage_ConvertTo_ComplexNestedStructure(t *testing.T) {
 
 					Convey("验证advanced配置", func() {
 						So(len(authService.Advanced), ShouldEqual, 2)
-						
+
 						healthCheck, exists := authService.Advanced["health_check"]
 						So(exists, ShouldBeTrue)
 						So(healthCheck.URL, ShouldEqual, "https://auth.example.com/health")
@@ -1022,7 +1022,7 @@ func TestMapStorage_ConvertTo_WithDefaults(t *testing.T) {
 		Convey("禁用默认值功能", func() {
 			// 空配置数据
 			data := map[string]interface{}{}
-			storage := NewMapStorageWithoutDefaults(data)
+			storage := NewMapStorage(data).WithDefaults(false)
 
 			var config AppConfig
 			err := storage.ConvertTo(&config)
@@ -1051,9 +1051,9 @@ func TestMapStorage_ConvertTo_DefaultsWithPointers(t *testing.T) {
 		}
 
 		type AppConfig struct {
-			Name     string           `json:"name" def:"TestApp"`
-			Database *DatabaseConfig  `json:"database"`
-			Optional *DatabaseConfig  `json:"optional"`
+			Name     string          `json:"name" def:"TestApp"`
+			Database *DatabaseConfig `json:"database"`
+			Optional *DatabaseConfig `json:"optional"`
 		}
 
 		Convey("指针字段在配置中存在时应用默认值", func() {
@@ -1110,7 +1110,7 @@ func TestMapStorage_Equals_Basic(t *testing.T) {
 		}
 
 		data2 := map[string]interface{}{
-			"host": "localhost", 
+			"host": "localhost",
 			"port": 3306,
 		}
 
@@ -1286,9 +1286,9 @@ func TestMapStorage_Equals_SubStorage(t *testing.T) {
 // MockStorage 用于测试的模拟Storage实现
 type MockStorage struct{}
 
-func (ms *MockStorage) Sub(key string) Storage { return nil }
+func (ms *MockStorage) Sub(key string) Storage             { return nil }
 func (ms *MockStorage) ConvertTo(object interface{}) error { return nil }
-func (ms *MockStorage) Equals(other Storage) bool { return false }
+func (ms *MockStorage) Equals(other Storage) bool          { return false }
 
 // TestMapStorage_Equals_DifferentTypes 测试不同类型的比较
 func TestMapStorage_Equals_DifferentTypes(t *testing.T) {
@@ -1439,10 +1439,10 @@ func TestMapStorage_EdgeCases(t *testing.T) {
 		Convey("空字符串路径", func() {
 			storage := NewMapStorage(testData)
 			result := storage.Sub("")
-			
+
 			// 空路径应该返回自身
 			So(result, ShouldNotBeNil)
-			
+
 			var data interface{}
 			err := result.ConvertTo(&data)
 			So(err, ShouldBeNil)
@@ -1455,13 +1455,13 @@ func TestMapStorage_EdgeCases(t *testing.T) {
 				"key[with]brackets": "value2",
 				"normal_key":        "value3",
 			}
-			
+
 			storage := NewMapStorage(specialData)
-			
+
 			// 正常的key应该能访问
 			result := storage.Sub("normal_key")
 			So(result, ShouldNotBeNil)
-			
+
 			var value string
 			err := result.ConvertTo(&value)
 			So(err, ShouldBeNil)
@@ -1474,10 +1474,10 @@ func TestMapStorage_EdgeCases(t *testing.T) {
 					"level2": nil,
 				},
 			}
-			
+
 			storage := NewMapStorage(nullData)
 			result := storage.Sub("level1.level2")
-			
+
 			// 应该返回nil storage（类型是*MapStorage但值是nil）
 			ms, ok := result.(*MapStorage)
 			So(ok, ShouldBeTrue)
