@@ -1367,3 +1367,288 @@ app: test_updated`
 		}
 	})
 }
+
+// TestConfig_ValidateStorageIntegration 测试 ValidateStorage 集成功能
+func TestConfig_ValidateStorageIntegration(t *testing.T) {
+	// 创建临时配置文件
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "config.yaml")
+
+	t.Run("ConvertTo with validation success", func(t *testing.T) {
+		// 有效的配置数据
+		validConfig := `user:
+  name: testuser
+  email: test@example.com
+  age: 25`
+
+		if err := os.WriteFile(configFile, []byte(validConfig), 0644); err != nil {
+			t.Fatalf("Failed to write config file: %v", err)
+		}
+
+		config, err := NewSingleConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		// 定义用于测试的结构体，包含校验标签
+		type User struct {
+			Name  string `cfg:"name" validate:"required,min=3,max=20"`
+			Email string `cfg:"email" validate:"required,email"`
+			Age   int    `cfg:"age" validate:"min=18,max=120"`
+		}
+
+		var user User
+		userConfig := config.Sub("user")
+		
+		// 测试 ConvertTo 方法的自动校验
+		err = userConfig.ConvertTo(&user)
+		if err != nil {
+			t.Fatalf("ConvertTo should succeed with valid data: %v", err)
+		}
+
+		if user.Name != "testuser" {
+			t.Errorf("Expected name 'testuser', got '%s'", user.Name)
+		}
+		if user.Email != "test@example.com" {
+			t.Errorf("Expected email 'test@example.com', got '%s'", user.Email)
+		}
+		if user.Age != 25 {
+			t.Errorf("Expected age 25, got %d", user.Age)
+		}
+	})
+
+	t.Run("ConvertTo with validation failure", func(t *testing.T) {
+		// 无效的配置数据
+		invalidConfig := `user:
+  name: "ab"
+  email: "invalid-email"
+  age: 15`
+
+		if err := os.WriteFile(configFile, []byte(invalidConfig), 0644); err != nil {
+			t.Fatalf("Failed to write config file: %v", err)
+		}
+
+		config, err := NewSingleConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		type User struct {
+			Name  string `cfg:"name" validate:"required,min=3,max=20"`
+			Email string `cfg:"email" validate:"required,email"`
+			Age   int    `cfg:"age" validate:"min=18,max=120"`
+		}
+
+		var user User
+		userConfig := config.Sub("user")
+		
+		// 测试 ConvertTo 方法的自动校验失败
+		err = userConfig.ConvertTo(&user)
+		if err == nil {
+			t.Fatal("ConvertTo should fail with invalid data")
+		}
+
+		if !strings.Contains(err.Error(), "validation failed") {
+			t.Errorf("Error should contain 'validation failed', got: %v", err)
+		}
+	})
+
+	t.Run("OnChange callback with validation", func(t *testing.T) {
+		// 初始有效配置
+		initialConfig := `user:
+  name: testuser
+  email: test@example.com
+  age: 25`
+
+		if err := os.WriteFile(configFile, []byte(initialConfig), 0644); err != nil {
+			t.Fatalf("Failed to write config file: %v", err)
+		}
+
+		config, err := NewSingleConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		type User struct {
+			Name  string `cfg:"name" validate:"required,min=3,max=20"`
+			Email string `cfg:"email" validate:"required,email"`
+			Age   int    `cfg:"age" validate:"min=18,max=120"`
+		}
+
+		var callbackTriggered bool
+		var callbackError error
+		var wg sync.WaitGroup
+
+		// 注册 OnChange 回调
+		userConfig := config.Sub("user")
+		userConfig.OnChange(func(stor storage.Storage) error {
+			defer wg.Done()
+			callbackTriggered = true
+			
+			var user User
+			// 测试在回调中使用 Storage 的自动校验
+			callbackError = stor.ConvertTo(&user)
+			return callbackError
+		})
+
+		// 启动监听
+		if err := config.Watch(); err != nil {
+			t.Fatalf("Failed to start watching: %v", err)
+		}
+
+		// 更新为有效配置
+		wg.Add(1)
+		validUpdate := `user:
+  name: newuser
+  email: new@example.com
+  age: 30`
+
+		if err := os.WriteFile(configFile, []byte(validUpdate), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待回调触发
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// 回调完成
+		case <-time.After(2 * time.Second):
+			t.Fatal("Callback should be triggered within 2 seconds")
+		}
+
+		if !callbackTriggered {
+			t.Error("Callback should be triggered")
+		}
+
+		if callbackError != nil {
+			t.Errorf("Callback should succeed with valid data: %v", callbackError)
+		}
+
+		// 更新为无效配置，测试校验失败
+		wg.Add(1)
+		callbackTriggered = false
+		callbackError = nil
+
+		invalidUpdate := `user:
+  name: "x"
+  email: "bad-email"  
+  age: 10`
+
+		if err := os.WriteFile(configFile, []byte(invalidUpdate), 0644); err != nil {
+			t.Fatalf("Failed to update config file: %v", err)
+		}
+
+		// 等待回调触发
+		done = make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			// 回调完成
+		case <-time.After(2 * time.Second):
+			t.Fatal("Callback should be triggered within 2 seconds")
+		}
+
+		if !callbackTriggered {
+			t.Error("Callback should be triggered")
+		}
+
+		if callbackError == nil {
+			t.Error("Callback should fail with invalid data")
+		}
+
+		if !strings.Contains(callbackError.Error(), "validation failed") {
+			t.Errorf("Callback error should contain 'validation failed', got: %v", callbackError)
+		}
+	})
+
+	t.Run("Root config validation", func(t *testing.T) {
+		// 测试根配置的校验
+		rootConfig := `app:
+  name: testapp
+  version: "1.0.0"
+  debug: true`
+
+		if err := os.WriteFile(configFile, []byte(rootConfig), 0644); err != nil {
+			t.Fatalf("Failed to write config file: %v", err)
+		}
+
+		config, err := NewSingleConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		type AppConfig struct {
+			App struct {
+				Name    string `cfg:"name" validate:"required,min=3"`
+				Version string `cfg:"version" validate:"required"`
+				Debug   bool   `cfg:"debug"`
+			} `cfg:"app"`
+		}
+
+		var appConfig AppConfig
+		// 测试根配置的 ConvertTo 自动校验
+		err = config.ConvertTo(&appConfig)
+		if err != nil {
+			t.Fatalf("Root config ConvertTo should succeed: %v", err)
+		}
+
+		if appConfig.App.Name != "testapp" {
+			t.Errorf("Expected app name 'testapp', got '%s'", appConfig.App.Name)
+		}
+	})
+
+	t.Run("Nested sub config validation", func(t *testing.T) {
+		// 测试嵌套子配置的校验
+		nestedConfig := `database:
+  mysql:
+    host: localhost
+    port: 3306
+    username: testuser
+    password: testpass123`
+
+		if err := os.WriteFile(configFile, []byte(nestedConfig), 0644); err != nil {
+			t.Fatalf("Failed to write config file: %v", err)
+		}
+
+		config, err := NewSingleConfig(configFile)
+		if err != nil {
+			t.Fatalf("Failed to create config: %v", err)
+		}
+		defer config.Close()
+
+		type MysqlConfig struct {
+			Host     string `cfg:"host" validate:"required"`
+			Port     int    `cfg:"port" validate:"min=1,max=65535"`
+			Username string `cfg:"username" validate:"required,min=3"`
+			Password string `cfg:"password" validate:"required,min=8"`
+		}
+
+		var mysqlConfig MysqlConfig
+		// 测试嵌套子配置的自动校验
+		mysqlSubConfig := config.Sub("database").Sub("mysql")
+		err = mysqlSubConfig.ConvertTo(&mysqlConfig)
+		if err != nil {
+			t.Fatalf("Nested sub config ConvertTo should succeed: %v", err)
+		}
+
+		if mysqlConfig.Host != "localhost" {
+			t.Errorf("Expected host 'localhost', got '%s'", mysqlConfig.Host)
+		}
+		if mysqlConfig.Port != 3306 {
+			t.Errorf("Expected port 3306, got %d", mysqlConfig.Port)
+		}
+	})
+}

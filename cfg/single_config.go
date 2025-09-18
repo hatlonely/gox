@@ -95,6 +95,9 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 		return nil, fmt.Errorf("failed to decode data: %w", err)
 	}
 
+	// 用 ValidateStorage 包装 storage 以提供自动校验功能
+	stor = storage.NewValidateStorage(stor)
+
 	// 创建或使用默认 Logger
 	var logger log.Logger
 	if options.Logger != nil {
@@ -223,7 +226,8 @@ func (c *SingleConfig) handleProviderChange(newData []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to decode new data: %w", err)
 	}
-	c.storage = newStorage
+	// 用 ValidateStorage 包装新的 storage 以提供自动校验功能
+	c.storage = storage.NewValidateStorage(newStorage)
 
 	// 检查并触发变更监听器（统一处理根配置和特定key）
 	for key, handlers := range c.onKeyChangeHandlers {
