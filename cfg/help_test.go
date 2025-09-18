@@ -72,15 +72,15 @@ func TestGenerateHelp_BasicTypes(t *testing.T) {
 
 	// 验证字段信息
 	expectedContent := []string{
-		"name (string)",
+		"name: string",
 		"应用名称",
 		"APP_NAME",
 		"--app-name",
-		"port (int)",
+		"port: int",
 		"监听端口",
 		"APP_PORT",
 		"--app-port",
-		"debug (bool)",
+		"debug: bool",
 		"调试模式",
 		"APP_DEBUG",
 		"--app-debug",
@@ -164,11 +164,11 @@ func TestGenerateHelp_MapType(t *testing.T) {
 
 	// 验证Map类型信息：现在只展示基本类型 map 的叶子节点
 	expectedContent := []string{
-		"cache (map[string]string)",
+		"cache: map[string]string",
 		"缓存配置",
 		"APP_CACHE",
 		"--app-cache",
-		"features (map[string]bool)",
+		"features: map[string]bool",
 		"功能开关",
 		"APP_FEATURES",
 		"--app-features",
@@ -192,10 +192,10 @@ func TestGenerateHelp_TimeTypes(t *testing.T) {
 
 	// 验证时间类型
 	expectedContent := []string{
-		"timeout (time.Duration)",
+		"timeout: time.Duration",
 		"超时时间",
 		"30s", "5m", "1h",
-		"created_at (time.Time)",
+		"created_at: time.Time",
 		"创建时间",
 		"2023-12-25T15:30:45Z",
 		"1703517045",
@@ -310,32 +310,32 @@ func TestGenerateHelp_TagSupport(t *testing.T) {
 	help := GenerateHelp(&config, "APP_", "app-")
 
 	// 验证 eg 标签的示例值
-	if !strings.Contains(help, "示例: localhost") {
+	if !strings.Contains(help, "例: localhost") {
 		t.Error("应该使用 eg 标签的示例值")
 	}
-	if !strings.Contains(help, "示例: 8080") {
+	if !strings.Contains(help, "例: 8080") {
 		t.Error("应该使用 eg 标签的示例值")
 	}
 
 	// 验证 def 标签的默认值
-	if !strings.Contains(help, "默认值: 127.0.0.1") {
+	if !strings.Contains(help, "= 127.0.0.1") {
 		t.Error("应该使用 def 标签的默认值")
 	}
-	if !strings.Contains(help, "默认值: 80") {
+	if !strings.Contains(help, "= 80") {
 		t.Error("应该使用 def 标签的默认值")
 	}
-	if !strings.Contains(help, "默认值: false") {
+	if !strings.Contains(help, "= false") {
 		t.Error("应该使用 def 标签的默认值")
 	}
 
 	// 验证没有 eg 标签时不显示示例值
 	// timeout 字段没有 eg 标签，不应该有示例值信息
 	timeoutSection := extractFieldSection(help, "timeout")
-	if strings.Contains(timeoutSection, "示例:") {
+	if strings.Contains(timeoutSection, "例:") {
 		t.Error("timeout 字段没有 eg 标签，不应该显示示例值")
 	}
 	// timeout 字段也没有 def 标签，不应该有默认值信息
-	if strings.Contains(timeoutSection, "默认值:") {
+	if strings.Contains(timeoutSection, " =") {
 		t.Error("timeout 字段没有 def 标签，不应该显示默认值")
 	}
 
@@ -470,11 +470,11 @@ func TestGenerateHelp_ValidateTag(t *testing.T) {
 
 	// 验证校验规则的显示
 	expectedValidations := []string{
-		"必填; 最小值: 3; 最大值: 20; 仅允许字母数字", // name 字段
-		"必填; 邮箱格式",                       // email 字段
+		"最小值: 3; 最大值: 20; 仅允许字母数字", // name 字段
+		"邮箱格式",                       // email 字段
 		"最小值: 18; 最大值: 120",              // age 字段
 		"URL格式",                          // website 字段
-		"必填; 最小值: 8",                     // password 字段
+		"最小值: 8",                     // password 字段
 		"允许值: active, inactive, pending", // status 字段
 	}
 
@@ -545,7 +545,7 @@ func TestGenerateHelp_ExtendedValidateTag(t *testing.T) {
 
 	// 验证新增的校验规则
 	expectedValidations := []string{
-		"必填; IPv4地址",          // server_ip
+		"IPv4地址",          // server_ip
 		"主机名格式",               // hostname
 		"MAC地址",               // mac_address
 		"CIDR格式",              // cidr
@@ -554,7 +554,7 @@ func TestGenerateHelp_ExtendedValidateTag(t *testing.T) {
 		"JSON格式",              // json_data
 		"信用卡号码",               // credit_card
 		"ISBN格式",              // isbn
-		"必填; 大写字母; 长度: 6",     // code
+		"大写字母; 长度: 6",     // code
 		"十六进制颜色",              // hex_color
 		"仅允许字母",               // alpha_only
 		"仅允许数字",               // numeric_only
