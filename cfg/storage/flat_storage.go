@@ -271,6 +271,11 @@ func (fs *FlatStorage) convertBasicValue(src interface{}, dst reflect.Value) err
 func (fs *FlatStorage) convertToStruct(keyPath string, dst reflect.Value) error {
 	dstType := dst.Type()
 
+	// 特殊处理 refx.TypeOptions 类型
+	if err := fs.convertToTypeOptions(reflect.Value{}, dst); err == nil {
+		return nil
+	}
+
 	for i := 0; i < dstType.NumField(); i++ {
 		field := dstType.Field(i)
 		fieldValue := dst.Field(i)
@@ -590,6 +595,69 @@ func (fs *FlatStorage) convertToTime(src, dst reflect.Value) error {
 	}
 
 	return fmt.Errorf("cannot convert %v to time.Time", src.Type())
+}
+
+// convertToTypeOptions 处理 refx.TypeOptions 类型的特殊转换
+// 当目标类型是 TypeOptions 时，将当前 storage 的 Sub("options") 赋值给 Options 字段
+func (fs *FlatStorage) convertToTypeOptions(src, dst reflect.Value) error {
+	dstType := dst.Type()
+
+	// 使用类型名和包路径来判断是否是 TypeOptions 类型
+	if dstType.Kind() != reflect.Struct {
+		return fmt.Errorf("not a struct type")
+	}
+
+	// 检查类型名和包路径
+	if dstType.Name() != "TypeOptions" || !strings.HasSuffix(dstType.PkgPath(), "refx") {
+		return fmt.Errorf("not a TypeOptions type")
+	}
+
+	// 处理 TypeOptions 的转换
+	for i := 0; i < dstType.NumField(); i++ {
+		field := dstType.Field(i)
+		fieldValue := dst.Field(i)
+
+		if !fieldValue.CanSet() {
+			continue
+		}
+
+		if field.Name == "Options" {
+			// 对于 Options 字段，使用 storage.Sub("options")
+			optionsStorage := fs.Sub("options")
+			fieldValue.Set(reflect.ValueOf(optionsStorage))
+		} else {
+			// 对于其他字段（Namespace, Type），从源数据中获取
+			fieldName := field.Name
+			if tag := field.Tag.Get("cfg"); tag != "" {
+				tagName := strings.Split(tag, ",")[0]
+				if tagName != "-" && tagName != "" {
+					fieldName = tagName
+				}
+			} else if tag := field.Tag.Get("json"); tag != "" {
+				tagName := strings.Split(tag, ",")[0]
+				if tagName != "-" && tagName != "" {
+					fieldName = tagName
+				}
+			}
+
+			// 应用大小写转换
+			if fs.uppercase {
+				fieldName = strings.ToUpper(fieldName)
+			} else if fs.lowercase {
+				fieldName = strings.ToLower(fieldName)
+			}
+
+			// 查找对应的源值
+			value := fs.get(fieldName)
+			if value != nil {
+				if err := fs.convertBasicValue(value, fieldValue); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (fs *FlatStorage) Equals(other Storage) bool {
