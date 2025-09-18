@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hatlonely/gox/cfg/def"
-	"github.com/hatlonely/gox/cfg/validator"
 )
 
 //	data := map[string]interface{}{
@@ -103,17 +102,8 @@ func (fs *FlatStorage) ConvertTo(object interface{}) error {
 		return err
 	}
 
-	// 对转换后的结构体进行校验
-	// 如果源数据为空，则跳过校验
-	if len(fs.data) > 0 {
-		if err := validator.ValidateStruct(object); err != nil {
-			return fmt.Errorf("validation failed: %v", err)
-		}
-	}
-
 	return nil
 }
-
 
 // prepareKey 构建完整的键路径并应用大小写转换，同时返回数据源
 func (fs *FlatStorage) prepareKey(key string) (dataSource map[string]interface{}, actualKey string) {
@@ -160,24 +150,24 @@ func (fs *FlatStorage) get(key string) interface{} {
 // 对于结构体字段，检查是否有以该键路径为前缀的任何数据
 func (fs *FlatStorage) hasDataForKey(keyPath string) bool {
 	dataSource, actualKey := fs.prepareKey(keyPath)
-	
+
 	// 直接检查是否有该键
 	if _, exists := dataSource[actualKey]; exists {
 		return true
 	}
-	
+
 	// 检查是否有以该键路径为前缀的键（用于结构体）
 	keyPrefix := actualKey
 	if keyPrefix != "" {
 		keyPrefix += fs.separator
 	}
-	
+
 	for key := range dataSource {
 		if strings.HasPrefix(key, keyPrefix) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -193,7 +183,7 @@ func (fs *FlatStorage) convertValue(keyPath string, dst reflect.Value) error {
 		if !fs.hasDataForKey(keyPath) {
 			return nil
 		}
-		
+
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
 

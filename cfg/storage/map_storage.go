@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hatlonely/gox/cfg/def"
-	"github.com/hatlonely/gox/cfg/validator"
 )
 
 // MapStorage 基于 map 和 slice 的存储实现
@@ -82,17 +81,8 @@ func (ms *MapStorage) ConvertTo(object interface{}) error {
 		return err
 	}
 
-	// 对转换后的结构体进行校验
-	// 如果源数据为 nil，则跳过校验
-	if ms.data != nil {
-		if err := validator.ValidateStruct(object); err != nil {
-			return fmt.Errorf("validation failed: %v", err)
-		}
-	}
-
 	return nil
 }
-
 
 // Equals 比较两个 MapStorage 是否包含相同的数据内容
 func (ms *MapStorage) Equals(other Storage) bool {
