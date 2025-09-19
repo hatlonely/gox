@@ -240,8 +240,8 @@ type PebbleStoreOptions struct {
 
 type PebbleStore[K, V any] struct {
 	db            *pebble.DB
-	keyMarshaller serializer.Serializer[K, []byte]
-	valMarshaller serializer.Serializer[V, []byte]
+	keySerializer serializer.Serializer[K, []byte]
+	valSerializer serializer.Serializer[V, []byte]
 	setOptions    *pebble.WriteOptions
 
 	dbPath       string
@@ -380,8 +380,8 @@ func NewPebbleStoreWithOptions[K, V any](options *PebbleStoreOptions) (*PebbleSt
 	// 创建 PebbleStore 实例
 	return &PebbleStore[K, V]{
 		db:            db,
-		keyMarshaller: keySerializer,
-		valMarshaller: valueSerializer,
+		keySerializer: keySerializer,
+		valSerializer: valueSerializer,
 		setOptions:    setOptions,
 		dbPath:        dbPath,
 		snapshotType:  options.SnapshotType,
@@ -394,12 +394,12 @@ func (s *PebbleStore[K, V]) Set(ctx context.Context, key K, value V, opts ...set
 		opt(options)
 	}
 
-	keyBytes, err := s.keyMarshaller.Serialize(key)
+	keyBytes, err := s.keySerializer.Serialize(key)
 	if err != nil {
 		return errors.Wrap(err, "marshal key failed")
 	}
 
-	valueBytes, err := s.valMarshaller.Serialize(value)
+	valueBytes, err := s.valSerializer.Serialize(value)
 	if err != nil {
 		return errors.Wrap(err, "marshal value failed")
 	}
@@ -421,7 +421,7 @@ func (s *PebbleStore[K, V]) Set(ctx context.Context, key K, value V, opts ...set
 func (s *PebbleStore[K, V]) Get(ctx context.Context, key K) (V, error) {
 	var zeroV V
 
-	keyBytes, err := s.keyMarshaller.Serialize(key)
+	keyBytes, err := s.keySerializer.Serialize(key)
 	if err != nil {
 		return zeroV, errors.Wrap(err, "marshal key failed")
 	}
@@ -435,7 +435,7 @@ func (s *PebbleStore[K, V]) Get(ctx context.Context, key K) (V, error) {
 	}
 	defer closer.Close()
 
-	value, err := s.valMarshaller.Deserialize(valueBytes)
+	value, err := s.valSerializer.Deserialize(valueBytes)
 	if err != nil {
 		return zeroV, errors.Wrap(err, "unmarshal value failed")
 	}
@@ -444,7 +444,7 @@ func (s *PebbleStore[K, V]) Get(ctx context.Context, key K) (V, error) {
 }
 
 func (s *PebbleStore[K, V]) Del(ctx context.Context, key K) error {
-	keyBytes, err := s.keyMarshaller.Serialize(key)
+	keyBytes, err := s.keySerializer.Serialize(key)
 	if err != nil {
 		return errors.Wrap(err, "marshal key failed")
 	}
@@ -468,13 +468,13 @@ func (s *PebbleStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, op
 	errs := make([]error, len(keys))
 
 	for i, key := range keys {
-		keyBytes, err := s.keyMarshaller.Serialize(key)
+		keyBytes, err := s.keySerializer.Serialize(key)
 		if err != nil {
 			errs[i] = errors.Wrap(err, "marshal key failed")
 			continue
 		}
 
-		valueBytes, err := s.valMarshaller.Serialize(vals[i])
+		valueBytes, err := s.valSerializer.Serialize(vals[i])
 		if err != nil {
 			errs[i] = errors.Wrap(err, "marshal value failed")
 			continue
@@ -525,7 +525,7 @@ func (s *PebbleStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, er
 	errs := make([]error, len(keys))
 
 	for i, key := range keys {
-		keyBytes, err := s.keyMarshaller.Serialize(key)
+		keyBytes, err := s.keySerializer.Serialize(key)
 		if err != nil {
 			errs[i] = errors.Wrap(err, "marshal key failed")
 			continue
@@ -559,7 +559,7 @@ func (s *PebbleStore[K, V]) Close() error {
 	// 如果设置了快照类型，制作快照
 	if s.snapshotType != "" {
 		snapshotPath := fmt.Sprintf("%s.%d.%s", s.dbPath, time.Now().UnixNano(), s.snapshotType)
-		
+
 		switch s.snapshotType {
 		case "zip":
 			if err := createZip(s.dbPath, snapshotPath); err != nil {
