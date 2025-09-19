@@ -47,39 +47,39 @@ func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*Fr
 		return serializer.NewBSONSerializer[V]()
 	})
 
-	var keySerializer serializer.Serializer[K, []byte]
-	var valueSerializer serializer.Serializer[V, []byte]
+	// 设置默认的序列化器配置
+	keySerializerOptions := options.KeySerializer
+	if keySerializerOptions == nil {
+		keySerializerOptions = &ref.TypeOptions{
+			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
+		}
+	}
+
+	valSerializerOptions := options.ValSerializer
+	if valSerializerOptions == nil {
+		valSerializerOptions = &ref.TypeOptions{
+			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
+		}
+	}
 
 	// 构造 key 序列化器
-	if options.KeySerializer != nil {
-		keySerializerInterface, err := ref.NewWithOptions(options.KeySerializer)
-		if err != nil {
-			return nil, err
-		}
-		var ok bool
-		keySerializer, ok = keySerializerInterface.(serializer.Serializer[K, []byte])
-		if !ok {
-			return nil, errors.New("invalid key serializer type")
-		}
-	} else {
-		// 默认使用 MessagePack 序列化器
-		keySerializer = serializer.NewMsgPackSerializer[K]()
+	keySerializerInterface, err := ref.NewWithOptions(keySerializerOptions)
+	if err != nil {
+		return nil, err
+	}
+	keySerializer, ok := keySerializerInterface.(serializer.Serializer[K, []byte])
+	if !ok {
+		return nil, errors.New("invalid key serializer type")
 	}
 
 	// 构造 value 序列化器
-	if options.ValSerializer != nil {
-		valSerializerInterface, err := ref.NewWithOptions(options.ValSerializer)
-		if err != nil {
-			return nil, err
-		}
-		var ok bool
-		valueSerializer, ok = valSerializerInterface.(serializer.Serializer[V, []byte])
-		if !ok {
-			return nil, errors.New("invalid value serializer type")
-		}
-	} else {
-		// 默认使用 MessagePack 序列化器
-		valueSerializer = serializer.NewMsgPackSerializer[V]()
+	valSerializerInterface, err := ref.NewWithOptions(valSerializerOptions)
+	if err != nil {
+		return nil, err
+	}
+	valueSerializer, ok := valSerializerInterface.(serializer.Serializer[V, []byte])
+	if !ok {
+		return nil, errors.New("invalid value serializer type")
 	}
 
 	return &FreeCacheStore[K, V]{
