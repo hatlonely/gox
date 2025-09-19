@@ -18,45 +18,45 @@ import (
 
 type BoltDBStoreOptions struct {
 	// Source 是数据库文件的源路径。
-	Source string
+	Source string `cfg:"source"`
 
 	// 是否生成数据库路径后缀。
-	GenerateDBPathSuffix bool
+	GenerateDBPathSuffix bool `cfg:"generateDBPathSuffix"`
 
 	// DBPath 是数据库文件的路径。
 	// 如果 Source 为空，数据库将直接加载该文件，如果该文件不存在，则自动创建并将数据写入到此路径。
 	// 如果 Source 不为空, 则数据库将复制 Source 文件到 DBPath，并以当前时间戳为后缀，然后加载该文件。
-	DBPath string `validate:"required"`
+	DBPath string `cfg:"dbPath" validate:"required"`
 
 	// 键的序列化选项。
-	KeySerializer *ref.TypeOptions
+	KeySerializer *ref.TypeOptions `cfg:"keySerializer"`
 
 	// 值的序列化选项。
-	ValSerializer *ref.TypeOptions
+	ValSerializer *ref.TypeOptions `cfg:"valSerializer"`
 
 	// Timeout 是获取文件锁的等待时间。
 	// 设置为零时将无限期等待。此选项仅在 Darwin 和 Linux 上可用。
-	Timeout time.Duration
+	Timeout time.Duration `cfg:"timeout"`
 
 	// 在内存映射文件之前设置 DB.NoGrowSync 标志。
-	NoGrowSync bool
+	NoGrowSync bool `cfg:"noGrowSync"`
 
 	// 不将 freelist 同步到磁盘。这在正常操作下提高了数据库写入性能，
 	// 但在恢复期间需要完全重新同步数据库。
-	NoFreelistSync bool
+	NoFreelistSync bool `cfg:"noFreelistSync"`
 
 	// FreelistType 设置后端 freelist 类型。有两种选择：
 	// array 简单但如果数据库很大且 freelist 中的碎片常见，性能会急剧下降。
 	// 另一种选择是使用 hashmap，它在几乎所有情况下都更快，
 	// 但不能保证提供最小的可用页面 ID。在正常情况下是安全的。
 	// 默认类型是 array
-	FreelistType string `validate:"omitempty,oneof=array hashmap"`
+	FreelistType string `cfg:"freelistType" validate:"omitempty,oneof=array hashmap"`
 
 	// 以只读模式打开数据库。使用 flock(..., LOCK_SH |LOCK_NB) 获取共享锁（UNIX）。
-	ReadOnly bool
+	ReadOnly bool `cfg:"readOnly"`
 
 	// 在内存映射文件之前设置 DB.MmapFlags 标志。
-	MmapFlags int
+	MmapFlags int `cfg:"mmapFlags"`
 
 	// InitialMmapSize 是数据库的初始 mmap 大小（以字节为单位）。
 	// 如果 InitialMmapSize 足够大以容纳数据库 mmap 大小，则读事务不会阻塞写事务。
@@ -67,20 +67,20 @@ type BoltDBStoreOptions struct {
 	InitialMmapSize int `validate:"min=0"`
 
 	// PageSize 覆盖默认的操作系统页面大小。
-	PageSize int
+	PageSize int `cfg:"pageSize"`
 
 	// NoSync 设置 DB.NoSync 的初始值。通常可以直接在从 Open() 返回的 DB 上设置，
 	// 但此选项在暴露 Options 而不是底层 DB 的 API 中很有用。
-	NoSync bool
+	NoSync bool `cfg:"noSync"`
 
 	// 快照类型。默认为空，不做快照。
 	// 可选值：
 	//   - zip: 使用 zip 格式压缩快照。
 	//   - tar.gz: 使用 tar.gz 格式压缩快照。
-	SnapshotType string
+	SnapshotType string `cfg:"snapshotType" validate:"omitempty,oneof=zip tar.gz"`
 
 	// 默认桶名称
-	BucketName string
+	BucketName string `cfg:"bucketName"`
 }
 
 type BoltDBStore[K, V any] struct {

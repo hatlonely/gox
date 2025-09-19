@@ -30,7 +30,7 @@ type PebbleStoreOptions struct {
 	// 可选值：
 	//   - zip: 使用 zip 格式压缩快照。
 	//   - tar.gz: 使用 tar.gz 格式压缩快照。
-	SnapshotType string `cfg:"snapshotType"`
+	SnapshotType string `cfg:"snapshotType" validate:"omitempty,oneof=zip tar.gz"`
 
 	// 指定是否在写入时同步到磁盘。
 	SetWithoutSync bool `cfg:"setWithoutSync"`
