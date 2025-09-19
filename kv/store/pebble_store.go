@@ -16,75 +16,75 @@ import (
 
 type PebbleStoreOptions struct {
 	// Source 是数据库文件的源路径。
-	Source string
+	Source string `cfg:"source"`
 
 	// 是否生成数据库路径后缀。
-	GenerateDBPathSuffix bool
+	GenerateDBPathSuffix bool `cfg:"generateDBPathSuffix"`
 
 	// DBPath 是数据库文件的路径。
 	// 不设置 GenerateDBPathSuffix 时，数据库将直接加载该目录，如果目录不存在，则自动创建并将数据写入到此路径。
 	// 如果设置 GenerateDBPathSuffix, 以当前时间戳为后缀，创建新的目录。
-	DBPath string `validate:"required"`
+	DBPath string `cfg:"dbPath" validate:"required"`
 
 	// 快照类型。默认为空，不做快照。
 	// 可选值：
 	//   - zip: 使用 zip 格式压缩快照。
 	//   - tar.gz: 使用 tar.gz 格式压缩快照。
-	SnapshotType string
+	SnapshotType string `cfg:"snapshotType"`
 
 	// 指定是否在写入时同步到磁盘。
-	SetWithoutSync bool
+	SetWithoutSync bool `cfg:"setWithoutSync"`
 
 	// 键的序列化选项。
-	KeySerializer *ref.TypeOptions
+	KeySerializer *ref.TypeOptions `cfg:"keySerializer"`
 
 	// 值的序列化选项。
-	ValSerializer *ref.TypeOptions
+	ValSerializer *ref.TypeOptions `cfg:"valSerializer"`
 
 	// Sync sstables 定期同步以平滑写入磁盘的过程。
 	// 此选项不提供任何持久性保证，但用于避免操作系统自动决定写入大量脏文件系统缓冲区时的延迟峰值。
 	// 此选项仅控制 SSTable 同步；WAL 同步由 WALBytesPerSync 控制。
 	//
 	// 默认值为 512KB。
-	BytesPerSync int
+	BytesPerSync int `cfg:"bytesPerSync"`
 
 	// Cache 用于缓存来自 sstables 的未压缩块。
 	//
 	// 默认缓存大小为 8 MB。
 	Cache *struct {
-		Size int64
-	}
+		Size int64 `cfg:"size"`
+	} `cfg:"cache"`
 
 	// LoadBlockSema，如果设置，用于限制可以并行加载（即从文件系统读取）的块数。
 	// 每次加载在读取期间从信号量中获取一个单位。
 	LoadBlockSema *struct {
-		Capacity int64
-	}
+		Capacity int64 `cfg:"capacity"`
+	} `cfg:"loadBlockSema"`
 
 	// DisableWAL 禁用预写日志（WAL）。
 	// 禁用预写日志禁止崩溃恢复，但如果不需要崩溃恢复（例如，仅在数据库中存储临时状态），则可以提高性能。
 	//
 	// TODO：未测试
-	DisableWAL bool
+	DisableWAL bool `cfg:"disableWAL"`
 
 	// ErrorIfExists 如果数据库已存在，则在 Open 时引发错误。
 	// 可以使用 errors.Is(err, ErrDBAlreadyExists) 检查错误。
 	//
 	// 默认值为 false。
-	ErrorIfExists bool
+	ErrorIfExists bool `cfg:"errorIfExists"`
 
 	// ErrorIfNotExists 如果数据库不存在，则在 Open 时引发错误。
 	// 可以使用 errors.Is(err, ErrDBDoesNotExist) 检查错误。
 	//
 	// 默认值为 false，这将导致在数据库不存在时创建数据库。
-	ErrorIfNotExists bool
+	ErrorIfNotExists bool `cfg:"errorIfNotExists"`
 
 	// ErrorIfNotPristine 如果数据库已存在并且已对数据库执行任何操作，则在 Open 时引发错误。
 	// 可以使用 errors.Is(err, ErrDBNotPristine) 检查错误。
 	//
 	// 请注意，包含所有已删除键的数据库可能会或可能不会触发错误。
 	// 目前，我们检查是否有任何活动的 SST 或日志记录需要重放。
-	ErrorIfNotPristine bool
+	ErrorIfNotPristine bool `cfg:"errorIfNotPristine"`
 
 	// Experimental 包含默认关闭的实验选项。
 	// 这些选项是临时的，最终将被删除、移出实验组或成为不可调整的默认值。
@@ -92,12 +92,12 @@ type PebbleStoreOptions struct {
 	Experimental struct {
 		// 启用压缩并发的 L0 读放大阈值（如果未超过 CompactionDebtConcurrency）。
 		// 每个此值的倍数启用另一个并发压缩，最多达到 MaxConcurrentCompactions。
-		L0CompactionConcurrency int
+		L0CompactionConcurrency int `cfg:"l0CompactionConcurrency"`
 
 		// CompactionDebtConcurrency 控制压缩债务的阈值，在该阈值下添加额外的压缩并发槽。
 		// 每个此值的倍数在压缩债务字节中添加一个额外的并发压缩。
 		// 这在 L0CompactionConcurrency 之上工作，因此选择由两个选项确定的压缩并发槽的较高计数。
-		CompactionDebtConcurrency uint64
+		CompactionDebtConcurrency uint64 `cfg:"compactionDebtConcurrency"`
 
 		// ReadCompactionRate 通过调整 manifest.FileMetadata 中的 `AllowedSeeks` 控制读取触发的压缩频率：
 		//
@@ -115,75 +115,75 @@ type PebbleStoreOptions struct {
 		// 这意味着 25 次查找的成本与压缩 1MB 数据的成本相同。即，一次查找的成本大约等于压缩 40KB 数据的成本。
 		// 我们有点保守，允许大约每 16KB 数据进行一次查找，然后触发压缩。
 		// ```
-		ReadCompactionRate int64
+		ReadCompactionRate int64 `cfg:"readCompactionRate"`
 
 		// ReadSamplingMultiplier 是 iterator.maybeSampleRead() 中 readSamplingPeriod 的乘数，用于控制读取采样的频率以触发读取触发的压缩。
 		// 值为 -1 时禁止采样并禁用读取触发的压缩。默认值为 1 << 4，与常数 1 << 16 相乘得到 1 << 20（1MB）。
-		ReadSamplingMultiplier int64
+		ReadSamplingMultiplier int64 `cfg:"readSamplingMultiplier"`
 
 		// TableCacheShards 是每个表缓存的分片数。
 		// 减少该值可以减少每个 DB 实例的空闲 goroutine 数量，这在具有大量 DB 实例和大量 CPU 的场景中很有用，但这样做可能会导致表缓存中的争用增加和性能下降。
 		//
 		// 默认值为逻辑 CPU 数量，可以通过 runtime.GOMAXPROCS 限制。
-		TableCacheShards int
+		TableCacheShards int `cfg:"tableCacheShards"`
 
 		// ValidateOnIngest 在 sstables 被引入后安排验证。
 		//
 		// 默认情况下，此值为 false。
-		ValidateOnIngest bool
+		ValidateOnIngest bool `cfg:"validateOnIngest"`
 
 		// LevelMultiplier 配置用于确定 LSM 每个级别所需大小的大小乘数。默认值为 10。
-		LevelMultiplier int
+		LevelMultiplier int `cfg:"levelMultiplier"`
 
 		// MaxWriterConcurrency 用于指示压缩队列允许使用的最大压缩工作者数量。
 		// 如果 MaxWriterConcurrency > 0，则 Writer 将使用并行性来压缩和写入块到磁盘。否则，Writer 将同步压缩和写入块到磁盘。
-		MaxWriterConcurrency int
+		MaxWriterConcurrency int `cfg:"maxWriterConcurrency"`
 
 		// ForceWriterParallelism 用于在变形测试中强制 sstable Writer 的并行性。
 		// 即使设置了 MaxWriterConcurrency 选项，我们也仅在有足够的 CPU 可用时启用 sstable Writer 中的并行性，此选项绕过该限制。
-		ForceWriterParallelism bool
+		ForceWriterParallelism bool `cfg:"forceWriterParallelism"`
 
 		// CacheSizeBytesBytes 是共享存储上对象的磁盘块缓存大小（以字节为单位）。
 		// 如果为 0，则不使用缓存。
-		SecondaryCacheSizeBytes int64
-	}
+		SecondaryCacheSizeBytes int64 `cfg:"secondaryCacheSizeBytes"`
+	} `cfg:"experimental"`
 
 	// FlushDelayDeleteRange 配置数据库在强制刷新包含范围删除的 memtable 之前应等待的时间。
 	// 只有在刷新范围删除后才能回收磁盘空间。如果为零，则不会自动刷新。
-	FlushDelayDeleteRange time.Duration
+	FlushDelayDeleteRange time.Duration `cfg:"flushDelayDeleteRange"`
 
 	// FlushDelayRangeKey 配置数据库在强制刷新包含范围键的 memtable 之前应等待的时间。
 	// memtable 中的范围键会阻止懒惰的组合迭代，因此希望尽快刷新范围键。如果为零，则不会自动刷新。
-	FlushDelayRangeKey time.Duration
+	FlushDelayRangeKey time.Duration `cfg:"flushDelayRangeKey"`
 
 	// FlushSplitBytes 表示每个刷新拆分间隔（即两个刷新拆分键之间的范围）中每个子级别的目标字节数。
 	// 当设置为零时，每次刷新仅生成一个 sstable。当设置为非零值时，刷新会在点处拆分，以满足 L0 的 TargetFileSize、任何与祖父母相关的重叠选项以及 L0 刷新拆分间隔的边界键（目标是在每对边界键之间的每个子级别中包含大约 FlushSplitBytes 字节）。
 	// 在刷新期间拆分 sstables 允许在将这些表压缩到较低级别时增加压缩灵活性和并发性。
-	FlushSplitBytes int64
+	FlushSplitBytes int64 `cfg:"flushSplitBytes"`
 
 	// 触发 L0 压缩所需的 L0 文件数量。
-	L0CompactionFileThreshold int
+	L0CompactionFileThreshold int `cfg:"l0CompactionFileThreshold"`
 
 	// 触发 L0 压缩所需的 L0 读放大数量。
-	L0CompactionThreshold int
+	L0CompactionThreshold int `cfg:"l0CompactionThreshold"`
 
 	// L0 读放大的硬限制，计算为 L0 子级别的数量。
 	// 当达到此阈值时，写入将停止。
-	L0StopWritesThreshold int
+	L0StopWritesThreshold int `cfg:"l0StopWritesThreshold"`
 
 	// LBase 的最大字节数。基级是 L0 被压缩到的级别。
 	// 基级是根据 LSM 中现有数据动态确定的。其他级别的最大字节数是根据基级的最大大小动态计算的。
 	// 当级别的最大字节数超过时，请求压缩。
-	LBaseMaxBytes int64
+	LBaseMaxBytes int64 `cfg:"lBaseMaxBytes"`
 
 	// MaxManifestFileSize 是 MANIFEST 文件允许的最大大小。
 	// 当 MANIFEST 超过此大小时，它将被滚动并创建一个新的 MANIFEST。
-	MaxManifestFileSize int64
+	MaxManifestFileSize int64 `cfg:"maxManifestFileSize"`
 
 	// MaxOpenFiles 是可以由 DB 使用的打开文件的软限制。
 	//
 	// 默认值为 1000。
-	MaxOpenFiles int
+	MaxOpenFiles int `cfg:"maxOpenFiles"`
 
 	// 稳态下 MemTable 的大小。实际的 MemTable 大小从 min(256KB, MemTableSize) 开始，并为每个后续 MemTable 翻倍，直到达到 MemTableSize。
 	// 这减少了短命（测试）DB 实例的 MemTable 引起的内存压力。
@@ -191,7 +191,7 @@ type PebbleStoreOptions struct {
 	// MemTableStopWritesThreshold 对排队的 MemTable 大小设置了硬限制。
 	//
 	// 默认值为 4MB。
-	MemTableSize int
+	MemTableSize int `cfg:"memTableSize"`
 
 	// 排队的 MemTable 数量的硬限制。
 	// 当排队的 MemTable 大小总和超过：MemTableStopWritesThreshold * MemTableSize 时，写入将停止。
@@ -199,33 +199,33 @@ type PebbleStoreOptions struct {
 	// 此值应至少为 2，否则每当 MemTable 正在刷新时写入将停止。
 	//
 	// 默认值为 2。
-	MemTableStopWritesThreshold int
+	MemTableStopWritesThreshold int `cfg:"memTableStopWritesThreshold"`
 
 	// DisableAutomaticCompactions 指定是否调度自动压缩。默认值为 false（启用）。
 	// 此选项仅在运行手动压缩时外部使用，内部用于测试。
-	DisableAutomaticCompactions bool
+	DisableAutomaticCompactions bool `cfg:"disableAutomaticCompactions"`
 
 	// NoSyncOnClose 决定 Pebble 实例是否会强制对其写入的文件进行关闭时同步（例如，fdatasync() 或 sync_file_range()）。
 	// 将此设置为 true 会删除关闭时同步的保证。一些实现仍然可以发出非阻塞同步。
-	NoSyncOnClose bool
+	NoSyncOnClose bool `cfg:"noSyncOnClose"`
 
 	// NumPrevManifest 是我们希望保留用于调试目的的非当前或旧的清单数量。
 	// 默认情况下，我们将保留一个旧的清单。
-	NumPrevManifest int
+	NumPrevManifest int `cfg:"numPrevManifest"`
 
 	// ReadOnly 表示应以只读模式打开数据库。
 	// 对数据库的写入将返回错误，禁用后台压缩，并且在启动时重放 WAL 后通常发生的刷新被禁用。
-	ReadOnly bool
+	ReadOnly bool `cfg:"readOnly"`
 
 	// WALBytesPerSync 设置在后台调用 Sync 之前写入 WAL 的字节数。
 	// 就像上面的 BytesPerSync 一样，这有助于平滑磁盘写入延迟，并避免操作系统一次写入大量缓冲数据的情况。
 	// 但是，这对于 WAL 来说不太必要，因为许多写入操作已经传递了 Sync = true。
 	//
 	// 默认值为 0，即无后台同步。这与 RocksDB 中的默认行为相匹配。
-	WALBytesPerSync int
+	WALBytesPerSync int `cfg:"walBytesPerSync"`
 
 	// WALDir 指定存储预写日志（WAL）的目录。如果为空（默认），WAL 将存储在与 sstables 相同的目录中（即传递给 pebble.Open 的目录）。
-	WALDir string
+	WALDir string `cfg:"walDir"`
 
 	// TargetByteDeletionRate 是限制 sstable 文件删除的速率（以每秒字节数为单位）。
 	//
@@ -235,7 +235,7 @@ type PebbleStoreOptions struct {
 	// 此值仅是一个尽力而为的目标；如果删除落后或磁盘空间不足，有效速率可能会更高。
 	//
 	// 将此设置为 0 禁用删除节奏，这也是默认值。
-	TargetByteDeletionRate int
+	TargetByteDeletionRate int `cfg:"targetByteDeletionRate"`
 }
 
 type PebbleStore[K, V any] struct {
