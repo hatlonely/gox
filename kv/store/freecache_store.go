@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"time"
 
 	"github.com/coocood/freecache"
 	"github.com/hatlonely/gox/kv/serializer"
@@ -11,13 +12,15 @@ import (
 )
 
 type FreeCacheStoreOptions struct {
-	Size          int `cfg:"size"`
+	Size          int           `cfg:"size"`
+	DefaultTTL    time.Duration `cfg:"defaultTTL"`
 	KeySerializer *ref.TypeOptions
 	ValSerializer *ref.TypeOptions
 }
 
 type FreeCacheStore[K, V any] struct {
 	cache           *freecache.Cache
+	defaultTTL      time.Duration
 	keySerializer   serializer.Serializer[K, []byte]
 	valueSerializer serializer.Serializer[V, []byte]
 }
@@ -87,6 +90,7 @@ func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*Fr
 
 	return &FreeCacheStore[K, V]{
 		cache:           freecache.NewCache(options.Size),
+		defaultTTL:      options.DefaultTTL,
 		keySerializer:   keySerializer,
 		valueSerializer: valueSerializer,
 	}, nil
@@ -114,7 +118,11 @@ func (s *FreeCacheStore[K, V]) Set(ctx context.Context, key K, value V, opts ...
 		}
 	}
 
-	expireSeconds := int(options.Expiration.Seconds())
+	expiration := options.Expiration
+	if expiration == 0 && s.defaultTTL > 0 {
+		expiration = s.defaultTTL
+	}
+	expireSeconds := int(expiration.Seconds())
 	return s.cache.Set(keyBytes, valueBytes, expireSeconds)
 }
 

@@ -146,6 +146,28 @@ func TestFreeCacheStoreSet(t *testing.T) {
 			err := store.Set(ctx, key, value, WithExpiration(time.Minute), WithIfNotExist())
 			So(err, ShouldBeNil)
 		})
+
+		Convey("使用默认TTL", func() {
+			optionsWithTTL := &FreeCacheStoreOptions{
+				Size:       1024 * 1024,
+				DefaultTTL: time.Second * 10,
+			}
+			storeWithTTL, err := NewFreeCacheStoreWithOptions[string, string](optionsWithTTL)
+			So(err, ShouldBeNil)
+			defer storeWithTTL.Close()
+
+			key := "test_key_default_ttl"
+			value := "test_value"
+
+			// 不指定过期时间，应该使用默认TTL
+			err = storeWithTTL.Set(ctx, key, value)
+			So(err, ShouldBeNil)
+
+			// 验证能够获取到值
+			gotValue, err := storeWithTTL.Get(ctx, key)
+			So(err, ShouldBeNil)
+			So(gotValue, ShouldEqual, value)
+		})
 	})
 }
 
