@@ -51,19 +51,13 @@ func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*Fr
 	// 获取K和V的类型名，用于构造默认TypeOptions
 	var k K
 	var v V
-	kType := reflect.TypeOf(k)
-	vType := reflect.TypeOf(v)
-	
-	// 如果是指针类型，获取其元素类型名
-	kTypeName := kType.String()
-	vTypeName := vType.String()
 
 	// 设置默认的序列化器配置
 	keySerializerOptions := options.KeySerializer
 	if keySerializerOptions == nil {
 		keySerializerOptions = &ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/kv/serializer",
-			Type:      "MsgPackSerializer[" + kTypeName + "]",
+			Type:      "MsgPackSerializer[" + reflect.TypeOf(k).String() + "]",
 		}
 	}
 
@@ -71,7 +65,7 @@ func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*Fr
 	if valSerializerOptions == nil {
 		valSerializerOptions = &ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/kv/serializer",
-			Type:      "MsgPackSerializer[" + vTypeName + "]",
+			Type:      "MsgPackSerializer[" + reflect.TypeOf(v).String() + "]",
 		}
 	}
 
