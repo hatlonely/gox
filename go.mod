@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/BurntSushi/toml v1.5.0
+	github.com/coocood/freecache v1.2.4
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/pkg/errors v0.9.1
@@ -21,6 +22,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
