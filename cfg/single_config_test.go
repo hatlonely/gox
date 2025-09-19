@@ -12,7 +12,7 @@ import (
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 func TestConfig_RealUsage(t *testing.T) {
@@ -40,14 +40,14 @@ redis:
 
 	t.Run("NewConfigWithOptions", func(t *testing.T) {
 		options := &SingleConfigOptions{
-			Provider: refx.TypeOptions{
+			Provider: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
 				Options: &provider.FileProviderOptions{
 					FilePath: configFile,
 				},
 			},
-			Decoder: refx.TypeOptions{
+			Decoder: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/decoder",
 				Type:      "YamlDecoder",
 				Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -78,14 +78,14 @@ redis:
 
 	t.Run("Sub and ConvertTo", func(t *testing.T) {
 		options := &SingleConfigOptions{
-			Provider: refx.TypeOptions{
+			Provider: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
 				Options: &provider.FileProviderOptions{
 					FilePath: configFile,
 				},
 			},
-			Decoder: refx.TypeOptions{
+			Decoder: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/decoder",
 				Type:      "YamlDecoder",
 				Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -155,14 +155,14 @@ redis:
 
 	t.Run("OnChange and OnKeyChange", func(t *testing.T) {
 		options := &SingleConfigOptions{
-			Provider: refx.TypeOptions{
+			Provider: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
 				Options: &provider.FileProviderOptions{
 					FilePath: configFile,
 				},
 			},
-			Decoder: refx.TypeOptions{
+			Decoder: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/decoder",
 				Type:      "YamlDecoder",
 				Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -282,14 +282,14 @@ redis:
 		}
 
 		options := &SingleConfigOptions{
-			Provider: refx.TypeOptions{
+			Provider: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
 				Options: &provider.FileProviderOptions{
 					FilePath: nestedConfigFile,
 				},
 			},
-			Decoder: refx.TypeOptions{
+			Decoder: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/decoder",
 				Type:      "YamlDecoder",
 				Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -522,14 +522,14 @@ func TestConfig_ErrorPolicyStop(t *testing.T) {
 
 	// 创建配置，使用 stop 错误策略
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: configFile,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -663,14 +663,14 @@ func TestConfig_ErrorPolicyContinue(t *testing.T) {
 
 	// 创建配置，使用 continue 错误策略
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: configFile,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -797,14 +797,14 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 	t.Run("AsyncExecution", func(t *testing.T) {
 		// 创建配置，启用异步执行
 		options := &SingleConfigOptions{
-			Provider: refx.TypeOptions{
+			Provider: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
 				Options: &provider.FileProviderOptions{
 					FilePath: configFile,
 				},
 			},
-			Decoder: refx.TypeOptions{
+			Decoder: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/decoder",
 				Type:      "YamlDecoder",
 				Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -898,14 +898,14 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 	t.Run("TimeoutControl", func(t *testing.T) {
 		// 创建配置，设置较短的超时时间
 		options := &SingleConfigOptions{
-			Provider: refx.TypeOptions{
+			Provider: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
 				Options: &provider.FileProviderOptions{
 					FilePath: configFile,
 				},
 			},
-			Decoder: refx.TypeOptions{
+			Decoder: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/decoder",
 				Type:      "YamlDecoder",
 				Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -969,14 +969,14 @@ func TestConfig_AdvancedHandlerExecution(t *testing.T) {
 	t.Run("SyncExecution", func(t *testing.T) {
 		// 创建配置，使用同步执行
 		options := &SingleConfigOptions{
-			Provider: refx.TypeOptions{
+			Provider: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/provider",
 				Type:      "FileProvider",
 				Options: &provider.FileProviderOptions{
 					FilePath: configFile,
 				},
 			},
-			Decoder: refx.TypeOptions{
+			Decoder: ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/cfg/decoder",
 				Type:      "YamlDecoder",
 				Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -1066,14 +1066,14 @@ func TestConfig_DefaultHandlerExecution(t *testing.T) {
 	}
 
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: configFile,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -1400,7 +1400,7 @@ func TestConfig_ValidateStorageIntegration(t *testing.T) {
 
 		var user User
 		userConfig := config.Sub("user")
-		
+
 		// 测试 ConvertTo 方法的自动校验
 		err = userConfig.ConvertTo(&user)
 		if err != nil {
@@ -1443,7 +1443,7 @@ func TestConfig_ValidateStorageIntegration(t *testing.T) {
 
 		var user User
 		userConfig := config.Sub("user")
-		
+
 		// 测试 ConvertTo 方法的自动校验失败
 		err = userConfig.ConvertTo(&user)
 		if err == nil {
@@ -1487,7 +1487,7 @@ func TestConfig_ValidateStorageIntegration(t *testing.T) {
 		userConfig.OnChange(func(stor storage.Storage) error {
 			defer wg.Done()
 			callbackTriggered = true
-			
+
 			var user User
 			// 测试在回调中使用 Storage 的自动校验
 			callbackError = stor.ConvertTo(&user)

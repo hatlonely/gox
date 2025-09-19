@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // TestTypeOptionsSupport tests TypeOptions support in both MapStorage and FlatStorage
@@ -23,7 +23,7 @@ func TestMapStorageTypeOptionsSupport(t *testing.T) {
 	mapStorage := storage.NewMapStorage(configData)
 
 	// Test converting to TypeOptions
-	var typeOpts refx.TypeOptions
+	var typeOpts ref.TypeOptions
 	err := mapStorage.ConvertTo(&typeOpts)
 	if err != nil {
 		t.Fatalf("MapStorage.ConvertTo(TypeOptions) error = %v", err)
@@ -76,8 +76,8 @@ func TestMapStorageTypeOptionsSupport(t *testing.T) {
 	}
 }
 
-// TestTypeOptionsWithRefxIntegration tests the complete flow with refx
-func TestTypeOptionsWithRefxIntegration(t *testing.T) {
+// TestTypeOptionsWithrefIntegration tests the complete flow with ref
+func TestTypeOptionsWithrefIntegration(t *testing.T) {
 	// Define a simple struct for testing
 	type SimpleConfig struct {
 		Name string `cfg:"name"`
@@ -94,7 +94,7 @@ func TestTypeOptionsWithRefxIntegration(t *testing.T) {
 	}
 
 	// Register the constructor
-	err := refx.Register("testapp", "SimpleService", newSimpleService)
+	err := ref.Register("testapp", "SimpleService", newSimpleService)
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -111,16 +111,16 @@ func TestTypeOptionsWithRefxIntegration(t *testing.T) {
 	mapStorage := storage.NewMapStorage(configData)
 
 	// Convert to TypeOptions first
-	var typeOpts refx.TypeOptions
+	var typeOpts ref.TypeOptions
 	err = mapStorage.ConvertTo(&typeOpts)
 	if err != nil {
 		t.Fatalf("ConvertTo(TypeOptions) error = %v", err)
 	}
 
-	// Use refx.New with the TypeOptions.Options as the options parameter
-	result, err := refx.New(typeOpts.Namespace, typeOpts.Type, typeOpts.Options)
+	// Use ref.New with the TypeOptions.Options as the options parameter
+	result, err := ref.New(typeOpts.Namespace, typeOpts.Type, typeOpts.Options)
 	if err != nil {
-		t.Fatalf("refx.New() error = %v", err)
+		t.Fatalf("ref.New() error = %v", err)
 	}
 
 	service, ok := result.(*SimpleService)
@@ -141,17 +141,17 @@ func TestTypeOptionsWithRefxIntegration(t *testing.T) {
 func TestFlatStorageTypeOptionsSupport(t *testing.T) {
 	// Create a FlatStorage with TypeOptions-like configuration
 	configData := map[string]interface{}{
-		"namespace":       "myapp",
-		"type":           "Database", 
-		"options.host":   "localhost",
-		"options.port":   3306,
+		"namespace":        "myapp",
+		"type":             "Database",
+		"options.host":     "localhost",
+		"options.port":     3306,
 		"options.username": "root",
 		"options.password": "secret",
 	}
 	flatStorage := storage.NewFlatStorage(configData)
 
 	// Test converting to TypeOptions
-	var typeOpts refx.TypeOptions
+	var typeOpts ref.TypeOptions
 	err := flatStorage.ConvertTo(&typeOpts)
 	if err != nil {
 		t.Fatalf("FlatStorage.ConvertTo(TypeOptions) error = %v", err)
@@ -204,8 +204,8 @@ func TestFlatStorageTypeOptionsSupport(t *testing.T) {
 	}
 }
 
-// TestFlatStorageTypeOptionsWithRefxIntegration tests the complete flow with refx using FlatStorage
-func TestFlatStorageTypeOptionsWithRefxIntegration(t *testing.T) {
+// TestFlatStorageTypeOptionsWithrefIntegration tests the complete flow with ref using FlatStorage
+func TestFlatStorageTypeOptionsWithrefIntegration(t *testing.T) {
 	// Define a simple struct for testing
 	type SimpleConfig struct {
 		Name string `cfg:"name"`
@@ -222,14 +222,14 @@ func TestFlatStorageTypeOptionsWithRefxIntegration(t *testing.T) {
 	}
 
 	// Register the constructor
-	err := refx.Register("testapp", "FlatSimpleService", newSimpleService)
+	err := ref.Register("testapp", "FlatSimpleService", newSimpleService)
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
 
 	// Create FlatStorage with TypeOptions configuration
 	configData := map[string]interface{}{
-		"namespace":     "testapp",
+		"namespace":    "testapp",
 		"type":         "FlatSimpleService",
 		"options.name": "test-service",
 		"options.port": 8080,
@@ -237,16 +237,16 @@ func TestFlatStorageTypeOptionsWithRefxIntegration(t *testing.T) {
 	flatStorage := storage.NewFlatStorage(configData)
 
 	// Convert to TypeOptions first
-	var typeOpts refx.TypeOptions
+	var typeOpts ref.TypeOptions
 	err = flatStorage.ConvertTo(&typeOpts)
 	if err != nil {
 		t.Fatalf("ConvertTo(TypeOptions) error = %v", err)
 	}
 
-	// Use refx.New with the TypeOptions.Options as the options parameter
-	result, err := refx.New(typeOpts.Namespace, typeOpts.Type, typeOpts.Options)
+	// Use ref.New with the TypeOptions.Options as the options parameter
+	result, err := ref.New(typeOpts.Namespace, typeOpts.Type, typeOpts.Options)
 	if err != nil {
-		t.Fatalf("refx.New() error = %v", err)
+		t.Fatalf("ref.New() error = %v", err)
 	}
 
 	service, ok := result.(*SimpleService)
@@ -267,7 +267,7 @@ func TestFlatStorageTypeOptionsWithRefxIntegration(t *testing.T) {
 func TestFlatStorageTypeOptionsWithSeparator(t *testing.T) {
 	// Create a FlatStorage with custom separator and TypeOptions-like configuration
 	configData := map[string]interface{}{
-		"namespace":         "myapp",
+		"namespace":        "myapp",
 		"type":             "Database",
 		"options-host":     "localhost",
 		"options-port":     3306,
@@ -277,7 +277,7 @@ func TestFlatStorageTypeOptionsWithSeparator(t *testing.T) {
 	flatStorage := storage.NewFlatStorage(configData).WithSeparator("-")
 
 	// Test converting to TypeOptions
-	var typeOpts refx.TypeOptions
+	var typeOpts ref.TypeOptions
 	err := flatStorage.ConvertTo(&typeOpts)
 	if err != nil {
 		t.Fatalf("FlatStorage.ConvertTo(TypeOptions) error = %v", err)

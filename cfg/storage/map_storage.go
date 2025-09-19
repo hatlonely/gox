@@ -501,7 +501,7 @@ func (ms *MapStorage) convertToStruct(src, dst reflect.Value) error {
 
 	dstType := dst.Type()
 
-	// 特殊处理 refx.TypeOptions 类型
+	// 特殊处理 ref.TypeOptions 类型
 	if err := ms.convertToTypeOptions(src, dst); err == nil {
 		return nil
 	}
@@ -562,7 +562,7 @@ func (ms *MapStorage) convertToStruct(src, dst reflect.Value) error {
 	return nil
 }
 
-// convertToTypeOptions 处理 refx.TypeOptions 类型的特殊转换
+// convertToTypeOptions 处理 ref.TypeOptions 类型的特殊转换
 // 当目标类型是 TypeOptions 时，将当前 storage 的 Sub("options") 赋值给 Options 字段
 func (ms *MapStorage) convertToTypeOptions(src, dst reflect.Value) error {
 	dstType := dst.Type()
@@ -573,7 +573,7 @@ func (ms *MapStorage) convertToTypeOptions(src, dst reflect.Value) error {
 	}
 
 	// 检查类型名和包路径
-	if dstType.Name() != "TypeOptions" || !strings.HasSuffix(dstType.PkgPath(), "refx") {
+	if dstType.Name() != "TypeOptions" || !strings.HasSuffix(dstType.PkgPath(), "ref") {
 		return fmt.Errorf("not a TypeOptions type")
 	}
 

@@ -15,7 +15,7 @@ import (
 	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/log"
 	"github.com/hatlonely/gox/log/writer"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // MockWriter 用于测试的模拟 Writer
@@ -55,11 +55,11 @@ redis:
 	logger, err := log.NewLogWithOptions(&log.Options{
 		Level:  "info",
 		Format: "json",
-		Output: refx.TypeOptions{
+		Output: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "MultiWriter",
 			Options: &writer.MultiWriterOptions{
-				Writers: []refx.TypeOptions{
+				Writers: []ref.TypeOptions{
 					{
 						Type:    "custom",
 						Options: mockWriter,
@@ -75,14 +75,14 @@ redis:
 
 	// 创建配置对象
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: configFile,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -272,14 +272,14 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 
 	// 使用 log.Options 创建配置
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: configFile,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -344,14 +344,14 @@ func TestConfig_DefaultLogger(t *testing.T) {
 
 	// 不设置 Logger配置，使用默认的
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: configFile,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},

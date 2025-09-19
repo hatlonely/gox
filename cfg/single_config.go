@@ -12,7 +12,7 @@ import (
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/log"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // HandlerExecutionOptions onChange handler 执行配置
@@ -27,8 +27,8 @@ type HandlerExecutionOptions struct {
 
 // SingleConfigOptions 配置类初始化选项
 type SingleConfigOptions struct {
-	Provider         refx.TypeOptions         `cfg:"provider"`
-	Decoder          refx.TypeOptions         `cfg:"decoder"`
+	Provider         ref.TypeOptions          `cfg:"provider"`
+	Decoder          ref.TypeOptions          `cfg:"decoder"`
 	Logger           *log.Options             `cfg:"logger"`
 	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
 }
@@ -62,7 +62,7 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 	}
 
 	// 创建 Provider 实例
-	providerObj, err := refx.New(options.Provider.Namespace, options.Provider.Type, options.Provider.Options)
+	providerObj, err := ref.New(options.Provider.Namespace, options.Provider.Type, options.Provider.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create provider: %w", err)
 	}
@@ -73,7 +73,7 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 	}
 
 	// 创建 Decoder 实例
-	decoderObj, err := refx.New(options.Decoder.Namespace, options.Decoder.Type, options.Decoder.Options)
+	decoderObj, err := ref.New(options.Decoder.Namespace, options.Decoder.Type, options.Decoder.Options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create decoder: %w", err)
 	}
@@ -199,14 +199,14 @@ func NewSingleConfig(filename string) (*SingleConfig, error) {
 
 	// 构建选项
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: filename,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      decoderType,
 			Options:   decoderOptions,

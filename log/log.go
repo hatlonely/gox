@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/hatlonely/gox/log/writer"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // Options 日志初始化选项
@@ -19,8 +19,8 @@ type Options struct {
 	// 输出格式：text, json
 	Format string `cfg:"format"`
 
-	// 输出目标配置 - 使用 refx.TypeOptions
-	Output refx.TypeOptions `cfg:"output"`
+	// 输出目标配置 - 使用 ref.TypeOptions
+	Output ref.TypeOptions `cfg:"output"`
 
 	// 时间格式
 	TimeFormat string `cfg:"timeFormat"`
@@ -88,8 +88,8 @@ func NewLogWithOptions(options *Options) (Logger, error) {
 	// 创建输出器
 	var w writer.Writer
 	if options.Output.Type != "" {
-		// 使用 refx 创建输出器
-		writerObj, err := refx.New(options.Output.Namespace, options.Output.Type, options.Output.Options)
+		// 使用 ref 创建输出器
+		writerObj, err := ref.New(options.Output.Namespace, options.Output.Type, options.Output.Options)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create writer: %w", err)
 		}

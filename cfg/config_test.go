@@ -5,19 +5,19 @@ import (
 
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // TestConfigInterfaceImplementation 验证 SingleConfig 实现了 Config 接口
 func TestConfigInterfaceImplementation(t *testing.T) {
 	// 创建一个 SingleConfig 实例
 	options := &SingleConfigOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "EnvProvider",
 			Options:   &provider.EnvProviderOptions{},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "EnvDecoder",
 			Options:   nil,

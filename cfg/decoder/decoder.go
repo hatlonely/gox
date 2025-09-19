@@ -2,23 +2,23 @@ package decoder
 
 import (
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 func init() {
-	refx.MustRegisterT[EnvDecoder](NewEnvDecoder)
-	refx.MustRegisterT[CmdDecoder](NewCmdDecoder)
-	refx.MustRegisterT[JsonDecoder](NewJsonDecoderWithOptions)
-	refx.MustRegisterT[YamlDecoder](NewYamlDecoderWithOptions)
-	refx.MustRegisterT[TomlDecoder](NewTomlDecoderWithOptions)
-	refx.MustRegisterT[IniDecoder](NewIniDecoderWithOptions)
+	ref.MustRegisterT[EnvDecoder](NewEnvDecoder)
+	ref.MustRegisterT[CmdDecoder](NewCmdDecoder)
+	ref.MustRegisterT[JsonDecoder](NewJsonDecoderWithOptions)
+	ref.MustRegisterT[YamlDecoder](NewYamlDecoderWithOptions)
+	ref.MustRegisterT[TomlDecoder](NewTomlDecoderWithOptions)
+	ref.MustRegisterT[IniDecoder](NewIniDecoderWithOptions)
 
-	refx.MustRegisterT[*EnvDecoder](NewEnvDecoder)
-	refx.MustRegisterT[*CmdDecoder](NewCmdDecoder)
-	refx.MustRegisterT[*JsonDecoder](NewJsonDecoderWithOptions)
-	refx.MustRegisterT[*YamlDecoder](NewYamlDecoderWithOptions)
-	refx.MustRegisterT[*TomlDecoder](NewTomlDecoderWithOptions)
-	refx.MustRegisterT[*IniDecoder](NewIniDecoderWithOptions)
+	ref.MustRegisterT[*EnvDecoder](NewEnvDecoder)
+	ref.MustRegisterT[*CmdDecoder](NewCmdDecoder)
+	ref.MustRegisterT[*JsonDecoder](NewJsonDecoderWithOptions)
+	ref.MustRegisterT[*YamlDecoder](NewYamlDecoderWithOptions)
+	ref.MustRegisterT[*TomlDecoder](NewTomlDecoderWithOptions)
+	ref.MustRegisterT[*IniDecoder](NewIniDecoderWithOptions)
 }
 
 // Decoder 配置数据编解码器接口

@@ -3,18 +3,18 @@ package writer
 import (
 	"io"
 
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 func init() {
-	// 注册所有输出器到 refx 框架
-	refx.MustRegisterT[ConsoleWriter](NewConsoleWriterWithOptions)
-	refx.MustRegisterT[FileWriter](NewFileWriterWithOptions)
-	refx.MustRegisterT[MultiWriter](NewMultiWriterWithOptions)
+	// 注册所有输出器到 ref 框架
+	ref.MustRegisterT[ConsoleWriter](NewConsoleWriterWithOptions)
+	ref.MustRegisterT[FileWriter](NewFileWriterWithOptions)
+	ref.MustRegisterT[MultiWriter](NewMultiWriterWithOptions)
 
-	refx.MustRegisterT[*ConsoleWriter](NewConsoleWriterWithOptions)
-	refx.MustRegisterT[*FileWriter](NewFileWriterWithOptions)
-	refx.MustRegisterT[*MultiWriter](NewMultiWriterWithOptions)
+	ref.MustRegisterT[*ConsoleWriter](NewConsoleWriterWithOptions)
+	ref.MustRegisterT[*FileWriter](NewFileWriterWithOptions)
+	ref.MustRegisterT[*MultiWriter](NewMultiWriterWithOptions)
 }
 
 // Writer 日志输出器接口

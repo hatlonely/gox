@@ -7,16 +7,16 @@ import (
 
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // NewConfig 简化构造方法，从文件读取基础配置，同时支持环境变量和命令行覆盖
-// 
+//
 // 配置优先级（从低到高）：文件 < 环境变量 < 命令行
-// 
+//
 // 支持的文件格式：
 //   - .json/.json5 -> JsonDecoder
-//   - .yaml/.yml -> YamlDecoder  
+//   - .yaml/.yml -> YamlDecoder
 //   - .toml -> TomlDecoder
 //   - .ini -> IniDecoder
 //   - .env -> EnvDecoder
@@ -25,28 +25,30 @@ import (
 // 命令行：处理所有 --key=value 或 --key value 格式的参数
 //
 // 使用示例：
-//   cfg, err := NewConfig("config.yaml")
-//   if err != nil {
-//       return err
-//   }
-//   defer cfg.Close()
 //
-//   // 环境变量 DATABASE_HOST=localhost 会覆盖文件中的 database.host
-//   // 命令行 --database-port=3306 会覆盖环境变量和文件中的 database.port
+//	cfg, err := NewConfig("config.yaml")
+//	if err != nil {
+//	    return err
+//	}
+//	defer cfg.Close()
+//
+//	// 环境变量 DATABASE_HOST=localhost 会覆盖文件中的 database.host
+//	// 命令行 --database-port=3306 会覆盖环境变量和文件中的 database.port
 func NewConfig(filename string) (Config, error) {
 	return NewConfigWithPrefix(filename, "", "")
 }
 
 // NewConfigWithPrefix 简化构造方法，支持指定环境变量和命令行参数前缀
-// 
+//
 // 参数：
 //   - filename: 配置文件路径
 //   - envPrefix: 环境变量前缀，如 "APP_"，会过滤 APP_ 开头的环境变量并移除前缀
 //   - cmdPrefix: 命令行参数前缀，如 "app-"，会处理 --app-* 参数并移除前缀
 //
 // 使用示例：
-//   cfg, err := NewConfigWithPrefix("config.yaml", "APP_", "app-")
-//   // 只处理 APP_* 环境变量和 --app-* 命令行参数
+//
+//	cfg, err := NewConfigWithPrefix("config.yaml", "APP_", "app-")
+//	// 只处理 APP_* 环境变量和 --app-* 命令行参数
 func NewConfigWithPrefix(filename, envPrefix, cmdPrefix string) (Config, error) {
 	if filename == "" {
 		return nil, fmt.Errorf("filename cannot be empty")
@@ -110,14 +112,14 @@ func createFileSourceOptions(filename string) (*ConfigSourceOptions, error) {
 	}
 
 	return &ConfigSourceOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "FileProvider",
 			Options: &provider.FileProviderOptions{
 				FilePath: filename,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      decoderType,
 			Options:   decoderOptions,
@@ -128,14 +130,14 @@ func createFileSourceOptions(filename string) (*ConfigSourceOptions, error) {
 // createEnvSourceOptions 创建环境变量配置源选项
 func createEnvSourceOptions(prefix string) *ConfigSourceOptions {
 	return &ConfigSourceOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "EnvProvider",
 			Options: &provider.EnvProviderOptions{
 				Prefix: prefix,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "EnvDecoder",
 			Options:   nil,
@@ -146,18 +148,17 @@ func createEnvSourceOptions(prefix string) *ConfigSourceOptions {
 // createCmdSourceOptions 创建命令行配置源选项
 func createCmdSourceOptions(prefix string) *ConfigSourceOptions {
 	return &ConfigSourceOptions{
-		Provider: refx.TypeOptions{
+		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
 			Type:      "CmdProvider",
 			Options: &provider.CmdProviderOptions{
 				Prefix: prefix,
 			},
 		},
-		Decoder: refx.TypeOptions{
+		Decoder: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/decoder",
 			Type:      "CmdDecoder",
 			Options:   nil,
 		},
 	}
 }
-

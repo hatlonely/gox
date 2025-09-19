@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // MultiWriterOptions 多输出配置
 type MultiWriterOptions struct {
 	// 输出器列表
-	Writers []refx.TypeOptions `cfg:"writers"`
+	Writers []ref.TypeOptions `cfg:"writers"`
 }
 
 // MultiWriter 多输出器
@@ -27,8 +27,8 @@ func NewMultiWriterWithOptions(options *MultiWriterOptions) (*MultiWriter, error
 	writers := make([]Writer, 0, len(options.Writers))
 
 	for i, writerOpt := range options.Writers {
-		// 使用 refx 创建输出器
-		writerObj, err := refx.New(writerOpt.Namespace, writerOpt.Type, writerOpt.Options)
+		// 使用 ref 创建输出器
+		writerObj, err := ref.New(writerOpt.Namespace, writerOpt.Type, writerOpt.Options)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create writer %d: %w", i, err)
 		}

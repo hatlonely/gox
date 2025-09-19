@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // TestWriter_InterfaceCompliance 测试所有 writer 实现都符合 Writer 接口
@@ -51,7 +51,7 @@ func TestWriter_InterfaceCompliance(t *testing.T) {
 				tempDir := t.TempDir()
 				logFile := filepath.Join(tempDir, "multi_test.log")
 				w, err := NewMultiWriterWithOptions(&MultiWriterOptions{
-					Writers: []refx.TypeOptions{
+					Writers: []ref.TypeOptions{
 						{
 							Namespace: "github.com/hatlonely/gox/log/writer",
 							Type:      "ConsoleWriter",
@@ -110,8 +110,8 @@ func TestWriter_InterfaceCompliance(t *testing.T) {
 	}
 }
 
-// TestWriter_RefxRegistration 测试 refx 注册功能
-func TestWriter_RefxRegistration(t *testing.T) {
+// TestWriter_refRegistration 测试 ref 注册功能
+func TestWriter_refRegistration(t *testing.T) {
 	tests := []struct {
 		name      string
 		namespace string
@@ -134,7 +134,7 @@ func TestWriter_RefxRegistration(t *testing.T) {
 			namespace: "github.com/hatlonely/gox/log/writer",
 			typeName:  "FileWriter",
 			options: &FileWriterOptions{
-				Path: filepath.Join(t.TempDir(), "refx_test.log"),
+				Path: filepath.Join(t.TempDir(), "ref_test.log"),
 			},
 			wantErr: false,
 		},
@@ -143,7 +143,7 @@ func TestWriter_RefxRegistration(t *testing.T) {
 			namespace: "github.com/hatlonely/gox/log/writer",
 			typeName:  "MultiWriter",
 			options: &MultiWriterOptions{
-				Writers: []refx.TypeOptions{
+				Writers: []ref.TypeOptions{
 					{
 						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "ConsoleWriter",
@@ -167,23 +167,23 @@ func TestWriter_RefxRegistration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj, err := refx.New(tt.namespace, tt.typeName, tt.options)
+			obj, err := ref.New(tt.namespace, tt.typeName, tt.options)
 
 			if (err != nil) != tt.wantErr {
-				t.Errorf("refx.New() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ref.New() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if !tt.wantErr {
 				if obj == nil {
-					t.Error("refx.New() returned nil without error")
+					t.Error("ref.New() returned nil without error")
 					return
 				}
 
 				// 验证返回的对象实现了 Writer 接口
 				writer, ok := obj.(Writer)
 				if !ok {
-					t.Errorf("refx.New() returned object that doesn't implement Writer interface")
+					t.Errorf("ref.New() returned object that doesn't implement Writer interface")
 					return
 				}
 
@@ -201,7 +201,7 @@ func TestWriter_RealWorldScenario(t *testing.T) {
 
 	// 创建一个同时输出到控制台和文件的多输出器
 	writer, err := NewMultiWriterWithOptions(&MultiWriterOptions{
-		Writers: []refx.TypeOptions{
+		Writers: []ref.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "ConsoleWriter",
@@ -294,7 +294,7 @@ func TestWriter_ErrorHandling(t *testing.T) {
 
 	t.Run("MultiWriter with no writers", func(t *testing.T) {
 		_, err := NewMultiWriterWithOptions(&MultiWriterOptions{
-			Writers: []refx.TypeOptions{}, // 空的 writers 列表
+			Writers: []ref.TypeOptions{}, // 空的 writers 列表
 		})
 		if err == nil {
 			t.Error("Expected error for empty writers list, got nil")

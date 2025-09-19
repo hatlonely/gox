@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/hatlonely/gox/log/writer"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 func TestNewLogWithOptions(t *testing.T) {
@@ -32,7 +32,7 @@ func TestNewLogWithOptions(t *testing.T) {
 			options: &Options{
 				Level:  "debug",
 				Format: "json",
-				Output: refx.TypeOptions{
+				Output: ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/log/writer",
 					Type:      "ConsoleWriter",
 					Options: &writer.ConsoleWriterOptions{
@@ -161,7 +161,7 @@ func TestMultiWriter(t *testing.T) {
 	logFile := tempDir + "/multi_test.log"
 
 	w, err := writer.NewMultiWriterWithOptions(&writer.MultiWriterOptions{
-		Writers: []refx.TypeOptions{
+		Writers: []ref.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "ConsoleWriter",

@@ -1,17 +1,17 @@
-package refx_test
+package ref_test
 
 import (
 	"testing"
 
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
-// TestStorageIntegration tests the integration between refx and storage packages
-// This test is in refx_test package to demonstrate the dependency direction
+// TestStorageIntegration tests the integration between ref and storage packages
+// This test is in ref_test package to demonstrate the dependency direction
 func TestStorageIntegration(t *testing.T) {
 	namespace := "test-storage-integration"
-	
+
 	// Register a constructor that expects a specific struct
 	type DatabaseConfig struct {
 		Host     string `cfg:"host"`
@@ -19,20 +19,20 @@ func TestStorageIntegration(t *testing.T) {
 		Username string `cfg:"username"`
 		Password string `cfg:"password"`
 	}
-	
+
 	type Database struct {
 		Config *DatabaseConfig
 	}
-	
+
 	newDatabase := func(config *DatabaseConfig) *Database {
 		return &Database{Config: config}
 	}
-	
-	err := refx.Register(namespace, "Database", newDatabase)
+
+	err := ref.Register(namespace, "Database", newDatabase)
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	
+
 	// Create a MapStorage with configuration data
 	configData := map[string]interface{}{
 		"host":     "localhost",
@@ -41,18 +41,18 @@ func TestStorageIntegration(t *testing.T) {
 		"password": "secret",
 	}
 	mapStorage := storage.NewMapStorage(configData)
-	
-	// Test using Storage as options - storage.Storage implements refx.Convertable
-	result, err := refx.New(namespace, "Database", mapStorage)
+
+	// Test using Storage as options - storage.Storage implements ref.Convertable
+	result, err := ref.New(namespace, "Database", mapStorage)
 	if err != nil {
 		t.Fatalf("New() with Storage error = %v", err)
 	}
-	
+
 	db, ok := result.(*Database)
 	if !ok {
 		t.Fatalf("New() result is not *Database type, got %T", result)
 	}
-	
+
 	// Verify the configuration was properly converted
 	if db.Config.Host != "localhost" {
 		t.Errorf("Expected host 'localhost', got '%s'", db.Config.Host)
@@ -71,7 +71,7 @@ func TestStorageIntegration(t *testing.T) {
 // TestFlatStorageIntegration tests Storage support with FlatStorage
 func TestFlatStorageIntegration(t *testing.T) {
 	namespace := "test-flat-storage-integration"
-	
+
 	// Register a constructor that expects a nested struct
 	type ServerConfig struct {
 		Database struct {
@@ -83,20 +83,20 @@ func TestFlatStorageIntegration(t *testing.T) {
 			Port int    `cfg:"port"`
 		} `cfg:"redis"`
 	}
-	
+
 	type Server struct {
 		Config *ServerConfig
 	}
-	
+
 	newServer := func(config *ServerConfig) *Server {
 		return &Server{Config: config}
 	}
-	
-	err := refx.Register(namespace, "Server", newServer)
+
+	err := ref.Register(namespace, "Server", newServer)
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	
+
 	// Create a FlatStorage with flattened configuration data
 	flatData := map[string]interface{}{
 		"database.host": "db.example.com",
@@ -105,18 +105,18 @@ func TestFlatStorageIntegration(t *testing.T) {
 		"redis.port":    6379,
 	}
 	flatStorage := storage.NewFlatStorage(flatData)
-	
+
 	// Test using FlatStorage as options
-	result, err := refx.New(namespace, "Server", flatStorage)
+	result, err := ref.New(namespace, "Server", flatStorage)
 	if err != nil {
 		t.Fatalf("New() with FlatStorage error = %v", err)
 	}
-	
+
 	server, ok := result.(*Server)
 	if !ok {
 		t.Fatalf("New() result is not *Server type, got %T", result)
 	}
-	
+
 	// Verify the nested configuration was properly converted
 	if server.Config.Database.Host != "db.example.com" {
 		t.Errorf("Expected database host 'db.example.com', got '%s'", server.Config.Database.Host)
@@ -140,21 +140,21 @@ func TestStorageIntegrationWithNewT(t *testing.T) {
 		Timeout  int    `cfg:"timeout"`
 		APIKey   string `cfg:"api_key"`
 	}
-	
+
 	type APIClient struct {
 		Config *APIConfig
 	}
-	
+
 	newAPIClient := func(config *APIConfig) *APIClient {
 		return &APIClient{Config: config}
 	}
-	
+
 	// Register using RegisterT
-	err := refx.RegisterT[*APIClient](newAPIClient)
+	err := ref.RegisterT[*APIClient](newAPIClient)
 	if err != nil {
 		t.Fatalf("RegisterT() error = %v", err)
 	}
-	
+
 	// Create a MapStorage with configuration data
 	configData := map[string]interface{}{
 		"endpoint": "https://api.example.com",
@@ -162,13 +162,13 @@ func TestStorageIntegrationWithNewT(t *testing.T) {
 		"api_key":  "secret-key-123",
 	}
 	mapStorage := storage.NewMapStorage(configData)
-	
+
 	// Test using NewT with Storage
-	client, err := refx.NewT[*APIClient](mapStorage)
+	client, err := ref.NewT[*APIClient](mapStorage)
 	if err != nil {
 		t.Fatalf("NewT() with Storage error = %v", err)
 	}
-	
+
 	// Verify the configuration was properly converted
 	if client.Config.Endpoint != "https://api.example.com" {
 		t.Errorf("Expected endpoint 'https://api.example.com', got '%s'", client.Config.Endpoint)

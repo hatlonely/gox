@@ -10,7 +10,7 @@ import (
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/log"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,12 +20,12 @@ func TestNewMultiConfigWithOptions(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "EnvProvider",
 						Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "EnvDecoder",
 					},
@@ -70,7 +70,7 @@ func TestMultiConfig_ConvertTo(t *testing.T) {
 	t.Run("多个配置源合并", func(t *testing.T) {
 		// 创建测试数据，模拟从不同源加载的配置
 		// 这里我们直接创建 MultiConfig 来测试核心功能
-		
+
 		// 基础配置
 		baseStorage := storage.NewMapStorage(map[string]interface{}{
 			"name":    "app",
@@ -81,9 +81,9 @@ func TestMultiConfig_ConvertTo(t *testing.T) {
 
 		// 环境配置
 		envStorage := storage.NewMapStorage(map[string]interface{}{
-			"port":    9090,
-			"debug":   true,
-			"env":     "production",
+			"port":  9090,
+			"debug": true,
+			"env":   "production",
 		})
 
 		// 创建 MultiStorage
@@ -108,11 +108,11 @@ func TestMultiConfig_ConvertTo(t *testing.T) {
 		require.NoError(t, err)
 
 		// 验证合并结果
-		assert.Equal(t, "app", appConfig.Name)         // 来自 base
-		assert.Equal(t, 9090, appConfig.Port)          // 被 env 覆盖
-		assert.Equal(t, true, appConfig.Debug)         // 被 env 覆盖
+		assert.Equal(t, "app", appConfig.Name)             // 来自 base
+		assert.Equal(t, 9090, appConfig.Port)              // 被 env 覆盖
+		assert.Equal(t, true, appConfig.Debug)             // 被 env 覆盖
 		assert.Equal(t, "base-feature", appConfig.Feature) // 来自 base
-		assert.Equal(t, "production", appConfig.Env)   // 来自 env
+		assert.Equal(t, "production", appConfig.Env)       // 来自 env
 
 		// 测试转换到 map
 		var mapConfig map[string]interface{}
@@ -166,9 +166,9 @@ func TestMultiConfig_Sub(t *testing.T) {
 		require.NoError(t, err)
 
 		// 验证子配置的合并
-		assert.Equal(t, "localhost", dbResult["host"]) // 来自 base
-		assert.Equal(t, 3306, dbResult["port"])        // 被 env 覆盖
-		assert.Equal(t, true, dbResult["ssl"])         // 被 env 覆盖
+		assert.Equal(t, "localhost", dbResult["host"])     // 来自 base
+		assert.Equal(t, 3306, dbResult["port"])            // 被 env 覆盖
+		assert.Equal(t, true, dbResult["ssl"])             // 被 env 覆盖
 		assert.Equal(t, "production_db", dbResult["name"]) // 来自 env
 
 		// 获取 Redis 子配置
@@ -185,7 +185,7 @@ func TestMultiConfig_Sub(t *testing.T) {
 		mapStorage := storage.NewMapStorage(map[string]interface{}{
 			"key": "value",
 		})
-		
+
 		multiStorage := storage.NewMultiStorage([]storage.Storage{mapStorage})
 		config := &MultiConfig{
 			multiStorage:        multiStorage,
@@ -236,7 +236,7 @@ func TestMultiConfig_OnChange(t *testing.T) {
 func TestMultiConfig_SetLogger(t *testing.T) {
 	t.Run("设置日志记录器", func(t *testing.T) {
 		config := &MultiConfig{}
-		
+
 		// 创建测试 logger
 		logger, err := log.NewLogWithOptions(&log.Options{
 			Level:  "debug",
@@ -255,12 +255,12 @@ func TestMultiConfig_Close(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "EnvProvider",
 						Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "EnvDecoder",
 					},
@@ -286,12 +286,12 @@ func TestMultiConfig_HandlerExecution(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "EnvProvider",
 						Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "EnvDecoder",
 					},
@@ -318,12 +318,12 @@ func TestMultiConfig_HandlerExecution(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "EnvProvider",
 						Options:   &provider.EnvProviderOptions{EnvFiles: []string{}},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "EnvDecoder",
 					},
@@ -369,28 +369,28 @@ func TestMultiConfig_ValidateStorageIntegration(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "FileProvider",
 						Options: &provider.FileProviderOptions{
 							FilePath: "/tmp/test_config_base.json",
 						},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "JsonDecoder",
 						Options:   &decoder.JsonDecoderOptions{},
 					},
 				},
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "FileProvider",
 						Options: &provider.FileProviderOptions{
 							FilePath: "/tmp/test_config_override.json",
 						},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "JsonDecoder",
 						Options:   &decoder.JsonDecoderOptions{},
@@ -427,9 +427,9 @@ func TestMultiConfig_ValidateStorageIntegration(t *testing.T) {
 		// 创建包含无效数据的配置
 		invalidConfig := map[string]interface{}{
 			"user": map[string]interface{}{
-				"name":  "ab",             // 太短，不满足 min=3
-				"email": "invalid-email",  // 无效邮箱
-				"age":   15,               // 太小，不满足 min=18
+				"name":  "ab",            // 太短，不满足 min=3
+				"email": "invalid-email", // 无效邮箱
+				"age":   15,              // 太小，不满足 min=18
 			},
 		}
 
@@ -440,14 +440,14 @@ func TestMultiConfig_ValidateStorageIntegration(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "FileProvider",
 						Options: &provider.FileProviderOptions{
 							FilePath: "/tmp/test_config_invalid.json",
 						},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "JsonDecoder",
 						Options:   &decoder.JsonDecoderOptions{},
@@ -492,14 +492,14 @@ func TestMultiConfig_ValidateStorageIntegration(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "FileProvider",
 						Options: &provider.FileProviderOptions{
 							FilePath: "/tmp/test_config_app.json",
 						},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "JsonDecoder",
 						Options:   &decoder.JsonDecoderOptions{},
@@ -558,28 +558,28 @@ func TestMultiConfig_ValidateStorageIntegration(t *testing.T) {
 		options := &MultiConfigOptions{
 			Sources: []*ConfigSourceOptions{
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "FileProvider",
 						Options: &provider.FileProviderOptions{
 							FilePath: "/tmp/test_config_base_db.json",
 						},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "JsonDecoder",
 						Options:   &decoder.JsonDecoderOptions{},
 					},
 				},
 				{
-					Provider: refx.TypeOptions{
+					Provider: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/provider",
 						Type:      "FileProvider",
 						Options: &provider.FileProviderOptions{
 							FilePath: "/tmp/test_config_high_priority.json",
 						},
 					},
-					Decoder: refx.TypeOptions{
+					Decoder: ref.TypeOptions{
 						Namespace: "github.com/hatlonely/gox/cfg/decoder",
 						Type:      "JsonDecoder",
 						Options:   &decoder.JsonDecoderOptions{},
@@ -616,7 +616,7 @@ func TestMultiConfig_ValidateStorageIntegration(t *testing.T) {
 func TestMain(m *testing.M) {
 	// 运行测试
 	code := m.Run()
-	
+
 	// 清理临时文件
 	os.Remove("/tmp/test_config_base.json")
 	os.Remove("/tmp/test_config_override.json")
@@ -624,7 +624,6 @@ func TestMain(m *testing.M) {
 	os.Remove("/tmp/test_config_app.json")
 	os.Remove("/tmp/test_config_base_db.json")
 	os.Remove("/tmp/test_config_high_priority.json")
-	
+
 	os.Exit(code)
 }
-

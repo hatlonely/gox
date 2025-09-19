@@ -169,7 +169,7 @@ type Config interface {
 import (
     "github.com/hatlonely/gox/cfg"
     "github.com/hatlonely/gox/cfg/provider"
-    "github.com/hatlonely/gox/refx"
+    "github.com/hatlonely/gox/ref"
 )
 
 // 创建多配置源：基础配置 + 环境配置 + 数据库配置
@@ -177,30 +177,30 @@ multiConfig, err := cfg.NewMultiConfigWithOptions(&cfg.MultiConfigOptions{
     Sources: []*cfg.ConfigSourceOptions{
         {
             // 基础配置文件（优先级最低）
-            Provider: refx.TypeOptions{
+            Provider: ref.TypeOptions{
                 Type: "FileProvider",
                 Options: &provider.FileProviderOptions{FilePath: "config.yaml"},
             },
-            Decoder: refx.TypeOptions{Type: "YamlDecoder"},
+            Decoder: ref.TypeOptions{Type: "YamlDecoder"},
         },
         {
             // 环境变量覆盖（中等优先级）
-            Provider: refx.TypeOptions{
+            Provider: ref.TypeOptions{
                 Type: "EnvProvider",
                 Options: &provider.EnvProviderOptions{EnvFiles: []string{}},
             },
-            Decoder: refx.TypeOptions{Type: "EnvDecoder"},
+            Decoder: ref.TypeOptions{Type: "EnvDecoder"},
         },
         {
             // 数据库配置（优先级最高）
-            Provider: refx.TypeOptions{
+            Provider: ref.TypeOptions{
                 Type: "GormProvider",
                 Options: &provider.GormProviderOptions{
                     DSN: "postgres://...",
                     Table: "app_configs",
                 },
             },
-            Decoder: refx.TypeOptions{Type: "JsonDecoder"},
+            Decoder: ref.TypeOptions{Type: "JsonDecoder"},
         },
     },
 })
@@ -358,18 +358,18 @@ import (
     "github.com/hatlonely/gox/cfg"
     "github.com/hatlonely/gox/cfg/provider"
     "github.com/hatlonely/gox/cfg/decoder"
-    "github.com/hatlonely/gox/refx"
+    "github.com/hatlonely/gox/ref"
 )
 
 options := &cfg.SingleConfigOptions{
-    Provider: refx.TypeOptions{
+    Provider: ref.TypeOptions{
         Namespace: "github.com/hatlonely/gox/cfg/provider",
         Type:      "FileProvider",
         Options: &provider.FileProviderOptions{
             FilePath: "config.yaml",
         },
     },
-    Decoder: refx.TypeOptions{
+    Decoder: ref.TypeOptions{
         Namespace: "github.com/hatlonely/gox/cfg/decoder",
         Type:      "YamlDecoder",
         Options:   &decoder.YamlDecoderOptions{Indent: 2},
@@ -386,12 +386,12 @@ config, err := cfg.NewSingleConfigWithOptions(options)
 multiConfig, err := cfg.NewMultiConfigWithOptions(&cfg.MultiConfigOptions{
     Sources: []*cfg.ConfigSourceOptions{
         {
-            Provider: refx.TypeOptions{Type: "FileProvider", Options: &provider.FileProviderOptions{FilePath: "config.yaml"}},
-            Decoder:  refx.TypeOptions{Type: "YamlDecoder"},
+            Provider: ref.TypeOptions{Type: "FileProvider", Options: &provider.FileProviderOptions{FilePath: "config.yaml"}},
+            Decoder:  ref.TypeOptions{Type: "YamlDecoder"},
         },
         {
-            Provider: refx.TypeOptions{Type: "EnvProvider", Options: &provider.EnvProviderOptions{}},
-            Decoder:  refx.TypeOptions{Type: "EnvDecoder"},
+            Provider: ref.TypeOptions{Type: "EnvProvider", Options: &provider.EnvProviderOptions{}},
+            Decoder:  ref.TypeOptions{Type: "EnvDecoder"},
         },
     },
 })

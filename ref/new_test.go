@@ -1,4 +1,4 @@
-package refx
+package ref
 
 import (
 	"errors"
@@ -113,7 +113,7 @@ func TestRegisterAndNew(t *testing.T) {
 
 func TestNewT(t *testing.T) {
 	// 注册构造函数，使用完整的包路径作为namespace
-	err := Register("github.com/hatlonely/gox/refx", "Value", NewValue)
+	err := Register("github.com/hatlonely/gox/ref", "Value", NewValue)
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
@@ -147,7 +147,7 @@ func TestRegisterT(t *testing.T) {
 	}
 
 	// 测试通过 New 创建对象
-	result2, err := New("github.com/hatlonely/gox/refx", "Value", &Options{Name: "new-test"})
+	result2, err := New("github.com/hatlonely/gox/ref", "Value", &Options{Name: "new-test"})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}

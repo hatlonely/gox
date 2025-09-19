@@ -10,7 +10,7 @@ import (
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/log"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 // ConfigSource 配置源，包含 Provider、Decoder 和当前存储的数据
@@ -22,8 +22,8 @@ type ConfigSource struct {
 
 // ConfigSourceOptions 配置源选项，用于创建配置源
 type ConfigSourceOptions struct {
-	Provider refx.TypeOptions `cfg:"provider"`
-	Decoder  refx.TypeOptions `cfg:"decoder"`
+	Provider ref.TypeOptions `cfg:"provider"`
+	Decoder  ref.TypeOptions `cfg:"decoder"`
 }
 
 // MultiConfigOptions 多配置管理器初始化选项
@@ -35,10 +35,10 @@ type MultiConfigOptions struct {
 	//   - 其他类型：按照各 Storage 实现的语义处理
 	// 示例：[基础配置文件, 环境变量配置, 数据库配置] -> 数据库配置优先级最高
 	Sources []*ConfigSourceOptions `cfg:"sources"`
-	
+
 	// 可选的日志配置，用于记录配置变更和处理器执行情况
 	Logger *log.Options `cfg:"logger"`
-	
+
 	// 可选的处理器执行配置，控制 OnChange/OnKeyChange 回调的执行行为
 	// 包括超时时长、异步/同步执行、错误处理策略等
 	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
@@ -86,7 +86,7 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 
 	for i, sourceOptions := range options.Sources {
 		// 创建 Provider 实例
-		providerObj, err := refx.New(sourceOptions.Provider.Namespace, sourceOptions.Provider.Type, sourceOptions.Provider.Options)
+		providerObj, err := ref.New(sourceOptions.Provider.Namespace, sourceOptions.Provider.Type, sourceOptions.Provider.Options)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create provider %d: %w", i, err)
 		}
@@ -97,7 +97,7 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 		}
 
 		// 创建 Decoder 实例
-		decoderObj, err := refx.New(sourceOptions.Decoder.Namespace, sourceOptions.Decoder.Type, sourceOptions.Decoder.Options)
+		decoderObj, err := ref.New(sourceOptions.Decoder.Namespace, sourceOptions.Decoder.Type, sourceOptions.Decoder.Options)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create decoder %d: %w", i, err)
 		}

@@ -12,7 +12,7 @@ package main
 import (
     "github.com/hatlonely/gox/log"
     "github.com/hatlonely/gox/log/writer"
-    "github.com/hatlonely/gox/refx"
+    "github.com/hatlonely/gox/ref"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
     logger, err := log.NewLogWithOptions(&log.Options{
         Level:  "info",
         Format: "json",
-        Output: refx.TypeOptions{
+        Output: ref.TypeOptions{
             Namespace: "github.com/hatlonely/gox/log/writer",
             Type:      "ConsoleWriter",
             Options: &writer.ConsoleWriterOptions{
@@ -60,7 +60,7 @@ func main() {
 
 ### 控制台输出
 ```go
-Output: refx.TypeOptions{
+Output: ref.TypeOptions{
     Namespace: "github.com/hatlonely/gox/log/writer",
     Type:      "ConsoleWriter",
     Options: &writer.ConsoleWriterOptions{
@@ -72,7 +72,7 @@ Output: refx.TypeOptions{
 
 ### 文件输出
 ```go
-Output: refx.TypeOptions{
+Output: ref.TypeOptions{
     Namespace: "github.com/hatlonely/gox/log/writer",
     Type:      "FileWriter", 
     Options: &writer.FileWriterOptions{
@@ -87,11 +87,11 @@ Output: refx.TypeOptions{
 
 ### 多输出
 ```go
-Output: refx.TypeOptions{
+Output: ref.TypeOptions{
     Namespace: "github.com/hatlonely/gox/log/writer",
     Type:      "MultiWriter",
     Options: &writer.MultiWriterOptions{
-        Writers: []refx.TypeOptions{
+        Writers: []ref.TypeOptions{
             // 控制台输出
             {
                 Namespace: "github.com/hatlonely/gox/log/writer",
@@ -227,4 +227,4 @@ type Writer interface {
 }
 ```
 
-然后使用 `refx.MustRegister` 注册到框架中。
+然后使用 `ref.MustRegister` 注册到框架中。

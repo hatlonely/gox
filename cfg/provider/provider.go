@@ -1,17 +1,17 @@
 package provider
 
-import "github.com/hatlonely/gox/refx"
+import "github.com/hatlonely/gox/ref"
 
 func init() {
-	refx.MustRegisterT[FileProvider](NewFileProviderWithOptions)
-	refx.MustRegisterT[GormProvider](NewGormProviderWithOptions)
-	refx.MustRegisterT[EnvProvider](NewEnvProviderWithOptions)
-	refx.MustRegisterT[CmdProvider](NewCmdProviderWithOptions)
+	ref.MustRegisterT[FileProvider](NewFileProviderWithOptions)
+	ref.MustRegisterT[GormProvider](NewGormProviderWithOptions)
+	ref.MustRegisterT[EnvProvider](NewEnvProviderWithOptions)
+	ref.MustRegisterT[CmdProvider](NewCmdProviderWithOptions)
 
-	refx.MustRegisterT[*FileProvider](NewFileProviderWithOptions)
-	refx.MustRegisterT[*GormProvider](NewGormProviderWithOptions)
-	refx.MustRegisterT[*EnvProvider](NewEnvProviderWithOptions)
-	refx.MustRegisterT[*CmdProvider](NewCmdProviderWithOptions)
+	ref.MustRegisterT[*FileProvider](NewFileProviderWithOptions)
+	ref.MustRegisterT[*GormProvider](NewGormProviderWithOptions)
+	ref.MustRegisterT[*EnvProvider](NewEnvProviderWithOptions)
+	ref.MustRegisterT[*CmdProvider](NewCmdProviderWithOptions)
 }
 
 // Provider 配置数据提供者接口

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 func TestNewMultiWriterWithOptions(t *testing.T) {
@@ -29,7 +29,7 @@ func TestNewMultiWriterWithOptions(t *testing.T) {
 		{
 			name: "empty writers",
 			options: &MultiWriterOptions{
-				Writers: []refx.TypeOptions{},
+				Writers: []ref.TypeOptions{},
 			},
 			wantErr: true,
 			errMsg:  "at least one writer is required",
@@ -37,7 +37,7 @@ func TestNewMultiWriterWithOptions(t *testing.T) {
 		{
 			name: "single console writer",
 			options: &MultiWriterOptions{
-				Writers: []refx.TypeOptions{
+				Writers: []ref.TypeOptions{
 					{
 						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "ConsoleWriter",
@@ -53,7 +53,7 @@ func TestNewMultiWriterWithOptions(t *testing.T) {
 		{
 			name: "multiple writers",
 			options: &MultiWriterOptions{
-				Writers: []refx.TypeOptions{
+				Writers: []ref.TypeOptions{
 					{
 						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "ConsoleWriter",
@@ -120,7 +120,7 @@ func TestMultiWriter_Write(t *testing.T) {
 
 	// 创建多个输出器：控制台和文件
 	writer, err := NewMultiWriterWithOptions(&MultiWriterOptions{
-		Writers: []refx.TypeOptions{
+		Writers: []ref.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "ConsoleWriter",
@@ -222,7 +222,7 @@ func TestMultiWriter_WriteConcurrency(t *testing.T) {
 
 	// 创建多输出器
 	writer, err := NewMultiWriterWithOptions(&MultiWriterOptions{
-		Writers: []refx.TypeOptions{
+		Writers: []ref.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "ConsoleWriter",
@@ -303,7 +303,7 @@ func TestMultiWriter_Close(t *testing.T) {
 	logFile := filepath.Join(tempDir, "multi_close_test.log")
 
 	writer, err := NewMultiWriterWithOptions(&MultiWriterOptions{
-		Writers: []refx.TypeOptions{
+		Writers: []ref.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "ConsoleWriter",
@@ -383,7 +383,7 @@ func TestMultiWriter_Interface(t *testing.T) {
 	logFile := filepath.Join(tempDir, "interface_test.log")
 
 	writer, err := NewMultiWriterWithOptions(&MultiWriterOptions{
-		Writers: []refx.TypeOptions{
+		Writers: []ref.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "FileWriter",
@@ -507,7 +507,7 @@ func (w *FailingWriter) Close() error {
 func TestMultiWriter_InvalidWriterType(t *testing.T) {
 	// 测试无效的 writer 类型
 	options := &MultiWriterOptions{
-		Writers: []refx.TypeOptions{
+		Writers: []ref.TypeOptions{
 			{
 				Namespace: "github.com/hatlonely/gox/log/writer",
 				Type:      "InvalidWriter", // 不存在的类型

@@ -1,4 +1,4 @@
-# refx - 反射构造器
+# ref - 反射构造器
 
 一个基于反射的 Go 构造器注册和创建系统，支持动态对象创建和依赖注入。
 
@@ -13,12 +13,12 @@
 ## 安装
 
 ```bash
-go get github.com/hatlonely/gox/refx
+go get github.com/hatlonely/gox/ref
 ```
 
 ## 支持的构造函数类型
 
-refx 支持以下几种构造函数签名：
+ref 支持以下几种构造函数签名：
 
 ```go
 // 1. 接收 options 参数，返回对象和错误
@@ -42,7 +42,7 @@ func NewErrorValue() (*Value, error)
 基础注册方法，手动指定 namespace 和 type。
 
 ```go
-err := refx.Register("myapp", "Database", NewDatabase)
+err := ref.Register("myapp", "Database", NewDatabase)
 if err != nil {
     log.Fatal(err)
 }
@@ -52,7 +52,7 @@ if err != nil {
 泛型注册方法，自动从类型 T 推导 namespace 和 type。
 
 ```go
-err := refx.RegisterT[*Database](NewDatabase)
+err := ref.RegisterT[*Database](NewDatabase)
 if err != nil {
     log.Fatal(err)
 }
@@ -63,7 +63,7 @@ Must 版本的注册方法，失败时 panic，适用于初始化阶段。
 
 ```go
 func init() {
-    refx.MustRegister("myapp", "Database", NewDatabase)
+    ref.MustRegister("myapp", "Database", NewDatabase)
 }
 ```
 
@@ -72,7 +72,7 @@ Must 版本的泛型注册方法。
 
 ```go
 func init() {
-    refx.MustRegisterT[*Database](NewDatabase)
+    ref.MustRegisterT[*Database](NewDatabase)
 }
 ```
 
@@ -82,7 +82,7 @@ func init() {
 基础创建方法，根据 namespace 和 type 创建对象。
 
 ```go
-obj, err := refx.New("myapp", "Database", &DatabaseOptions{
+obj, err := ref.New("myapp", "Database", &DatabaseOptions{
     Host: "localhost",
     Port: 5432,
 })
@@ -96,7 +96,7 @@ db := obj.(*Database)
 泛型创建方法，类型安全地创建对象。
 
 ```go
-db, err := refx.NewT[*Database](&DatabaseOptions{
+db, err := ref.NewT[*Database](&DatabaseOptions{
     Host: "localhost",
     Port: 5432,
 })
@@ -117,7 +117,7 @@ import (
     "fmt"
     "log"
     
-    "github.com/hatlonely/gox/refx"
+    "github.com/hatlonely/gox/ref"
 )
 
 type Database struct {
@@ -143,13 +143,13 @@ func NewDatabase(options *DatabaseOptions) (*Database, error) {
 
 func main() {
     // 注册构造函数
-    err := refx.Register("myapp", "Database", NewDatabase)
+    err := ref.Register("myapp", "Database", NewDatabase)
     if err != nil {
         log.Fatal(err)
     }
     
     // 创建对象
-    obj, err := refx.New("myapp", "Database", &DatabaseOptions{
+    obj, err := ref.New("myapp", "Database", &DatabaseOptions{
         Host: "localhost",
         Port: 5432,
     })
@@ -171,18 +171,18 @@ import (
     "fmt"
     "log"
     
-    "github.com/hatlonely/gox/refx"
+    "github.com/hatlonely/gox/ref"
 )
 
 func main() {
     // 使用泛型注册
-    err := refx.RegisterT[*Database](NewDatabase)
+    err := ref.RegisterT[*Database](NewDatabase)
     if err != nil {
         log.Fatal(err)
     }
     
     // 使用泛型创建，类型安全
-    db, err := refx.NewT[*Database](&DatabaseOptions{
+    db, err := ref.NewT[*Database](&DatabaseOptions{
         Host: "localhost",
         Port: 5432,
     })
@@ -201,29 +201,29 @@ func main() {
 package main
 
 import (
-    "github.com/hatlonely/gox/refx"
+    "github.com/hatlonely/gox/ref"
 )
 
 func init() {
     // 在初始化阶段使用 Must 方法注册
     // 如果注册失败，程序会 panic
-    refx.MustRegisterT[*Database](NewDatabase)
-    refx.MustRegisterT[*Redis](NewRedis)
-    refx.MustRegisterT[*Logger](NewLogger)
+    ref.MustRegisterT[*Database](NewDatabase)
+    ref.MustRegisterT[*Redis](NewRedis)
+    ref.MustRegisterT[*Logger](NewLogger)
 }
 
 func main() {
     // 直接使用，无需担心注册失败
-    db, _ := refx.NewT[*Database](&DatabaseOptions{
+    db, _ := ref.NewT[*Database](&DatabaseOptions{
         Host: "localhost",
         Port: 5432,
     })
     
-    redis, _ := refx.NewT[*Redis](&RedisOptions{
+    redis, _ := ref.NewT[*Redis](&RedisOptions{
         Addr: "localhost:6379",
     })
     
-    logger, _ := refx.NewT[*Logger](nil)
+    logger, _ := ref.NewT[*Logger](nil)
 }
 ```
 
@@ -251,26 +251,26 @@ func NewMonitor() (*Monitor, error) {
 }
 
 func init() {
-    refx.MustRegisterT[*Database](NewDatabase)
-    refx.MustRegisterT[*Logger](NewLogger)
-    refx.MustRegisterT[*Cache](NewCache)
-    refx.MustRegisterT[*Monitor](NewMonitor)
+    ref.MustRegisterT[*Database](NewDatabase)
+    ref.MustRegisterT[*Logger](NewLogger)
+    ref.MustRegisterT[*Cache](NewCache)
+    ref.MustRegisterT[*Monitor](NewMonitor)
 }
 ```
 
 ## 重复注册处理
 
-refx 智能处理重复注册：
+ref 智能处理重复注册：
 
 ```go
 // 第一次注册
-refx.MustRegister("myapp", "Database", NewDatabase)
+ref.MustRegister("myapp", "Database", NewDatabase)
 
 // 相同函数重复注册 - 成功（跳过）
-refx.MustRegister("myapp", "Database", NewDatabase) // OK
+ref.MustRegister("myapp", "Database", NewDatabase) // OK
 
 // 不同函数重复注册 - 会 panic
-refx.MustRegister("myapp", "Database", NewAnotherDatabase) // PANIC!
+ref.MustRegister("myapp", "Database", NewAnotherDatabase) // PANIC!
 ```
 
 ## 错误处理
@@ -294,17 +294,17 @@ refx.MustRegister("myapp", "Database", NewAnotherDatabase) // PANIC!
 1. **在 `init()` 函数中使用 `MustRegister`**：
    ```go
    func init() {
-       refx.MustRegisterT[*Database](NewDatabase)
+       ref.MustRegisterT[*Database](NewDatabase)
    }
    ```
 
 2. **优先使用泛型 API**：
    ```go
    // 推荐
-   db, err := refx.NewT[*Database](options)
+   db, err := ref.NewT[*Database](options)
    
    // 不推荐
-   obj, err := refx.New("pkg", "Database", options)
+   obj, err := ref.New("pkg", "Database", options)
    db := obj.(*Database)
    ```
 
@@ -338,17 +338,17 @@ type Service struct {
 }
 
 func NewService(options *ServiceOptions) (*Service, error) {
-    db, err := refx.NewT[*Database](options.Database)
+    db, err := ref.NewT[*Database](options.Database)
     if err != nil {
         return nil, err
     }
     
-    cache, err := refx.NewT[*Cache](options.Cache)
+    cache, err := ref.NewT[*Cache](options.Cache)
     if err != nil {
         return nil, err
     }
     
-    logger, err := refx.NewT[*Logger](options.Logger)
+    logger, err := ref.NewT[*Logger](options.Logger)
     if err != nil {
         return nil, err
     }
@@ -372,17 +372,17 @@ type Config struct {
 
 func CreateFromConfig(config *Config) error {
     // 根据配置动态创建对象
-    db, err := refx.NewT[*Database](&config.Database)
+    db, err := ref.NewT[*Database](&config.Database)
     if err != nil {
         return fmt.Errorf("create database: %w", err)
     }
     
-    redis, err := refx.NewT[*Redis](&config.Redis)
+    redis, err := ref.NewT[*Redis](&config.Redis)
     if err != nil {
         return fmt.Errorf("create redis: %w", err)
     }
     
-    logger, err := refx.NewT[*Logger](&config.Logger)
+    logger, err := ref.NewT[*Logger](&config.Logger)
     if err != nil {
         return fmt.Errorf("create logger: %w", err)
     }
@@ -394,17 +394,17 @@ func CreateFromConfig(config *Config) error {
 
 ## 线程安全
 
-refx 使用 `sync.Map` 保证注册和创建操作的并发安全，可以在多 goroutine 环境中安全使用。
+ref 使用 `sync.Map` 保证注册和创建操作的并发安全，可以在多 goroutine 环境中安全使用。
 
 ```go
 // 可以在多个 goroutine 中安全调用
 go func() {
-    obj, _ := refx.NewT[*Database](options)
+    obj, _ := ref.NewT[*Database](options)
     // 使用 obj...
 }()
 
 go func() {
-    obj, _ := refx.NewT[*Cache](options)
+    obj, _ := ref.NewT[*Cache](options)
     // 使用 obj...
 }()
 ```

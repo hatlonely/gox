@@ -6,7 +6,7 @@ import (
 
 	"github.com/hatlonely/gox/log"
 	"github.com/hatlonely/gox/log/writer"
-	"github.com/hatlonely/gox/refx"
+	"github.com/hatlonely/gox/ref"
 )
 
 func ExampleNewLogWithOptions_console() {
@@ -20,7 +20,7 @@ func ExampleNewLogWithOptions_console() {
 			"service": "example-service",
 			"version": "1.0.0",
 		},
-		Output: refx.TypeOptions{
+		Output: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "ConsoleWriter",
 			Options: &writer.ConsoleWriterOptions{
@@ -61,7 +61,7 @@ func ExampleNewLogWithOptions_file() {
 		Format:     "json",
 		TimeFormat: "2006-01-02T15:04:05Z07:00",
 		AddSource:  true,
-		Output: refx.TypeOptions{
+		Output: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "FileWriter",
 			Options: &writer.FileWriterOptions{
@@ -97,11 +97,11 @@ func ExampleNewLogWithOptions_multi() {
 	options := &log.Options{
 		Level:  "info",
 		Format: "text",
-		Output: refx.TypeOptions{
+		Output: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "MultiWriter",
 			Options: &writer.MultiWriterOptions{
-				Writers: []refx.TypeOptions{
+				Writers: []ref.TypeOptions{
 					{
 						Namespace: "github.com/hatlonely/gox/log/writer",
 						Type:      "ConsoleWriter",
