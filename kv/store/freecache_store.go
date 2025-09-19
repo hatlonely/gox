@@ -6,11 +6,18 @@ import (
 
 	"github.com/coocood/freecache"
 	"github.com/hatlonely/gox/kv/serializer"
+	"github.com/hatlonely/gox/ref"
 )
 
 var (
 	ErrKeyNotFound = errors.New("key not found")
 )
+
+type FreeCacheStoreOptions struct {
+	Size          int `cfg:"size"`
+	KeySerializer *ref.TypeOptions
+	ValSerializer *ref.TypeOptions
+}
 
 type FreeCacheStore[K, V any] struct {
 	cache           *freecache.Cache
@@ -18,16 +25,47 @@ type FreeCacheStore[K, V any] struct {
 	valueSerializer serializer.Serializer[V, []byte]
 }
 
-func NewFreeCacheStore[K, V any](
-	size int,
-	keySerializer serializer.Serializer[K, []byte],
-	valueSerializer serializer.Serializer[V, []byte],
-) *FreeCacheStore[K, V] {
+func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*FreeCacheStore[K, V], error) {
+	// 默认使用 MessagePack 序列化器
+	keySerializerOptions := options.KeySerializer
+	if keySerializerOptions == nil {
+		keySerializerOptions = &ref.TypeOptions{
+			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
+		}
+	}
+
+	valSerializerOptions := options.ValSerializer
+	if valSerializerOptions == nil {
+		valSerializerOptions = &ref.TypeOptions{
+			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
+		}
+	}
+
+	// 构造 key 序列化器
+	keySerializerInterface, err := ref.NewWithOptions(keySerializerOptions)
+	if err != nil {
+		return nil, err
+	}
+	keySerializer, ok := keySerializerInterface.(serializer.Serializer[K, []byte])
+	if !ok {
+		return nil, errors.New("invalid key serializer type")
+	}
+
+	// 构造 value 序列化器
+	valSerializerInterface, err := ref.NewWithOptions(valSerializerOptions)
+	if err != nil {
+		return nil, err
+	}
+	valueSerializer, ok := valSerializerInterface.(serializer.Serializer[V, []byte])
+	if !ok {
+		return nil, errors.New("invalid value serializer type")
+	}
+
 	return &FreeCacheStore[K, V]{
-		cache:           freecache.NewCache(size),
+		cache:           freecache.NewCache(options.Size),
 		keySerializer:   keySerializer,
 		valueSerializer: valueSerializer,
-	}
+	}, nil
 }
 
 func (s *FreeCacheStore[K, V]) Set(ctx context.Context, key K, value V, opts ...setOption) error {

@@ -224,6 +224,14 @@ type TypeOptions struct {
 	Options   any    `cfg:"options"`
 }
 
+func NewWithOptions(options *TypeOptions) (any, error) {
+	v, err := New(options.Namespace, options.Type, options.Options)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 func New(namespace string, type_ string, options any) (any, error) {
 	key := namespace + ":" + type_
 	value, ok := nameConstructorMap.Load(key)
