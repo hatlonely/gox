@@ -26,39 +26,60 @@ type FreeCacheStore[K, V any] struct {
 }
 
 func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*FreeCacheStore[K, V], error) {
-	// 默认使用 MessagePack 序列化器
-	keySerializerOptions := options.KeySerializer
-	if keySerializerOptions == nil {
-		keySerializerOptions = &ref.TypeOptions{
-			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
-		}
-	}
+	// 注册序列化器类型
+	ref.RegisterT[*serializer.JSONSerializer[K]](func() *serializer.JSONSerializer[K] {
+		return serializer.NewJSONSerializer[K]()
+	})
+	ref.RegisterT[*serializer.MsgPackSerializer[K]](func() *serializer.MsgPackSerializer[K] {
+		return serializer.NewMsgPackSerializer[K]()
+	})
+	ref.RegisterT[*serializer.BSONSerializer[K]](func() *serializer.BSONSerializer[K] {
+		return serializer.NewBSONSerializer[K]()
+	})
 
-	valSerializerOptions := options.ValSerializer
-	if valSerializerOptions == nil {
-		valSerializerOptions = &ref.TypeOptions{
-			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
-		}
-	}
+	ref.RegisterT[*serializer.JSONSerializer[V]](func() *serializer.JSONSerializer[V] {
+		return serializer.NewJSONSerializer[V]()
+	})
+	ref.RegisterT[*serializer.MsgPackSerializer[V]](func() *serializer.MsgPackSerializer[V] {
+		return serializer.NewMsgPackSerializer[V]()
+	})
+	ref.RegisterT[*serializer.BSONSerializer[V]](func() *serializer.BSONSerializer[V] {
+		return serializer.NewBSONSerializer[V]()
+	})
+
+	var keySerializer serializer.Serializer[K, []byte]
+	var valueSerializer serializer.Serializer[V, []byte]
 
 	// 构造 key 序列化器
-	keySerializerInterface, err := ref.NewWithOptions(keySerializerOptions)
-	if err != nil {
-		return nil, err
-	}
-	keySerializer, ok := keySerializerInterface.(serializer.Serializer[K, []byte])
-	if !ok {
-		return nil, errors.New("invalid key serializer type")
+	if options.KeySerializer != nil {
+		keySerializerInterface, err := ref.NewWithOptions(options.KeySerializer)
+		if err != nil {
+			return nil, err
+		}
+		var ok bool
+		keySerializer, ok = keySerializerInterface.(serializer.Serializer[K, []byte])
+		if !ok {
+			return nil, errors.New("invalid key serializer type")
+		}
+	} else {
+		// 默认使用 MessagePack 序列化器
+		keySerializer = serializer.NewMsgPackSerializer[K]()
 	}
 
 	// 构造 value 序列化器
-	valSerializerInterface, err := ref.NewWithOptions(valSerializerOptions)
-	if err != nil {
-		return nil, err
-	}
-	valueSerializer, ok := valSerializerInterface.(serializer.Serializer[V, []byte])
-	if !ok {
-		return nil, errors.New("invalid value serializer type")
+	if options.ValSerializer != nil {
+		valSerializerInterface, err := ref.NewWithOptions(options.ValSerializer)
+		if err != nil {
+			return nil, err
+		}
+		var ok bool
+		valueSerializer, ok = valSerializerInterface.(serializer.Serializer[V, []byte])
+		if !ok {
+			return nil, errors.New("invalid value serializer type")
+		}
+	} else {
+		// 默认使用 MessagePack 序列化器
+		valueSerializer = serializer.NewMsgPackSerializer[V]()
 	}
 
 	return &FreeCacheStore[K, V]{
