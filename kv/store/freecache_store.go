@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"reflect"
 
 	"github.com/coocood/freecache"
 	"github.com/hatlonely/gox/kv/serializer"
@@ -26,7 +27,7 @@ type FreeCacheStore[K, V any] struct {
 }
 
 func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*FreeCacheStore[K, V], error) {
-	// 注册序列化器类型
+	// 注册当前泛型类型的序列化器
 	ref.RegisterT[*serializer.JSONSerializer[K]](func() *serializer.JSONSerializer[K] {
 		return serializer.NewJSONSerializer[K]()
 	})
@@ -47,18 +48,30 @@ func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*Fr
 		return serializer.NewBSONSerializer[V]()
 	})
 
+	// 获取K和V的类型名，用于构造默认TypeOptions
+	var k K
+	var v V
+	kType := reflect.TypeOf(k)
+	vType := reflect.TypeOf(v)
+	
+	// 如果是指针类型，获取其元素类型名
+	kTypeName := kType.String()
+	vTypeName := vType.String()
+
 	// 设置默认的序列化器配置
 	keySerializerOptions := options.KeySerializer
 	if keySerializerOptions == nil {
 		keySerializerOptions = &ref.TypeOptions{
-			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
+			Namespace: "github.com/hatlonely/gox/kv/serializer",
+			Type:      "MsgPackSerializer[" + kTypeName + "]",
 		}
 	}
 
 	valSerializerOptions := options.ValSerializer
 	if valSerializerOptions == nil {
 		valSerializerOptions = &ref.TypeOptions{
-			Type: "github.com/hatlonely/gox/kv/serializer.MsgPackSerializer",
+			Namespace: "github.com/hatlonely/gox/kv/serializer",
+			Type:      "MsgPackSerializer[" + vTypeName + "]",
 		}
 	}
 
