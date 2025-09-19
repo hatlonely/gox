@@ -13,6 +13,7 @@ require (
 	github.com/smartystreets/goconvey v1.8.1
 	github.com/stretchr/testify v1.11.1
 	github.com/vmihailenco/msgpack/v5 v5.4.1
+	go.etcd.io/bbolt v1.4.3
 	go.mongodb.org/mongo-driver v1.17.4
 	google.golang.org/protobuf v1.36.9
 	gopkg.in/ini.v1 v1.67.0
