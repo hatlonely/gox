@@ -547,7 +547,31 @@ func (s *PebbleStore[K, V]) Close() error {
 	if s.db == nil {
 		return nil
 	}
-	return s.db.Close()
+
+	// 先关闭数据库
+	if err := s.db.Close(); err != nil {
+		return errors.Wrap(err, "close database failed")
+	}
+
+	// 如果设置了快照类型，制作快照
+	if s.snapshotType != "" {
+		snapshotPath := fmt.Sprintf("%s.%d.%s", s.dbPath, time.Now().UnixNano(), s.snapshotType)
+		
+		switch s.snapshotType {
+		case "zip":
+			if err := createZip(s.dbPath, snapshotPath); err != nil {
+				return errors.Wrapf(err, "create zip snapshot failed. dbPath: %s, snapshotPath: %s", s.dbPath, snapshotPath)
+			}
+		case "tar.gz":
+			if err := createTarGz(s.dbPath, snapshotPath); err != nil {
+				return errors.Wrapf(err, "create tar.gz snapshot failed. dbPath: %s, snapshotPath: %s", s.dbPath, snapshotPath)
+			}
+		default:
+			return errors.Errorf("unsupported snapshot type: %s", s.snapshotType)
+		}
+	}
+
+	return nil
 }
 
 var _ Store[string, string] = (*PebbleStore[string, string])(nil)
