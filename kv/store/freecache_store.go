@@ -27,25 +27,13 @@ type FreeCacheStore[K, V any] struct {
 
 func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*FreeCacheStore[K, V], error) {
 	// 注册当前泛型类型的序列化器
-	ref.RegisterT[*serializer.JSONSerializer[K]](func() *serializer.JSONSerializer[K] {
-		return serializer.NewJSONSerializer[K]()
-	})
-	ref.RegisterT[*serializer.MsgPackSerializer[K]](func() *serializer.MsgPackSerializer[K] {
-		return serializer.NewMsgPackSerializer[K]()
-	})
-	ref.RegisterT[*serializer.BSONSerializer[K]](func() *serializer.BSONSerializer[K] {
-		return serializer.NewBSONSerializer[K]()
-	})
+	ref.RegisterT[*serializer.JSONSerializer[K]](serializer.NewJSONSerializer[K])
+	ref.RegisterT[*serializer.MsgPackSerializer[K]](serializer.NewMsgPackSerializer[K])
+	ref.RegisterT[*serializer.BSONSerializer[K]](serializer.NewBSONSerializer[K])
 
-	ref.RegisterT[*serializer.JSONSerializer[V]](func() *serializer.JSONSerializer[V] {
-		return serializer.NewJSONSerializer[V]()
-	})
-	ref.RegisterT[*serializer.MsgPackSerializer[V]](func() *serializer.MsgPackSerializer[V] {
-		return serializer.NewMsgPackSerializer[V]()
-	})
-	ref.RegisterT[*serializer.BSONSerializer[V]](func() *serializer.BSONSerializer[V] {
-		return serializer.NewBSONSerializer[V]()
-	})
+	ref.RegisterT[*serializer.JSONSerializer[V]](serializer.NewJSONSerializer[V])
+	ref.RegisterT[*serializer.MsgPackSerializer[V]](serializer.NewMsgPackSerializer[V])
+	ref.RegisterT[*serializer.BSONSerializer[V]](serializer.NewBSONSerializer[V])
 
 	// 获取K和V的类型名，用于构造默认TypeOptions
 	var k K
