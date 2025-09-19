@@ -3,6 +3,12 @@ package store
 import (
 	"context"
 	"time"
+
+	"github.com/pkg/errors"
+)
+
+var (
+	ErrKeyNotFound = errors.New("key not found")
 )
 
 // Store KV 存储相关接口

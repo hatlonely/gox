@@ -10,10 +10,6 @@ import (
 	"github.com/hatlonely/gox/ref"
 )
 
-var (
-	ErrKeyNotFound = errors.New("key not found")
-)
-
 type FreeCacheStoreOptions struct {
 	Size          int `cfg:"size"`
 	KeySerializer *ref.TypeOptions
