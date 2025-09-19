@@ -123,14 +123,14 @@ func TestFreeCacheStoreSet(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 
-			Convey("键存在时不覆盖", func() {
+			Convey("键存在时返回条件失败错误", func() {
 				// 先设置一个值
 				err := store.Set(ctx, key, "original_value")
 				So(err, ShouldBeNil)
 
-				// 尝试条件设置
+				// 尝试条件设置应该失败
 				err = store.Set(ctx, key, "new_value", WithIfNotExist())
-				So(err, ShouldBeNil)
+				So(err, ShouldEqual, ErrConditionFailed)
 
 				// 验证值没有被覆盖
 				gotValue, err := store.Get(ctx, key)

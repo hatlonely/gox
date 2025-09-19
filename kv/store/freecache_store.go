@@ -110,7 +110,7 @@ func (s *FreeCacheStore[K, V]) Set(ctx context.Context, key K, value V, opts ...
 
 	if options.IfNotExist {
 		if _, err := s.cache.Get(keyBytes); err == nil {
-			return nil
+			return ErrConditionFailed
 		}
 	}
 

@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	ErrKeyNotFound = errors.New("key not found")
+	ErrKeyNotFound     = errors.New("key not found")
+	ErrConditionFailed = errors.New("condition failed")
 )
 
 // Store KV 存储相关接口
