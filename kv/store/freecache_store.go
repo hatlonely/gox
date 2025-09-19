@@ -12,10 +12,10 @@ import (
 )
 
 type FreeCacheStoreOptions struct {
-	Size          int           `cfg:"size"`
-	DefaultTTL    time.Duration `cfg:"defaultTTL"`
-	KeySerializer *ref.TypeOptions
-	ValSerializer *ref.TypeOptions
+	Size          int              `cfg:"size"`
+	DefaultTTL    time.Duration    `cfg:"defaultTTL"`
+	KeySerializer *ref.TypeOptions `cfg:"keySerializer"`
+	ValSerializer *ref.TypeOptions `cfg:"valSerializer"`
 }
 
 type FreeCacheStore[K, V any] struct {
