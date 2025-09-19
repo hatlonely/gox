@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -386,3 +387,167 @@ func NewPebbleStoreWithOptions[K, V any](options *PebbleStoreOptions) (*PebbleSt
 		snapshotType:  options.SnapshotType,
 	}, nil
 }
+
+func (s *PebbleStore[K, V]) Set(ctx context.Context, key K, value V, opts ...setOption) error {
+	options := &setOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	keyBytes, err := s.keyMarshaller.Serialize(key)
+	if err != nil {
+		return errors.Wrap(err, "marshal key failed")
+	}
+
+	valueBytes, err := s.valMarshaller.Serialize(value)
+	if err != nil {
+		return errors.Wrap(err, "marshal value failed")
+	}
+
+	if options.IfNotExist {
+		_, closer, err := s.db.Get(keyBytes)
+		if err == nil {
+			closer.Close()
+			return ErrConditionFailed
+		}
+		if !errors.Is(err, pebble.ErrNotFound) {
+			return errors.Wrap(err, "check key existence failed")
+		}
+	}
+
+	return s.db.Set(keyBytes, valueBytes, s.setOptions)
+}
+
+func (s *PebbleStore[K, V]) Get(ctx context.Context, key K) (V, error) {
+	var zeroV V
+
+	keyBytes, err := s.keyMarshaller.Serialize(key)
+	if err != nil {
+		return zeroV, errors.Wrap(err, "marshal key failed")
+	}
+
+	valueBytes, closer, err := s.db.Get(keyBytes)
+	if err != nil {
+		if errors.Is(err, pebble.ErrNotFound) {
+			return zeroV, ErrKeyNotFound
+		}
+		return zeroV, errors.Wrap(err, "get value failed")
+	}
+	defer closer.Close()
+
+	value, err := s.valMarshaller.Deserialize(valueBytes)
+	if err != nil {
+		return zeroV, errors.Wrap(err, "unmarshal value failed")
+	}
+
+	return value, nil
+}
+
+func (s *PebbleStore[K, V]) Del(ctx context.Context, key K) error {
+	keyBytes, err := s.keyMarshaller.Serialize(key)
+	if err != nil {
+		return errors.Wrap(err, "marshal key failed")
+	}
+
+	return s.db.Delete(keyBytes, s.setOptions)
+}
+
+func (s *PebbleStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, opts ...setOption) ([]error, error) {
+	if len(keys) != len(vals) {
+		return nil, errors.New("keys and values length mismatch")
+	}
+
+	options := &setOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	batch := s.db.NewBatch()
+	defer batch.Close()
+
+	errs := make([]error, len(keys))
+
+	for i, key := range keys {
+		keyBytes, err := s.keyMarshaller.Serialize(key)
+		if err != nil {
+			errs[i] = errors.Wrap(err, "marshal key failed")
+			continue
+		}
+
+		valueBytes, err := s.valMarshaller.Serialize(vals[i])
+		if err != nil {
+			errs[i] = errors.Wrap(err, "marshal value failed")
+			continue
+		}
+
+		if options.IfNotExist {
+			_, closer, err := s.db.Get(keyBytes)
+			if err == nil {
+				closer.Close()
+				errs[i] = ErrConditionFailed
+				continue
+			}
+			if !errors.Is(err, pebble.ErrNotFound) {
+				errs[i] = errors.Wrap(err, "check key existence failed")
+				continue
+			}
+		}
+
+		if err := batch.Set(keyBytes, valueBytes, s.setOptions); err != nil {
+			errs[i] = errors.Wrap(err, "batch set failed")
+		}
+	}
+
+	if err := batch.Commit(s.setOptions); err != nil {
+		return errs, errors.Wrap(err, "batch commit failed")
+	}
+
+	return errs, nil
+}
+
+func (s *PebbleStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []error, error) {
+	vals := make([]V, len(keys))
+	errs := make([]error, len(keys))
+
+	for i, key := range keys {
+		val, err := s.Get(ctx, key)
+		vals[i] = val
+		errs[i] = err
+	}
+
+	return vals, errs, nil
+}
+
+func (s *PebbleStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, error) {
+	batch := s.db.NewBatch()
+	defer batch.Close()
+
+	errs := make([]error, len(keys))
+
+	for i, key := range keys {
+		keyBytes, err := s.keyMarshaller.Serialize(key)
+		if err != nil {
+			errs[i] = errors.Wrap(err, "marshal key failed")
+			continue
+		}
+
+		if err := batch.Delete(keyBytes, s.setOptions); err != nil {
+			errs[i] = errors.Wrap(err, "batch delete failed")
+		}
+	}
+
+	if err := batch.Commit(s.setOptions); err != nil {
+		return errs, errors.Wrap(err, "batch commit failed")
+	}
+
+	return errs, nil
+}
+
+func (s *PebbleStore[K, V]) Close() error {
+	if s.db == nil {
+		return nil
+	}
+	return s.db.Close()
+}
+
+var _ Store[string, string] = (*PebbleStore[string, string])(nil)
