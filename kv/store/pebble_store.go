@@ -553,6 +553,9 @@ func (s *PebbleStore[K, V]) Close() error {
 		return errors.Wrap(err, "close database failed")
 	}
 
+	// 标记数据库已关闭，防止重复关闭
+	s.db = nil
+
 	// 如果设置了快照类型，制作快照
 	if s.snapshotType != "" {
 		snapshotPath := fmt.Sprintf("%s.%d.%s", s.dbPath, time.Now().UnixNano(), s.snapshotType)
