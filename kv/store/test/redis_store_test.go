@@ -678,8 +678,10 @@ func TestRedisStoreClose(t *testing.T) {
 			err = redisStore.Close()
 			So(err, ShouldBeNil)
 
+			// Redis 客户端重复关闭会返回错误，这是正常行为
 			err = redisStore.Close()
-			So(err, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "client is closed")
 		})
 	})
 }
