@@ -2,7 +2,13 @@ package logger
 
 import (
 	"context"
+
+	"github.com/hatlonely/gox/ref"
 )
+
+func init() {
+	ref.RegisterT[*SLog](NewSLogWithOptions)
+}
 
 // Logger 日志接口
 type Logger interface {

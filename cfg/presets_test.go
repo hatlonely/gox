@@ -165,12 +165,12 @@ server:
 	}
 
 	// 验证前缀过滤和优先级
-	
+
 	// 环境变量 APP_DATABASE_HOST=app-env-host 会覆盖文件中的 database.host=localhost
 	if config.Database.Host != "app-env-host" {
 		t.Errorf("expected database.host=app-env-host, got %s", config.Database.Host)
 	}
-	
+
 	// 命令行 --app-server-port=9090 会覆盖文件中的 server.port=8080
 	if config.Server.Port != 9090 {
 		t.Errorf("expected server.port=9090, got %d", config.Server.Port)
