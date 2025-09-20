@@ -1,14 +1,15 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/hatlonely/gox/kv/serializer"
 	"github.com/hatlonely/gox/ref"
+	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
@@ -295,8 +296,16 @@ func NewLevelDBStoreWithOptions[K, V any](options *LevelDBStoreOptions) (*LevelD
 		dbPath = fmt.Sprintf("%s.%d", dbPath, time.Now().UnixNano())
 	}
 	if options.Source != "" {
-		if err := extractTarGz(options.Source, dbPath); err != nil {
-			return nil, errors.Wrapf(err, "extractTarGz failed. source: %s, dbPath: %s", options.Source, dbPath)
+		if strings.HasSuffix(options.Source, ".tar.gz") {
+			if err := extractTarGz(options.Source, dbPath); err != nil {
+				return nil, errors.Wrapf(err, "extractTarGz failed. source: %s, dbPath: %s", options.Source, dbPath)
+			}
+		} else if strings.HasSuffix(options.Source, ".zip") {
+			if err := extractZip(options.Source, dbPath); err != nil {
+				return nil, errors.Wrapf(err, "extractZip failed. source: %s, dbPath: %s", options.Source, dbPath)
+			}
+		} else {
+			return nil, errors.Errorf("unsupported source file type. source: %s", options.Source)
 		}
 	}
 
@@ -435,3 +444,183 @@ func leveldbParseCacher(cacher string) (opt.Cacher, error) {
 
 	return val, nil
 }
+
+func (s *LevelDBStore[K, V]) Set(ctx context.Context, key K, value V, opts ...setOption) error {
+	options := &setOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	keyBytes, err := s.keySerializer.Serialize(key)
+	if err != nil {
+		return errors.Wrap(err, "marshal key failed")
+	}
+
+	valueBytes, err := s.valSerializer.Serialize(value)
+	if err != nil {
+		return errors.Wrap(err, "marshal value failed")
+	}
+
+	if options.IfNotExist {
+		_, err := s.db.Get(keyBytes, nil)
+		if err == nil {
+			return ErrConditionFailed
+		}
+		if !errors.Is(err, leveldb.ErrNotFound) {
+			return errors.Wrap(err, "check key existence failed")
+		}
+	}
+
+	return s.db.Put(keyBytes, valueBytes, nil)
+}
+
+func (s *LevelDBStore[K, V]) Get(ctx context.Context, key K) (V, error) {
+	var zeroV V
+
+	keyBytes, err := s.keySerializer.Serialize(key)
+	if err != nil {
+		return zeroV, errors.Wrap(err, "marshal key failed")
+	}
+
+	valueBytes, err := s.db.Get(keyBytes, nil)
+	if err != nil {
+		if errors.Is(err, leveldb.ErrNotFound) {
+			return zeroV, ErrKeyNotFound
+		}
+		return zeroV, errors.Wrap(err, "get value failed")
+	}
+
+	value, err := s.valSerializer.Deserialize(valueBytes)
+	if err != nil {
+		return zeroV, errors.Wrap(err, "unmarshal value failed")
+	}
+
+	return value, nil
+}
+
+func (s *LevelDBStore[K, V]) Del(ctx context.Context, key K) error {
+	keyBytes, err := s.keySerializer.Serialize(key)
+	if err != nil {
+		return errors.Wrap(err, "marshal key failed")
+	}
+
+	return s.db.Delete(keyBytes, nil)
+}
+
+func (s *LevelDBStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, opts ...setOption) ([]error, error) {
+	if len(keys) != len(vals) {
+		return nil, errors.New("keys and values length mismatch")
+	}
+
+	options := &setOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	batch := new(leveldb.Batch)
+	errs := make([]error, len(keys))
+
+	for i, key := range keys {
+		keyBytes, err := s.keySerializer.Serialize(key)
+		if err != nil {
+			errs[i] = errors.Wrap(err, "marshal key failed")
+			continue
+		}
+
+		valueBytes, err := s.valSerializer.Serialize(vals[i])
+		if err != nil {
+			errs[i] = errors.Wrap(err, "marshal value failed")
+			continue
+		}
+
+		if options.IfNotExist {
+			_, err := s.db.Get(keyBytes, nil)
+			if err == nil {
+				errs[i] = ErrConditionFailed
+				continue
+			}
+			if !errors.Is(err, leveldb.ErrNotFound) {
+				errs[i] = errors.Wrap(err, "check key existence failed")
+				continue
+			}
+		}
+
+		batch.Put(keyBytes, valueBytes)
+	}
+
+	if err := s.db.Write(batch, nil); err != nil {
+		return errs, errors.Wrap(err, "batch write failed")
+	}
+
+	return errs, nil
+}
+
+func (s *LevelDBStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []error, error) {
+	vals := make([]V, len(keys))
+	errs := make([]error, len(keys))
+
+	for i, key := range keys {
+		val, err := s.Get(ctx, key)
+		vals[i] = val
+		errs[i] = err
+	}
+
+	return vals, errs, nil
+}
+
+func (s *LevelDBStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, error) {
+	batch := new(leveldb.Batch)
+	errs := make([]error, len(keys))
+
+	for i, key := range keys {
+		keyBytes, err := s.keySerializer.Serialize(key)
+		if err != nil {
+			errs[i] = errors.Wrap(err, "marshal key failed")
+			continue
+		}
+
+		batch.Delete(keyBytes)
+	}
+
+	if err := s.db.Write(batch, nil); err != nil {
+		return errs, errors.Wrap(err, "batch write failed")
+	}
+
+	return errs, nil
+}
+
+func (s *LevelDBStore[K, V]) Close() error {
+	if s.db == nil {
+		return nil
+	}
+
+	// 先关闭数据库
+	if err := s.db.Close(); err != nil {
+		return errors.Wrap(err, "close database failed")
+	}
+
+	// 标记数据库已关闭，防止重复关闭
+	s.db = nil
+
+	// 如果设置了快照类型，制作快照
+	if s.snapshotType != "" {
+		snapshotPath := fmt.Sprintf("%s.%d.%s", s.dbPath, time.Now().UnixNano(), s.snapshotType)
+
+		switch s.snapshotType {
+		case "zip":
+			if err := createZip(s.dbPath, snapshotPath); err != nil {
+				return errors.Wrapf(err, "create zip snapshot failed. dbPath: %s, snapshotPath: %s", s.dbPath, snapshotPath)
+			}
+		case "tar.gz":
+			if err := createTarGz(s.dbPath, snapshotPath); err != nil {
+				return errors.Wrapf(err, "create tar.gz snapshot failed. dbPath: %s, snapshotPath: %s", s.dbPath, snapshotPath)
+			}
+		default:
+			return errors.Errorf("unsupported snapshot type: %s", s.snapshotType)
+		}
+	}
+
+	return nil
+}
+
+var _ Store[string, string] = (*LevelDBStore[string, string])(nil)
