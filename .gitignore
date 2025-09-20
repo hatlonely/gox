@@ -1,2 +1,3 @@
 .qoder
-log/demo/*.log
+.vscode
+*.log
