@@ -43,6 +43,17 @@ func NewErrorValue() (*Value, error) {
 	return &Value{Name: "error-test"}, nil
 }
 
+// 测试构造函数：能正确处理 nil options 的构造函数
+func NewValueWithNilHandling(options *Options) *Value {
+	if options == nil {
+		return &Value{Name: "nil-handled"}
+	}
+	if options.Name == "" {
+		return &Value{Name: "empty-name"}
+	}
+	return &Value{Name: options.Name}
+}
+
 func TestRegisterAndNew(t *testing.T) {
 	// 注册构造函数
 	err := Register("test", "Value", NewValue)
@@ -406,10 +417,10 @@ func TestNewConstructor(t *testing.T) {
 			expected: "test",
 		},
 		{
-			name:     "NewValue with nil options",
+			name:     "NewValue with nil options (should use zero value)",
 			newFunc:  NewValue,
 			options:  (*Options)(nil),
-			wantErr:  true,
+			wantErr:  true, // NewValue 函数内部检查 options.Name，nil 指针会导致错误
 			expected: "",
 		},
 		{
@@ -432,6 +443,20 @@ func TestNewConstructor(t *testing.T) {
 			options:  nil,
 			wantErr:  false,
 			expected: "error-test",
+		},
+		{
+			name:     "NewValueWithNilHandling with nil options (zero value test)",
+			newFunc:  NewValueWithNilHandling,
+			options:  nil,
+			wantErr:  false,
+			expected: "nil-handled",
+		},
+		{
+			name:     "NewValueWithNilHandling with valid options",
+			newFunc:  NewValueWithNilHandling,
+			options:  &Options{Name: "valid"},
+			wantErr:  false,
+			expected: "valid",
 		},
 	}
 
@@ -497,5 +522,47 @@ func TestBackwardCompatibility(t *testing.T) {
 
 	if obj.Config.Name != "regular" {
 		t.Errorf("Expected name 'regular', got '%s'", obj.Config.Name)
+	}
+}
+
+// TestNilOptionsZeroValue 测试当 options 为 nil 时使用零值的特性
+func TestNilOptionsZeroValue(t *testing.T) {
+	namespace := "test-nil-options"
+
+	// 注册能正确处理 nil options 的构造函数
+	err := Register(namespace, "ValueWithNilHandling", NewValueWithNilHandling)
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+
+	// 测试传入 nil options，应该收到零值 (*Options)(nil)
+	result, err := New(namespace, "ValueWithNilHandling", nil)
+	if err != nil {
+		t.Fatalf("New() with nil options error = %v", err)
+	}
+
+	value, ok := result.(*Value)
+	if !ok {
+		t.Fatalf("New() result is not *Value type, got %T", result)
+	}
+
+	// 构造函数应该收到 nil 指针（零值）并返回 "nil-handled"
+	if value.Name != "nil-handled" {
+		t.Errorf("Expected name 'nil-handled' when options is nil, got '%s'", value.Name)
+	}
+
+	// 测试传入有效的 options 依然正常工作
+	result2, err := New(namespace, "ValueWithNilHandling", &Options{Name: "test"})
+	if err != nil {
+		t.Fatalf("New() with valid options error = %v", err)
+	}
+
+	value2, ok := result2.(*Value)
+	if !ok {
+		t.Fatalf("New() result is not *Value type, got %T", result2)
+	}
+
+	if value2.Name != "test" {
+		t.Errorf("Expected name 'test' with valid options, got '%s'", value2.Name)
 	}
 }

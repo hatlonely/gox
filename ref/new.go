@@ -59,16 +59,20 @@ func (c *constructor) new(options any) (any, error) {
 	// 根据构造函数是否需要参数来准备调用参数
 	if c.hasOptions {
 		if options == nil {
-			return nil, fmt.Errorf("constructor requires options but got nil")
-		}
+			// 传入的 options 为空时，传递构造参数的零值
+			funcType := c.newFunc.Type()
+			paramType := funcType.In(0)
+			zeroValue := reflect.Zero(paramType)
+			args = []reflect.Value{zeroValue}
+		} else {
+			// 检查是否需要进行 Storage 转换
+			processedOptions, err := c.processStorageOptions(options)
+			if err != nil {
+				return nil, fmt.Errorf("failed to process storage options: %w", err)
+			}
 
-		// 检查是否需要进行 Storage 转换
-		processedOptions, err := c.processStorageOptions(options)
-		if err != nil {
-			return nil, fmt.Errorf("failed to process storage options: %w", err)
+			args = []reflect.Value{reflect.ValueOf(processedOptions)}
 		}
-
-		args = []reflect.Value{reflect.ValueOf(processedOptions)}
 	} else {
 		args = []reflect.Value{}
 	}
