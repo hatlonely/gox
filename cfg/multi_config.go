@@ -9,7 +9,7 @@ import (
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/logger"
 	"github.com/hatlonely/gox/ref"
 )
 
@@ -37,7 +37,7 @@ type MultiConfigOptions struct {
 	Sources []*ConfigSourceOptions `cfg:"sources"`
 
 	// 可选的日志配置，用于记录配置变更和处理器执行情况
-	Logger *log.SLogOptions `cfg:"logger"`
+	Logger *logger.SLogOptions `cfg:"logger"`
 
 	// 可选的处理器执行配置，控制 OnChange/OnKeyChange 回调的执行行为
 	// 包括超时时长、异步/同步执行、错误处理策略等
@@ -54,7 +54,7 @@ type MultiConfig struct {
 	multiStorage storage.MultiStorage
 
 	// 通用配置
-	logger           log.Logger
+	logger           logger.Logger
 	handlerExecution *HandlerExecutionOptions
 
 	// 变更监听相关
@@ -134,16 +134,16 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 	multiStorage := storage.NewMultiStorage(storages)
 
 	// 创建或使用默认 Logger
-	var logger log.Logger
+	var log logger.Logger
 	if options.Logger != nil {
 		var err error
-		logger, err = log.NewSLogWithOptions(options.Logger)
+		log, err = logger.NewSLogWithOptions(options.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create logger: %w", err)
 		}
 	} else {
 		var err error
-		logger, err = log.NewSLogWithOptions(&log.SLogOptions{
+		log, err = logger.NewSLogWithOptions(&logger.SLogOptions{
 			Level:  "info",
 			Format: "text",
 		})
@@ -173,7 +173,7 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 	cfg := &MultiConfig{
 		sources:             sources,
 		multiStorage:        multiStorage,
-		logger:              logger,
+		logger:              log,
 		handlerExecution:    handlerExecution,
 		onKeyChangeHandlers: make(map[string][]func(storage.Storage) error),
 	}
@@ -360,7 +360,7 @@ func (c *MultiConfig) ConvertTo(object any) error {
 }
 
 // SetLogger 设置日志记录器（只有根配置才能设置）
-func (c *MultiConfig) SetLogger(logger log.Logger) {
+func (c *MultiConfig) SetLogger(logger logger.Logger) {
 	root := c.getRoot()
 	root.logger = logger
 }

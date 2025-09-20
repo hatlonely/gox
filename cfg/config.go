@@ -2,7 +2,7 @@ package cfg
 
 import (
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/logger"
 )
 
 // Config 配置接口，定义了配置对象的基本操作
@@ -16,7 +16,7 @@ type Config interface {
 	ConvertTo(object any) error
 
 	// SetLogger 设置日志记录器（只有根配置才能设置）
-	SetLogger(logger log.Logger)
+	SetLogger(logger logger.Logger)
 
 	// OnChange 监听配置变更
 	OnChange(fn func(storage.Storage) error)

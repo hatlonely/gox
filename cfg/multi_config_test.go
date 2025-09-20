@@ -9,7 +9,7 @@ import (
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/logger"
 	"github.com/hatlonely/gox/ref"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -238,7 +238,7 @@ func TestMultiConfig_SetLogger(t *testing.T) {
 		config := &MultiConfig{}
 
 		// 创建测试 logger
-		logger, err := log.NewSLogWithOptions(&log.SLogOptions{
+		logger, err := logger.NewSLogWithOptions(&logger.SLogOptions{
 			Level:  "debug",
 			Format: "text",
 		})

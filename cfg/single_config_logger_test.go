@@ -12,7 +12,7 @@ import (
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/logger"
 	"github.com/hatlonely/gox/ref"
 )
 
@@ -220,11 +220,11 @@ func (l *mockLogger) ErrorContext(ctx context.Context, msg string, args ...any) 
 	l.Error(msg, args...)
 }
 
-func (l *mockLogger) With(args ...any) log.Logger {
+func (l *mockLogger) With(args ...any) logger.Logger {
 	return l
 }
 
-func (l *mockLogger) WithGroup(name string) log.Logger {
+func (l *mockLogger) WithGroup(name string) logger.Logger {
 	return l
 }
 
@@ -241,7 +241,7 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
 
-	// 使用 log.Options 创建配置
+	// 使用 logger.Options 创建配置
 	options := &SingleConfigOptions{
 		Provider: ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/cfg/provider",
@@ -255,7 +255,7 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
 		},
-		Logger: &log.SLogOptions{
+		Logger: &logger.SLogOptions{
 			Level:  "debug",
 			Format: "text",
 		},

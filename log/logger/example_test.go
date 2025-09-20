@@ -1,10 +1,10 @@
-package log_test
+package logger_test
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/hatlonely/gox/log"
+	log "github.com/hatlonely/gox/log/logger"
 	"github.com/hatlonely/gox/log/writer"
 	"github.com/hatlonely/gox/ref"
 )

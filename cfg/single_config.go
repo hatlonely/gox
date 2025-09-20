@@ -11,7 +11,7 @@ import (
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
-	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/logger"
 	"github.com/hatlonely/gox/ref"
 )
 
@@ -29,7 +29,7 @@ type HandlerExecutionOptions struct {
 type SingleConfigOptions struct {
 	Provider         ref.TypeOptions          `cfg:"provider"`
 	Decoder          ref.TypeOptions          `cfg:"decoder"`
-	Logger           *log.SLogOptions         `cfg:"logger"`
+	Logger           *logger.SLogOptions      `cfg:"logger"`
 	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
 }
 
@@ -39,7 +39,7 @@ type SingleConfig struct {
 	provider         provider.Provider
 	storage          storage.Storage
 	decoder          decoder.Decoder
-	logger           log.Logger               // 可选的日志记录器
+	logger           logger.Logger            // 可选的日志记录器
 	handlerExecution *HandlerExecutionOptions // handler 执行配置
 
 	parent *SingleConfig
@@ -99,18 +99,18 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 	stor = storage.NewValidateStorage(stor)
 
 	// 创建或使用默认 Logger
-	var logger log.Logger
+	var log logger.Logger
 	if options.Logger != nil {
 		// 使用提供的日志配置创建 Logger
 		var err error
-		logger, err = log.NewSLogWithOptions(options.Logger)
+		log, err = logger.NewSLogWithOptions(options.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create logger: %w", err)
 		}
 	} else {
 		// 创建默认的终端输出 Logger
 		var err error
-		logger, err = log.NewSLogWithOptions(&log.SLogOptions{
+		log, err = logger.NewSLogWithOptions(&logger.SLogOptions{
 			Level:  "info",
 			Format: "text",
 		})
@@ -142,7 +142,7 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 		provider:            prov,
 		storage:             stor,
 		decoder:             dec,
-		logger:              logger,
+		logger:              log,
 		handlerExecution:    handlerExecution,
 		onKeyChangeHandlers: make(map[string][]func(storage.Storage) error),
 	}
@@ -377,7 +377,7 @@ func (c *SingleConfig) ConvertTo(object any) error {
 }
 
 // SetLogger 设置日志记录器（只有根配置才能设置）
-func (c *SingleConfig) SetLogger(logger log.Logger) {
+func (c *SingleConfig) SetLogger(logger logger.Logger) {
 	root := c.getRoot()
 	root.logger = logger
 }
