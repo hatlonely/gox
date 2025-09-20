@@ -15,74 +15,77 @@ import (
 
 type LevelDBStoreOptions struct {
 	// Source 是数据库文件的源路径。
-	Source string
+	Source string `cfg:"source"`
 
 	// 是否生成数据库路径后缀。
-	GenerateDBPathSuffix bool
+	GenerateDBPathSuffix bool `cfg:"generateDBPathSuffix"`
 
 	// DBPath 是数据库文件的路径。
 	// 不设置 GenerateDBPathSuffix 时，数据库将直接加载该目录，如果目录不存在，则自动创建并将数据写入到此路径。
 	// 如果设置 GenerateDBPathSuffix, 以当前时间戳为后缀，创建新的目录。
-	DBPath string `validate:"required"`
+	DBPath string `cfg:"dbPath" validate:"required"`
 
-	// 是否在退出时制作快照
-	EnableSnapshotOnClose bool
+	// 快照类型。默认为空，不做快照。
+	// 可选值：
+	//   - zip: 使用 zip 格式压缩快照。
+	//   - tar.gz: 使用 tar.gz 格式压缩快照。
+	SnapshotType string `cfg:"snapshotType" validate:"omitempty,oneof=zip tar.gz"`
 
 	// 键的序列化选项。
-	KeySerializer *ref.TypeOptions
+	KeySerializer *ref.TypeOptions `cfg:"keySerializer"`
 
 	// 值的序列化选项。
-	ValSerializer *ref.TypeOptions
+	ValSerializer *ref.TypeOptions `cfg:"valSerializer"`
 
 	// BlockCacher 提供 LevelDB 'sorted table' 块缓存的缓存算法。
 	// 指定 NoCacher 以禁用缓存算法。
 	//
 	// 默认值是 LRUCacher。
-	BlockCacher string
+	BlockCacher string `cfg:"blockCacher" validate:"omitempty,oneof=lru no"`
 
 	// BlockCacheCapacity 定义 'sorted table' 块缓存的容量。
 	// 使用 -1 表示零，这与指定 NoCacher 给 BlockCacher 具有相同的效果。
 	//
 	// 默认值是 8MiB。
-	BlockCacheCapacity int
+	BlockCacheCapacity int `cfg:"blockCacheCapacity"`
 
 	// BlockCacheEvictRemoved 允许在删除的 'sorted table' 上启用强制驱逐缓存块。
 	//
 	// 默认值是 false。
-	BlockCacheEvictRemoved bool
+	BlockCacheEvictRemoved bool `cfg:"blockCacheEvictRemoved"`
 
 	// BlockRestartInterval 是用于键的增量编码的重启点之间的键数。
 	//
 	// 默认值是 16。
-	BlockRestartInterval int
+	BlockRestartInterval int `cfg:"blockRestartInterval"`
 
 	// BlockSize 是每个 'sorted table' 块的最小未压缩大小（以字节为单位）。
 	//
 	// 默认值是 4KiB。
-	BlockSize int
+	BlockSize int `cfg:"blockSize"`
 
 	// CompactionExpandLimitFactor 限制压缩后扩展的大小。
 	// 这将乘以压缩目标级别的表大小限制。
 	//
 	// 默认值是 25。
-	CompactionExpandLimitFactor int
+	CompactionExpandLimitFactor int `cfg:"compactionExpandLimitFactor"`
 
 	// CompactionGPOverlapsFactor 限制单个 'sorted table' 生成的祖父（Level + 2）中的重叠。
 	// 这将乘以祖父级别的表大小限制。
 	//
 	// 默认值是 10。
-	CompactionGPOverlapsFactor int
+	CompactionGPOverlapsFactor int `cfg:"compactionGPOverlapsFactor"`
 
 	// CompactionL0Trigger 定义触发压缩的 level-0 'sorted table' 数量。
 	//
 	// 默认值是 4。
-	CompactionL0Trigger int
+	CompactionL0Trigger int `cfg:"compactionL0Trigger"`
 
 	// CompactionSourceLimitFactor 限制压缩源大小。这不适用于 level-0。
 	// 这将乘以压缩目标级别的表大小限制。
 	//
 	// 默认值是 1。
-	CompactionSourceLimitFactor int
+	CompactionSourceLimitFactor int `cfg:"compactionSourceLimitFactor"`
 
 	// CompactionTableSize 限制压缩生成的 'sorted table' 大小。
 	// 每个级别的限制将计算为：
@@ -90,18 +93,18 @@ type LevelDBStoreOptions struct {
 	// 每个级别的乘数也可以使用 CompactionTableSizeMultiplierPerLevel 进行微调。
 	//
 	// 默认值是 2MiB。
-	CompactionTableSize int
+	CompactionTableSize int `cfg:"compactionTableSize"`
 
 	// CompactionTableSizeMultiplier 定义 CompactionTableSize 的乘数。
 	//
 	// 默认值是 1。
-	CompactionTableSizeMultiplier float64
+	CompactionTableSizeMultiplier float64 `cfg:"compactionTableSizeMultiplier"`
 
 	// CompactionTableSizeMultiplierPerLevel 定义每级别的 CompactionTableSize 乘数。
 	// 使用零跳过一个级别。
 	//
 	// 默认值是 nil。
-	CompactionTableSizeMultiplierPerLevel []float64
+	CompactionTableSizeMultiplierPerLevel []float64 `cfg:"compactionTableSizeMultiplierPerLevel"`
 
 	// CompactionTotalSize 限制每个级别的 'sorted table' 总大小。
 	// 每个级别的限制将计算为：
@@ -109,105 +112,105 @@ type LevelDBStoreOptions struct {
 	// 每个级别的乘数也可以使用 CompactionTotalSizeMultiplierPerLevel 进行微调。
 	//
 	// 默认值是 10MiB。
-	CompactionTotalSize int
+	CompactionTotalSize int `cfg:"compactionTotalSize"`
 
 	// CompactionTotalSizeMultiplier 定义 CompactionTotalSize 的乘数。
 	//
 	// 默认值是 10。
-	CompactionTotalSizeMultiplier float64
+	CompactionTotalSizeMultiplier float64 `cfg:"compactionTotalSizeMultiplier"`
 
 	// CompactionTotalSizeMultiplierPerLevel 定义每级别的 CompactionTotalSize 乘数。
 	// 使用零跳过一个级别。
 	//
 	// 默认值是 nil。
-	CompactionTotalSizeMultiplierPerLevel []float64
+	CompactionTotalSizeMultiplierPerLevel []float64 `cfg:"compactionTotalSizeMultiplierPerLevel"`
 
 	// Compression 定义 'sorted table' 块压缩使用的压缩算法。
 	//
 	// 默认值（DefaultCompression）使用 snappy 压缩。
-	Compression string
+	Compression string `cfg:"compression" validate:"omitempty,oneof=default snappy none"`
 
 	// DisableBufferPool 允许禁用 util.BufferPool 功能。
 	//
 	// 默认值是 false。
-	DisableBufferPool bool
+	DisableBufferPool bool `cfg:"disableBufferPool"`
 
 	// DisableBlockCache 允许禁用 'sorted table' 块的 cache.Cache 功能。
 	//
 	// 默认值是 false。
-	DisableBlockCache bool
+	DisableBlockCache bool `cfg:"disableBlockCache"`
 
 	// DisableCompactionBackoff 允许禁用压缩重试退避。
 	//
 	// 默认值是 false。
-	DisableCompactionBackoff bool
+	DisableCompactionBackoff bool `cfg:"disableCompactionBackoff"`
 
 	// DisableLargeBatchTransaction 允许禁用大批量写入时切换到事务模式。如果启用，大于 WriteBuffer 的批量写入将使用事务。
 	//
 	// 默认值是 false。
-	DisableLargeBatchTransaction bool
+	DisableLargeBatchTransaction bool `cfg:"disableLargeBatchTransaction"`
 
 	// ErrorIfExist 定义如果数据库已存在是否返回错误。
 	//
 	// 默认值是 false。
-	ErrorIfExist bool
+	ErrorIfExist bool `cfg:"errorIfExist"`
 
 	// ErrorIfMissing 定义如果数据库丢失是否返回错误。如果为 false，则在丢失时将创建数据库，否则将返回错误。
 	//
 	// 默认值是 false。
-	ErrorIfMissing bool
+	ErrorIfMissing bool `cfg:"errorIfMissing"`
 
 	// IteratorSamplingRate 定义迭代器读取采样之间的近似间隔（以字节为单位）。样本将用于确定何时应触发压缩。
 	//
 	// 默认值是 1MiB。
-	IteratorSamplingRate int
+	IteratorSamplingRate int `cfg:"iteratorSamplingRate"`
 
 	// NoSync 允许完全禁用 fsync。
 	//
 	// 默认值是 false。
-	NoSync bool
+	NoSync bool `cfg:"noSync"`
 
 	// NoWriteMerge 允许禁用写入合并。
 	//
 	// 默认值是 false。
-	NoWriteMerge bool
+	NoWriteMerge bool `cfg:"noWriteMerge"`
 
 	// OpenFilesCacher 提供打开文件缓存的缓存算法。
 	// 指定 NoCacher 以禁用缓存算法。
 	//
 	// 默认值是 LRUCacher。
-	OpenFilesCacher string
+	OpenFilesCacher string `cfg:"openFilesCacher" validate:"omitempty,oneof=lru no"`
 
 	// OpenFilesCacheCapacity 定义打开文件缓存的容量。
 	// 使用 -1 表示零，这与指定 NoCacher 给 OpenFilesCacher 具有相同的效果。
 	//
 	// 默认值是 500。
-	OpenFilesCacheCapacity int
+	OpenFilesCacheCapacity int `cfg:"openFilesCacheCapacity"`
 
 	// 如果为 true，则以只读模式打开数据库。
 	//
 	// 默认值是 false。
-	ReadOnly bool
+	ReadOnly bool `cfg:"readOnly"`
 
 	// Strict 定义数据库的严格级别。
-	Strict string
+	Strict string `cfg:"strict"`
 
 	// WriteBuffer 定义 'memdb' 在刷新到 'sorted table' 之前的最大大小。'memdb' 是由磁盘上的未排序日志支持的内存数据库。
 	//
 	// LevelDB 可能同时持有最多两个 'memdb'。
 	//
 	// 默认值是 4MiB。
-	WriteBuffer int
+	WriteBuffer int `cfg:"writeBuffer"`
 
 	// WriteL0StopTrigger 定义触发写入暂停的 level-0 'sorted table' 数量。
 	//
 	// 默认值是 12。
-	WriteL0PauseTrigger int
+	WriteL0PauseTrigger int `cfg:"writeL0PauseTrigger"`
 
 	// WriteL0SlowdownTrigger 定义触发写入减速的 level-0 'sorted table' 数量。
 	//
 	// 默认值是 8。
-	WriteL0SlowdownTrigger int
+	WriteL0SlowdownTrigger int `cfg:"writeL0SlowdownTrigger"`
 }
 
 type LevelDBStore[K, V any] struct {
@@ -215,8 +218,8 @@ type LevelDBStore[K, V any] struct {
 	keySerializer serializer.Serializer[K, []byte]
 	valSerializer serializer.Serializer[V, []byte]
 
-	dbPath                string
-	enableSnapshotOnClose bool
+	dbPath       string
+	snapshotType string
 }
 
 func NewLevelDBStoreWithOptions[K, V any](options *LevelDBStoreOptions) (*LevelDBStore[K, V], error) {
@@ -336,11 +339,11 @@ func NewLevelDBStoreWithOptions[K, V any](options *LevelDBStoreOptions) (*LevelD
 	}
 
 	return &LevelDBStore[K, V]{
-		db:                    db,
-		keySerializer:         keySerializer,
-		valSerializer:         valSerializer,
-		dbPath:                dbPath,
-		enableSnapshotOnClose: options.EnableSnapshotOnClose,
+		db:            db,
+		keySerializer: keySerializer,
+		valSerializer: valSerializer,
+		dbPath:        dbPath,
+		snapshotType:  options.SnapshotType,
 	}, nil
 }
 
