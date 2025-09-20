@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/BurntSushi/toml v1.5.0
+	github.com/bytedance/mockey v1.2.14
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce
 	github.com/cockroachdb/pebble v1.1.5
 	github.com/coocood/freecache v1.2.4
@@ -62,6 +63,7 @@ require (
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/smarty/assertions v1.15.0 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
 	golang.org/x/net v0.34.0 // indirect
