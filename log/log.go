@@ -2,6 +2,7 @@ package log
 
 import (
 	"github.com/hatlonely/gox/log/logger"
+	"github.com/hatlonely/gox/ref"
 )
 
 var (
@@ -19,6 +20,10 @@ func init() {
 		panic("failed to initialize default logger: " + err.Error())
 	}
 	defaultLogger = slog
+
+	ref.Register("github.com/hatlonely/gox/log", "Logger", func(name string) logger.Logger {
+		return GetLogger(name)
+	})
 }
 
 func Default() logger.Logger {
@@ -32,10 +37,10 @@ func Init(options Options) error {
 		return err
 	}
 	defaultLogManager = manager
-	
+
 	// 更新默认日志器为 LogManager 的默认日志器
 	defaultLogger = manager.GetDefault()
-	
+
 	return nil
 }
 
