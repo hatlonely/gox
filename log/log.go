@@ -1,6 +1,8 @@
 package log
 
-import "github.com/hatlonely/gox/log/logger"
+import (
+	"github.com/hatlonely/gox/log/logger"
+)
 
 var defaultLogger logger.Logger
 
