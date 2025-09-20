@@ -1,9 +1,6 @@
 package store
 
-import (
-	"context"
-	"sync"
-)
+import "context"
 
 type SliceMapStoreOptions struct {
 	N int `cfg:"n" def:"1024"`
@@ -13,7 +10,6 @@ type SliceMapStore[K comparable, V any] struct {
 	s    []V
 	m    map[K]int
 	free []int
-	mu   sync.RWMutex
 }
 
 func NewSliceMapStoreWithOptions[K comparable, V any](options *SliceMapStoreOptions) *SliceMapStore[K, V] {
@@ -32,9 +28,6 @@ func (s *SliceMapStore[K, V]) Set(ctx context.Context, key K, value V, opts ...s
 	for _, opt := range opts {
 		opt(options)
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	if idx, exists := s.m[key]; exists {
 		if options.IfNotExist {
@@ -62,9 +55,6 @@ func (s *SliceMapStore[K, V]) Set(ctx context.Context, key K, value V, opts ...s
 }
 
 func (s *SliceMapStore[K, V]) Get(ctx context.Context, key K) (V, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	idx, exists := s.m[key]
 	if !exists {
 		var zero V
@@ -74,9 +64,6 @@ func (s *SliceMapStore[K, V]) Get(ctx context.Context, key K) (V, error) {
 }
 
 func (s *SliceMapStore[K, V]) Del(ctx context.Context, key K) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	idx, exists := s.m[key]
 	if !exists {
 		return nil
@@ -101,9 +88,6 @@ func (s *SliceMapStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, 
 	for _, opt := range opts {
 		opt(options)
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	errors := make([]error, len(keys))
 	for i, key := range keys {
@@ -137,9 +121,6 @@ func (s *SliceMapStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, 
 }
 
 func (s *SliceMapStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []error, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	values := make([]V, len(keys))
 	errors := make([]error, len(keys))
 
@@ -158,9 +139,6 @@ func (s *SliceMapStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []er
 }
 
 func (s *SliceMapStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	errors := make([]error, len(keys))
 	for _, key := range keys {
 		idx, exists := s.m[key]
@@ -178,9 +156,6 @@ func (s *SliceMapStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, 
 }
 
 func (s *SliceMapStore[K, V]) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.s = nil
 	s.m = nil
 	s.free = nil
