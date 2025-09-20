@@ -21,9 +21,7 @@ func init() {
 	}
 	defaultLogger = slog
 
-	ref.Register("github.com/hatlonely/gox/log", "Logger", func(name string) logger.Logger {
-		return GetLogger(name)
-	})
+	ref.Register("github.com/hatlonely/gox/log", "GetLogger", GetLogger)
 }
 
 func Default() logger.Logger {
