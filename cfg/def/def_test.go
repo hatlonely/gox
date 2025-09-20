@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 // 测试用的结构体
@@ -42,150 +42,185 @@ type RedisConfig struct {
 }
 
 func TestSetDefaults_BasicTypes(t *testing.T) {
-	config := &TestConfig{}
-	
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	// 验证基本类型默认值
-	assert.Equal(t, "default_name", config.Name)
-	assert.Equal(t, 25, config.Age)
-	assert.Equal(t, 175.5, config.Height)
-	assert.Equal(t, true, config.IsActive)
-	assert.Equal(t, []string{"tag1", "tag2", "tag3"}, config.Tags)
-	
-	// 验证时间类型默认值
-	assert.Equal(t, 30*time.Second, config.Timeout)
-	expectedTime, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
-	assert.Equal(t, expectedTime, config.CreatedAt)
-	
-	// 验证指针类型默认值
-	assert.NotNil(t, config.Description)
-	assert.Equal(t, "default description", *config.Description)
+	Convey("设置基本类型默认值", t, func() {
+		config := &TestConfig{}
+		
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("验证基本类型默认值", func() {
+			So(config.Name, ShouldEqual, "default_name")
+			So(config.Age, ShouldEqual, 25)
+			So(config.Height, ShouldEqual, 175.5)
+			So(config.IsActive, ShouldBeTrue)
+			So(config.Tags, ShouldResemble, []string{"tag1", "tag2", "tag3"})
+		})
+		
+		Convey("验证时间类型默认值", func() {
+			So(config.Timeout, ShouldEqual, 30*time.Second)
+			expectedTime, _ := time.Parse(time.RFC3339, "2023-01-01T00:00:00Z")
+			So(config.CreatedAt, ShouldEqual, expectedTime)
+		})
+		
+		Convey("验证指针类型默认值", func() {
+			So(config.Description, ShouldNotBeNil)
+			So(*config.Description, ShouldEqual, "default description")
+		})
+	})
 }
 
 func TestSetDefaults_NestedStruct(t *testing.T) {
-	config := &TestConfig{}
-	
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	// 验证嵌套结构体默认值
-	assert.Equal(t, "localhost", config.Database.Host)
-	assert.Equal(t, 3306, config.Database.Port)
-	assert.Equal(t, "root", config.Database.Username)
-	assert.Equal(t, "", config.Database.Password)
+	Convey("设置嵌套结构体默认值", t, func() {
+		config := &TestConfig{}
+		
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("验证嵌套结构体默认值", func() {
+			So(config.Database.Host, ShouldEqual, "localhost")
+			So(config.Database.Port, ShouldEqual, 3306)
+			So(config.Database.Username, ShouldEqual, "root")
+			So(config.Database.Password, ShouldEqual, "")
+		})
+	})
 }
 
 func TestSetDefaults_PointerNestedStruct(t *testing.T) {
-	config := &TestConfig{}
-	
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	// Cache 是指针类型且为空，应该保持为 nil（不会自动创建）
-	assert.Nil(t, config.Cache)
+	Convey("处理指针类型的嵌套结构体", t, func() {
+		config := &TestConfig{}
+		
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("Cache是指针类型且为空，应该保持为nil（不会自动创建）", func() {
+			So(config.Cache, ShouldBeNil)
+		})
+	})
 }
 
 func TestSetDefaults_PointerNestedStructNotNil(t *testing.T) {
-	config := &TestConfig{
-		Cache: &CacheConfig{}, // 手动初始化指针
-	}
-	
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	// 验证指针类型的嵌套结构体，当指针不为空时会递归处理
-	assert.NotNil(t, config.Cache)
-	assert.Equal(t, "redis-host", config.Cache.Redis.Host)
-	assert.Equal(t, 6379, config.Cache.Redis.Port)
+	Convey("处理非空指针类型的嵌套结构体", t, func() {
+		config := &TestConfig{
+			Cache: &CacheConfig{}, // 手动初始化指针
+		}
+		
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("验证指针类型的嵌套结构体，当指针不为空时会递归处理", func() {
+			So(config.Cache, ShouldNotBeNil)
+			So(config.Cache.Redis.Host, ShouldEqual, "redis-host")
+			So(config.Cache.Redis.Port, ShouldEqual, 6379)
+		})
+	})
 }
 
 func TestSetDefaults_NonZeroValues(t *testing.T) {
-	config := &TestConfig{
-		Name: "existing_name",
-		Age:  30,
-	}
-	
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	// 已有值不应该被覆盖
-	assert.Equal(t, "existing_name", config.Name)
-	assert.Equal(t, 30, config.Age)
-	
-	// 零值字段应该被设置默认值
-	assert.Equal(t, 175.5, config.Height)
-	assert.Equal(t, true, config.IsActive)
+	Convey("处理非零值字段", t, func() {
+		config := &TestConfig{
+			Name: "existing_name",
+			Age:  30,
+		}
+		
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("已有值不应该被覆盖", func() {
+			So(config.Name, ShouldEqual, "existing_name")
+			So(config.Age, ShouldEqual, 30)
+		})
+		
+		Convey("零值字段应该被设置默认值", func() {
+			So(config.Height, ShouldEqual, 175.5)
+			So(config.IsActive, ShouldBeTrue)
+		})
+	})
 }
 
 func TestSetDefaults_InvalidInput(t *testing.T) {
-	// 测试 nil 指针
-	err := SetDefaults(nil)
-	assert.Error(t, err)
-	
-	// 测试非指针类型
-	config := TestConfig{}
-	err = SetDefaults(config)
-	assert.Error(t, err)
-	
-	// 测试 nil 对象
-	var nilConfig *TestConfig
-	err = SetDefaults(nilConfig)
-	assert.Error(t, err)
+	Convey("测试无效输入", t, func() {
+		Convey("测试nil指针", func() {
+			err := SetDefaults(nil)
+			So(err, ShouldNotBeNil)
+		})
+		
+		Convey("测试非指针类型", func() {
+			config := TestConfig{}
+			err := SetDefaults(config)
+			So(err, ShouldNotBeNil)
+		})
+		
+		Convey("测试nil对象", func() {
+			var nilConfig *TestConfig
+			err := SetDefaults(nilConfig)
+			So(err, ShouldNotBeNil)
+		})
+	})
 }
 
 func TestSetDefaults_TimeFormats(t *testing.T) {
-	type TimeConfig struct {
-		Time1 time.Time `def:"2023-01-01"`
-		Time2 time.Time `def:"2023-01-01 15:04:05"`
-		Time3 time.Time `def:"1672531200"` // Unix timestamp
-		Time4 time.Time `def:"1672531200.5"` // Float timestamp
-	}
-	
-	config := &TimeConfig{}
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	expectedTime1, _ := time.Parse("2006-01-02", "2023-01-01")
-	assert.Equal(t, expectedTime1, config.Time1)
-	
-	expectedTime2, _ := time.Parse("2006-01-02 15:04:05", "2023-01-01 15:04:05")
-	assert.Equal(t, expectedTime2, config.Time2)
-	
-	expectedTime3 := time.Unix(1672531200, 0)
-	assert.Equal(t, expectedTime3, config.Time3)
-	
-	expectedTime4 := time.Unix(1672531200, 500000000)
-	assert.Equal(t, expectedTime4, config.Time4)
+	Convey("测试时间格式", t, func() {
+		type TimeConfig struct {
+			Time1 time.Time `def:"2023-01-01"`
+			Time2 time.Time `def:"2023-01-01 15:04:05"`
+			Time3 time.Time `def:"1672531200"` // Unix timestamp
+			Time4 time.Time `def:"1672531200.5"` // Float timestamp
+		}
+		
+		config := &TimeConfig{}
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("验证各种时间格式解析", func() {
+			expectedTime1, _ := time.Parse("2006-01-02", "2023-01-01")
+			So(config.Time1, ShouldEqual, expectedTime1)
+			
+			expectedTime2, _ := time.Parse("2006-01-02 15:04:05", "2023-01-01 15:04:05")
+			So(config.Time2, ShouldEqual, expectedTime2)
+			
+			expectedTime3 := time.Unix(1672531200, 0)
+			So(config.Time3, ShouldEqual, expectedTime3)
+			
+			expectedTime4 := time.Unix(1672531200, 500000000)
+			So(config.Time4, ShouldEqual, expectedTime4)
+		})
+	})
 }
 
 func TestSetDefaults_DurationFormats(t *testing.T) {
-	type DurationConfig struct {
-		Duration1 time.Duration `def:"1h30m"`
-		Duration2 time.Duration `def:"5000000000"` // 纳秒
-	}
-	
-	config := &DurationConfig{}
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	assert.Equal(t, time.Hour+30*time.Minute, config.Duration1)
-	assert.Equal(t, 5*time.Second, config.Duration2)
+	Convey("测试时间间隔格式", t, func() {
+		type DurationConfig struct {
+			Duration1 time.Duration `def:"1h30m"`
+			Duration2 time.Duration `def:"5000000000"` // 纳秒
+		}
+		
+		config := &DurationConfig{}
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("验证各种时间间隔格式解析", func() {
+			So(config.Duration1, ShouldEqual, time.Hour+30*time.Minute)
+			So(config.Duration2, ShouldEqual, 5*time.Second)
+		})
+	})
 }
 
 func TestSetDefaults_SliceTypes(t *testing.T) {
-	type SliceConfig struct {
-		StringSlice []string `def:"a,b,c"`
-		IntSlice    []int    `def:"1,2,3"`
-		FloatSlice  []float64 `def:"1.1,2.2,3.3"`
-	}
-	
-	config := &SliceConfig{}
-	err := SetDefaults(config)
-	assert.NoError(t, err)
-	
-	assert.Equal(t, []string{"a", "b", "c"}, config.StringSlice)
-	assert.Equal(t, []int{1, 2, 3}, config.IntSlice)
-	assert.Equal(t, []float64{1.1, 2.2, 3.3}, config.FloatSlice)
+	Convey("测试切片类型", t, func() {
+		type SliceConfig struct {
+			StringSlice []string `def:"a,b,c"`
+			IntSlice    []int    `def:"1,2,3"`
+			FloatSlice  []float64 `def:"1.1,2.2,3.3"`
+		}
+		
+		config := &SliceConfig{}
+		err := SetDefaults(config)
+		So(err, ShouldBeNil)
+		
+		Convey("验证各种切片类型默认值", func() {
+			So(config.StringSlice, ShouldResemble, []string{"a", "b", "c"})
+			So(config.IntSlice, ShouldResemble, []int{1, 2, 3})
+			So(config.FloatSlice, ShouldResemble, []float64{1.1, 2.2, 3.3})
+		})
+	})
 }
