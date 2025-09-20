@@ -5,113 +5,117 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewEnvProviderWithOptions(t *testing.T) {
-	tests := []struct {
-		name    string
-		options *EnvProviderOptions
-		wantErr bool
-	}{
-		{
-			name:    "nil options",
-			options: nil,
-			wantErr: false,
-		},
-		{
-			name:    "empty options",
-			options: &EnvProviderOptions{},
-			wantErr: false,
-		},
-		{
-			name: "valid env files",
-			options: &EnvProviderOptions{
-				EnvFiles: []string{"test1.env", "test2.env"},
-			},
-			wantErr: false,
-		},
-		{
-			name: "mixed valid and empty files",
-			options: &EnvProviderOptions{
-				EnvFiles: []string{"test.env", "", "test2.env"},
-			},
-			wantErr: false,
-		},
-	}
+	Convey("测试NewEnvProviderWithOptions函数", t, func() {
+		testNewEnvProvider := func(name string, options *EnvProviderOptions, wantErr bool) {
+			Convey(name, func() {
+				provider, err := NewEnvProviderWithOptions(options)
+				if wantErr {
+					So(err, ShouldNotBeNil)
+				} else {
+					So(err, ShouldBeNil)
+					So(provider, ShouldNotBeNil)
+				}
+			})
+		}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			provider, err := NewEnvProviderWithOptions(tt.options)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewEnvProviderWithOptions() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && provider == nil {
-				t.Errorf("NewEnvProviderWithOptions() returned nil provider")
-			}
-		})
-	}
+		testNewEnvProvider("使用nil选项", nil, false)
+		testNewEnvProvider("使用空选项", &EnvProviderOptions{}, false)
+		testNewEnvProvider("使用有效的环境文件", &EnvProviderOptions{
+			EnvFiles: []string{"test1.env", "test2.env"},
+		}, false)
+		testNewEnvProvider("混合有效和空文件", &EnvProviderOptions{
+			EnvFiles: []string{"test.env", "", "test2.env"},
+		}, false)
+	})
 }
 
 func TestEnvProvider_Load(t *testing.T) {
-	// 创建临时目录
-	tempDir, err := os.MkdirTemp("", "env_provider_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	Convey("测试EnvProvider的Load功能", t, func() {
+		// 创建临时目录
+		tempDir, err := os.MkdirTemp("", "env_provider_test")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(tempDir)
 
-	// 创建测试 .env 文件
-	env1File := filepath.Join(tempDir, "test1.env")
-	env1Content := `# Test env file 1
+		// 创建测试 .env 文件
+		env1File := filepath.Join(tempDir, "test1.env")
+		env1Content := `# Test env file 1
 APP_NAME=TestApp
 DB_HOST=localhost
 DB_PORT=3306
 DEBUG=true`
 
-	if err := os.WriteFile(env1File, []byte(env1Content), 0644); err != nil {
-		t.Fatalf("Failed to write env1 file: %v", err)
-	}
+		err = os.WriteFile(env1File, []byte(env1Content), 0644)
+		So(err, ShouldBeNil)
 
-	env2File := filepath.Join(tempDir, "test2.env")
-	env2Content := `# Test env file 2
+		env2File := filepath.Join(tempDir, "test2.env")
+		env2Content := `# Test env file 2
 DB_PORT=5432
 DB_USER=admin
 API_KEY="secret key with spaces"`
 
-	if err := os.WriteFile(env2File, []byte(env2Content), 0644); err != nil {
-		t.Fatalf("Failed to write env2 file: %v", err)
-	}
+		err = os.WriteFile(env2File, []byte(env2Content), 0644)
+		So(err, ShouldBeNil)
 
-	tests := []struct {
-		name     string
-		envFiles []string
-		envVars  map[string]string
-		want     map[string]string
-	}{
-		{
-			name:     "no files, only system env",
-			envFiles: []string{},
-			envVars:  map[string]string{"TEST_VAR": "test_value"},
-			want:     map[string]string{"TEST_VAR": "test_value"},
-		},
-		{
-			name:     "single env file",
-			envFiles: []string{env1File},
-			envVars:  map[string]string{"EXISTING_VAR": "existing"},
-			want: map[string]string{
+		testLoad := func(name string, envFiles []string, envVars map[string]string, want map[string]string) {
+			Convey(name, func() {
+				// 设置测试环境变量
+				for key, value := range envVars {
+					os.Setenv(key, value)
+					defer os.Unsetenv(key)
+				}
+
+				provider, err := NewEnvProviderWithOptions(&EnvProviderOptions{
+					EnvFiles: envFiles,
+				})
+				So(err, ShouldBeNil)
+
+				data, err := provider.Load()
+				So(err, ShouldBeNil)
+
+				// 解析返回的 .env 格式数据
+				got := parseEnvData(string(data))
+
+				// 检查期望的键值对
+				for key, expectedValue := range want {
+					So(got, ShouldContainKey, key)
+					So(got[key], ShouldEqual, expectedValue)
+				}
+
+				// 检查是否有多余的键
+				for key := range got {
+					if _, expected := want[key]; !expected {
+						// 允许系统环境变量存在
+						if !strings.HasPrefix(key, "TEST_") && !strings.HasPrefix(key, "EXISTING_") && !strings.HasPrefix(key, "SYSTEM_") {
+							continue
+						}
+						So(want, ShouldContainKey, key)
+					}
+				}
+			})
+		}
+
+		testLoad("仅系统环境变量，无文件", []string{}, 
+			map[string]string{"TEST_VAR": "test_value"}, 
+			map[string]string{"TEST_VAR": "test_value"})
+
+		testLoad("单个环境文件", []string{env1File}, 
+			map[string]string{"EXISTING_VAR": "existing"}, 
+			map[string]string{
 				"EXISTING_VAR": "existing",
 				"APP_NAME":     "TestApp",
 				"DB_HOST":      "localhost",
 				"DB_PORT":      "3306",
 				"DEBUG":        "true",
-			},
-		},
-		{
-			name:     "multiple env files with priority",
-			envFiles: []string{env1File, env2File},
-			envVars:  map[string]string{"SYSTEM_VAR": "system"},
-			want: map[string]string{
+			})
+
+		testLoad("多个环境文件及优先级", []string{env1File, env2File}, 
+			map[string]string{"SYSTEM_VAR": "system"}, 
+			map[string]string{
 				"SYSTEM_VAR": "system",
 				"APP_NAME":   "TestApp",
 				"DB_HOST":    "localhost",
@@ -119,127 +123,72 @@ API_KEY="secret key with spaces"`
 				"DEBUG":      "true",
 				"DB_USER":    "admin",
 				"API_KEY":    `"secret key with spaces"`, // 保持原始格式
-			},
-		},
-		{
-			name:     "nonexistent file should not cause error",
-			envFiles: []string{env1File, "/nonexistent/file.env", env2File},
-			envVars:  map[string]string{},
-			want: map[string]string{
+			})
+
+		testLoad("不存在的文件不应该导致错误", []string{env1File, "/nonexistent/file.env", env2File}, 
+			map[string]string{}, 
+			map[string]string{
 				"APP_NAME": "TestApp",
 				"DB_HOST":  "localhost",
 				"DB_PORT":  "5432", // env2 覆盖 env1
 				"DEBUG":    "true",
 				"DB_USER":  "admin",
 				"API_KEY":  `"secret key with spaces"`,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// 设置测试环境变量
-			for key, value := range tt.envVars {
-				os.Setenv(key, value)
-				defer os.Unsetenv(key)
-			}
-
-			provider, err := NewEnvProviderWithOptions(&EnvProviderOptions{
-				EnvFiles: tt.envFiles,
 			})
-			if err != nil {
-				t.Fatalf("NewEnvProviderWithOptions() error = %v", err)
-			}
-
-			data, err := provider.Load()
-			if err != nil {
-				t.Errorf("EnvProvider.Load() error = %v", err)
-				return
-			}
-
-			// 解析返回的 .env 格式数据
-			got := parseEnvData(string(data))
-
-			// 检查期望的键值对
-			for key, expectedValue := range tt.want {
-				if gotValue, exists := got[key]; !exists {
-					t.Errorf("EnvProvider.Load() missing key %s", key)
-				} else if gotValue != expectedValue {
-					t.Errorf("EnvProvider.Load() key %s = %v, want %v", key, gotValue, expectedValue)
-				}
-			}
-
-			// 检查是否有多余的键
-			for key := range got {
-				if _, expected := tt.want[key]; !expected {
-					// 允许系统环境变量存在
-					if !strings.HasPrefix(key, "TEST_") && !strings.HasPrefix(key, "EXISTING_") && !strings.HasPrefix(key, "SYSTEM_") {
-						continue
-					}
-					t.Errorf("EnvProvider.Load() unexpected key %s = %v", key, got[key])
-				}
-			}
-		})
-	}
+	})
 }
 
 func TestEnvProvider_Save(t *testing.T) {
-	provider, err := NewEnvProviderWithOptions(nil)
-	if err != nil {
-		t.Fatalf("NewEnvProviderWithOptions() error = %v", err)
-	}
+	Convey("测试EnvProvider的Save功能", t, func() {
+		provider, err := NewEnvProviderWithOptions(nil)
+		So(err, ShouldBeNil)
 
-	err = provider.Save([]byte("test data"))
-	if err == nil {
-		t.Errorf("EnvProvider.Save() expected error, got nil")
-	}
-
-	// 检查错误信息
-	if !strings.Contains(err.Error(), "does not support save") {
-		t.Errorf("EnvProvider.Save() error message = %v, want contains 'does not support save'", err.Error())
-	}
+		Convey("Save操作应该返回错误（不支持保存）", func() {
+			err = provider.Save([]byte("test data"))
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "does not support save")
+		})
+	})
 }
 
 func TestEnvProvider_OnChange(t *testing.T) {
-	provider, err := NewEnvProviderWithOptions(nil)
-	if err != nil {
-		t.Fatalf("NewEnvProviderWithOptions() error = %v", err)
-	}
+	Convey("测试EnvProvider的OnChange功能", t, func() {
+		provider, err := NewEnvProviderWithOptions(nil)
+		So(err, ShouldBeNil)
 
-	// OnChange 应该直接返回，不做任何操作
-	called := false
-	provider.OnChange(func(data []byte) error {
-		called = true
-		return nil
+		Convey("OnChange应该直接返回，不做任何操作", func() {
+			called := false
+			provider.OnChange(func(data []byte) error {
+				called = true
+				return nil
+			})
+
+			// 验证回调没有被调用（因为不支持变更监听）
+			So(called, ShouldBeFalse)
+		})
 	})
-
-	// 验证回调没有被调用（因为不支持变更监听）
-	if called {
-		t.Errorf("EnvProvider.OnChange() callback was called, expected no call")
-	}
 }
 
 func TestEnvProvider_Close(t *testing.T) {
-	provider, err := NewEnvProviderWithOptions(nil)
-	if err != nil {
-		t.Fatalf("NewEnvProviderWithOptions() error = %v", err)
-	}
+	Convey("测试EnvProvider的Close功能", t, func() {
+		provider, err := NewEnvProviderWithOptions(nil)
+		So(err, ShouldBeNil)
 
-	err = provider.Close()
-	if err != nil {
-		t.Errorf("EnvProvider.Close() error = %v, want nil", err)
-	}
+		Convey("Close操作应该成功", func() {
+			err = provider.Close()
+			So(err, ShouldBeNil)
+		})
+	})
 }
 
 func TestEnvProvider_loadEnvFile(t *testing.T) {
-	// 创建临时文件
-	tempFile, err := os.CreateTemp("", "test.env")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	defer os.Remove(tempFile.Name())
+	Convey("测试EnvProvider的loadEnvFile功能", t, func() {
+		// 创建临时文件
+		tempFile, err := os.CreateTemp("", "test.env")
+		So(err, ShouldBeNil)
+		defer os.Remove(tempFile.Name())
 
-	content := `# Comment line
+		content := `# Comment line
 APP_NAME=TestApp
 DB_HOST=localhost
 
@@ -251,36 +200,33 @@ SINGLE_QUOTED='test value'
 // Another comment style
 SPECIAL_CHARS=value with spaces and "quotes"`
 
-	if _, err := tempFile.WriteString(content); err != nil {
-		t.Fatalf("Failed to write temp file: %v", err)
-	}
-	tempFile.Close()
+		_, err = tempFile.WriteString(content)
+		So(err, ShouldBeNil)
+		tempFile.Close()
 
-	provider := &EnvProvider{}
-	envVars := make(map[string]string)
+		Convey("加载环境文件应该成功解析各种格式", func() {
+			provider := &EnvProvider{}
+			envVars := make(map[string]string)
 
-	err = provider.loadEnvFile(tempFile.Name(), envVars)
-	if err != nil {
-		t.Errorf("loadEnvFile() error = %v", err)
-	}
+			err = provider.loadEnvFile(tempFile.Name(), envVars)
+			So(err, ShouldBeNil)
 
-	expected := map[string]string{
-		"APP_NAME":      "TestApp",
-		"DB_HOST":       "localhost",
-		"DB_PORT":       "3306",
-		"EMPTY_VALUE":   "",
-		"QUOTED_VALUE":  `"hello world"`, // 保持原始引号
-		"SINGLE_QUOTED": "'test value'",  // 保持原始引号
-		"SPECIAL_CHARS": `value with spaces and "quotes"`,
-	}
+			expected := map[string]string{
+				"APP_NAME":      "TestApp",
+				"DB_HOST":       "localhost",
+				"DB_PORT":       "3306",
+				"EMPTY_VALUE":   "",
+				"QUOTED_VALUE":  `"hello world"`, // 保持原始引号
+				"SINGLE_QUOTED": "'test value'",  // 保持原始引号
+				"SPECIAL_CHARS": `value with spaces and "quotes"`,
+			}
 
-	for key, expectedValue := range expected {
-		if gotValue, exists := envVars[key]; !exists {
-			t.Errorf("loadEnvFile() missing key %s", key)
-		} else if gotValue != expectedValue {
-			t.Errorf("loadEnvFile() key %s = %v, want %v", key, gotValue, expectedValue)
-		}
-	}
+			for key, expectedValue := range expected {
+				So(envVars, ShouldContainKey, key)
+				So(envVars[key], ShouldEqual, expectedValue)
+			}
+		})
+	})
 }
 
 // parseEnvData 解析 .env 格式数据为 map
@@ -311,130 +257,101 @@ func parseEnvData(data string) map[string]string {
 }
 
 func TestEnvProvider_Watch(t *testing.T) {
-	provider, err := NewEnvProviderWithOptions(nil)
-	if err != nil {
-		t.Fatalf("Failed to create EnvProvider: %v", err)
-	}
-	defer provider.Close()
+	Convey("测试EnvProvider的Watch功能", t, func() {
+		provider, err := NewEnvProviderWithOptions(nil)
+		So(err, ShouldBeNil)
+		defer provider.Close()
 
-	// EnvProvider 不支持 Watch，但不应该返回错误
-	err = provider.Watch()
-	if err != nil {
-		t.Errorf("EnvProvider.Watch() should not return error, got: %v", err)
-	}
+		Convey("EnvProvider不支持Watch，但不应该返回错误", func() {
+			err = provider.Watch()
+			So(err, ShouldBeNil)
+		})
+	})
 }
 
 func TestEnvProvider_LoadWithPrefix(t *testing.T) {
-	// 设置测试环境变量
-	os.Setenv("APP_DATABASE_HOST", "localhost")
-	os.Setenv("APP_DATABASE_PORT", "3306")
-	os.Setenv("APP_DEBUG", "true")
-	os.Setenv("OTHER_KEY", "should_be_ignored")
-	os.Setenv("APP_", "empty_after_prefix") // 应该被忽略
-	os.Setenv("APPOTHER", "not_matching")   // 不匹配前缀
-	defer func() {
-		os.Unsetenv("APP_DATABASE_HOST")
-		os.Unsetenv("APP_DATABASE_PORT") 
-		os.Unsetenv("APP_DEBUG")
-		os.Unsetenv("OTHER_KEY")
-		os.Unsetenv("APP_")
-		os.Unsetenv("APPOTHER")
-	}()
+	Convey("测试EnvProvider的前缀过滤功能", t, func() {
+		// 设置测试环境变量
+		os.Setenv("APP_DATABASE_HOST", "localhost")
+		os.Setenv("APP_DATABASE_PORT", "3306")
+		os.Setenv("APP_DEBUG", "true")
+		os.Setenv("OTHER_KEY", "should_be_ignored")
+		os.Setenv("APP_", "empty_after_prefix") // 应该被忽略
+		os.Setenv("APPOTHER", "not_matching")   // 不匹配前缀
+		defer func() {
+			os.Unsetenv("APP_DATABASE_HOST")
+			os.Unsetenv("APP_DATABASE_PORT") 
+			os.Unsetenv("APP_DEBUG")
+			os.Unsetenv("OTHER_KEY")
+			os.Unsetenv("APP_")
+			os.Unsetenv("APPOTHER")
+		}()
 
-	tests := []struct {
-		name   string
-		prefix string
-		want   map[string]string
-	}{
-		{
-			name:   "no prefix",
-			prefix: "",
-			want: map[string]string{
-				"APP_DATABASE_HOST": "localhost",
-				"APP_DATABASE_PORT": "3306", 
-				"APP_DEBUG":         "true",
-				"OTHER_KEY":         "should_be_ignored",
-				"APP_":              "empty_after_prefix",
-				"APPOTHER":          "not_matching",
-			},
-		},
-		{
-			name:   "with APP_ prefix",
-			prefix: "APP_",
-			want: map[string]string{
-				"DATABASE_HOST": "localhost",
-				"DATABASE_PORT": "3306",
-				"DEBUG":         "true",
-			},
-		},
-		{
-			name:   "with OTHER_ prefix",
-			prefix: "OTHER_",
-			want: map[string]string{
-				"KEY": "should_be_ignored",
-			},
-		},
-		{
-			name:   "non-matching prefix",
-			prefix: "NONEXIST_",
-			want:   map[string]string{},
-		},
-	}
+		testWithPrefix := func(name, prefix string, want map[string]string) {
+			Convey(name, func() {
+				provider, err := NewEnvProviderWithOptions(&EnvProviderOptions{
+					Prefix: prefix,
+				})
+				So(err, ShouldBeNil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			provider, err := NewEnvProviderWithOptions(&EnvProviderOptions{
-				Prefix: tt.prefix,
-			})
-			if err != nil {
-				t.Fatalf("NewEnvProviderWithOptions() error = %v", err)
-			}
+				data, err := provider.Load()
+				So(err, ShouldBeNil)
 
-			data, err := provider.Load()
-			if err != nil {
-				t.Errorf("EnvProvider.Load() error = %v", err)
-				return
-			}
+				// 解析返回的数据
+				got := parseEnvData(string(data))
 
-			// 解析返回的数据
-			got := parseEnvData(string(data))
-
-			t.Logf("Prefix: %q, Got data: %s", tt.prefix, string(data))
-
-			// 检查期望的键值对
-			for key, expectedValue := range tt.want {
-				if gotValue, exists := got[key]; !exists {
-					t.Errorf("EnvProvider.Load() missing expected key %s", key)
-				} else if gotValue != expectedValue {
-					t.Errorf("EnvProvider.Load() key %s = %v, want %v", key, gotValue, expectedValue)
+				// 检查期望的键值对
+				for key, expectedValue := range want {
+					So(got, ShouldContainKey, key)
+					So(got[key], ShouldEqual, expectedValue)
 				}
-			}
 
-			// 检查不应该包含的键（仅检查我们的测试键）
-			testKeys := []string{"APP_DATABASE_HOST", "APP_DATABASE_PORT", "APP_DEBUG", "OTHER_KEY", "APP_", "APPOTHER"}
-			for _, testKey := range testKeys {
-				if _, exists := got[testKey]; exists {
-					// 如果设置了前缀，原始键不应该存在
-					if tt.prefix != "" {
-						t.Errorf("EnvProvider.Load() should not contain original key %s with prefix %q", testKey, tt.prefix)
+				// 检查不应该包含的键（仅检查我们的测试键）
+				testKeys := []string{"APP_DATABASE_HOST", "APP_DATABASE_PORT", "APP_DEBUG", "OTHER_KEY", "APP_", "APPOTHER"}
+				for _, testKey := range testKeys {
+					if _, exists := got[testKey]; exists {
+						// 如果设置了前缀，原始键不应该存在
+						if prefix != "" {
+							So(false, ShouldBeTrue) // 强制失败，因为不应该包含原始键
+						}
 					}
 				}
-			}
+			})
+		}
+
+		testWithPrefix("无前缀", "", map[string]string{
+			"APP_DATABASE_HOST": "localhost",
+			"APP_DATABASE_PORT": "3306", 
+			"APP_DEBUG":         "true",
+			"OTHER_KEY":         "should_be_ignored",
+			"APP_":              "empty_after_prefix",
+			"APPOTHER":          "not_matching",
 		})
-	}
+
+		testWithPrefix("使用APP_前缀", "APP_", map[string]string{
+			"DATABASE_HOST": "localhost",
+			"DATABASE_PORT": "3306",
+			"DEBUG":         "true",
+		})
+
+		testWithPrefix("使用OTHER_前缀", "OTHER_", map[string]string{
+			"KEY": "should_be_ignored",
+		})
+
+		testWithPrefix("不匹配的前缀", "NONEXIST_", map[string]string{})
+	})
 }
 
 func TestEnvProvider_LoadWithPrefixFromFile(t *testing.T) {
-	// 创建临时目录和文件
-	tempDir, err := os.MkdirTemp("", "env_provider_prefix_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	Convey("测试EnvProvider从文件加载时的前缀过滤功能", t, func() {
+		// 创建临时目录和文件
+		tempDir, err := os.MkdirTemp("", "env_provider_prefix_test")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(tempDir)
 
-	// 创建测试 .env 文件
-	envFile := filepath.Join(tempDir, "test.env")
-	envContent := `# Test env file with various prefixes
+		// 创建测试 .env 文件
+		envFile := filepath.Join(tempDir, "test.env")
+		envContent := `# Test env file with various prefixes
 APP_DATABASE_HOST=localhost
 APP_DATABASE_PORT=3306
 OTHER_SERVER_HOST=example.com
@@ -442,73 +359,47 @@ OTHER_SERVER_PORT=8080
 APP_=empty_key
 STANDALONE_KEY=standalone_value`
 
-	if err := os.WriteFile(envFile, []byte(envContent), 0644); err != nil {
-		t.Fatalf("Failed to write env file: %v", err)
-	}
+		err = os.WriteFile(envFile, []byte(envContent), 0644)
+		So(err, ShouldBeNil)
 
-	tests := []struct {
-		name   string
-		prefix string
-		want   map[string]string
-	}{
-		{
-			name:   "APP_ prefix from file",
-			prefix: "APP_",
-			want: map[string]string{
-				"DATABASE_HOST": "localhost",
-				"DATABASE_PORT": "3306",
-			},
-		},
-		{
-			name:   "OTHER_ prefix from file", 
-			prefix: "OTHER_",
-			want: map[string]string{
-				"SERVER_HOST": "example.com",
-				"SERVER_PORT": "8080",
-			},
-		},
-		{
-			name:   "no prefix from file",
-			prefix: "",
-			want: map[string]string{
-				"APP_DATABASE_HOST":  "localhost",
-				"APP_DATABASE_PORT":  "3306",
-				"OTHER_SERVER_HOST":  "example.com",
-				"OTHER_SERVER_PORT":  "8080",
-				"STANDALONE_KEY":     "standalone_value",
-			},
-		},
-	}
+		testFilePrefix := func(name, prefix string, want map[string]string) {
+			Convey(name, func() {
+				provider, err := NewEnvProviderWithOptions(&EnvProviderOptions{
+					EnvFiles: []string{envFile},
+					Prefix:   prefix,
+				})
+				So(err, ShouldBeNil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			provider, err := NewEnvProviderWithOptions(&EnvProviderOptions{
-				EnvFiles: []string{envFile},
-				Prefix:   tt.prefix,
-			})
-			if err != nil {
-				t.Fatalf("NewEnvProviderWithOptions() error = %v", err)
-			}
+				data, err := provider.Load()
+				So(err, ShouldBeNil)
 
-			data, err := provider.Load()
-			if err != nil {
-				t.Errorf("EnvProvider.Load() error = %v", err)
-				return
-			}
+				// 解析返回的数据
+				got := parseEnvData(string(data))
 
-			// 解析返回的数据
-			got := parseEnvData(string(data))
-
-			t.Logf("File prefix test - Prefix: %q, Got data: %s", tt.prefix, string(data))
-
-			// 检查期望的键值对
-			for key, expectedValue := range tt.want {
-				if gotValue, exists := got[key]; !exists {
-					t.Errorf("EnvProvider.Load() missing expected key %s", key)
-				} else if gotValue != expectedValue {
-					t.Errorf("EnvProvider.Load() key %s = %v, want %v", key, gotValue, expectedValue)
+				// 检查期望的键值对
+				for key, expectedValue := range want {
+					So(got, ShouldContainKey, key)
+					So(got[key], ShouldEqual, expectedValue)
 				}
-			}
+			})
+		}
+
+		testFilePrefix("文件中APP_前缀", "APP_", map[string]string{
+			"DATABASE_HOST": "localhost",
+			"DATABASE_PORT": "3306",
 		})
-	}
+
+		testFilePrefix("文件中OTHER_前缀", "OTHER_", map[string]string{
+			"SERVER_HOST": "example.com",
+			"SERVER_PORT": "8080",
+		})
+
+		testFilePrefix("文件中无前缀", "", map[string]string{
+			"APP_DATABASE_HOST":  "localhost",
+			"APP_DATABASE_PORT":  "3306",
+			"OTHER_SERVER_HOST":  "example.com",
+			"OTHER_SERVER_PORT":  "8080",
+			"STANDALONE_KEY":     "standalone_value",
+		})
+	})
 }
