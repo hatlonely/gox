@@ -242,3 +242,342 @@ func NewRedisStoreWithOptions[K, V any](options *RedisStoreOptions) (*RedisStore
 		defaultTTL:    options.DefaultTTL,
 	}, nil
 }
+
+func (s *RedisStore[K, V]) Set(ctx context.Context, key K, value V, opts ...setOption) error {
+	options := &setOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	keyBytes, err := s.keySerializer.Serialize(key)
+	if err != nil {
+		return err
+	}
+
+	valueBytes, err := s.valSerializer.Serialize(value)
+	if err != nil {
+		return err
+	}
+
+	keyStr := string(keyBytes)
+
+	if options.IfNotExist {
+		exists, err := s.client.Exists(ctx, keyStr).Result()
+		if err != nil {
+			return err
+		}
+		if exists > 0 {
+			return ErrConditionFailed
+		}
+	}
+
+	expiration := time.Duration(options.Expiration)
+	if expiration == 0 && s.defaultTTL > 0 {
+		expiration = time.Duration(s.defaultTTL) * time.Second
+	}
+
+	return s.client.Set(ctx, keyStr, valueBytes, expiration).Err()
+}
+
+func (s *RedisStore[K, V]) Get(ctx context.Context, key K) (V, error) {
+	var zero V
+
+	keyBytes, err := s.keySerializer.Serialize(key)
+	if err != nil {
+		return zero, err
+	}
+
+	keyStr := string(keyBytes)
+	valueBytes, err := s.client.Get(ctx, keyStr).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return zero, ErrKeyNotFound
+		}
+		return zero, err
+	}
+
+	return s.valSerializer.Deserialize(valueBytes)
+}
+
+func (s *RedisStore[K, V]) Del(ctx context.Context, key K) error {
+	keyBytes, err := s.keySerializer.Serialize(key)
+	if err != nil {
+		return err
+	}
+
+	keyStr := string(keyBytes)
+	return s.client.Del(ctx, keyStr).Err()
+}
+
+func (s *RedisStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, opts ...setOption) ([]error, error) {
+	if len(keys) != len(vals) {
+		return nil, errors.New("keys and vals length mismatch")
+	}
+
+	options := &setOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	errs := make([]error, len(keys))
+	
+	// 预处理：序列化所有键值对
+	type keyValuePair struct {
+		keyStr   string
+		keyBytes []byte
+		valueBytes []byte
+		index    int
+	}
+	
+	var pairs []keyValuePair
+	for i := range keys {
+		keyBytes, err := s.keySerializer.Serialize(keys[i])
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+
+		valueBytes, err := s.valSerializer.Serialize(vals[i])
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+
+		pairs = append(pairs, keyValuePair{
+			keyStr:     string(keyBytes),
+			keyBytes:   keyBytes,
+			valueBytes: valueBytes,
+			index:      i,
+		})
+	}
+
+	// 如果需要检查 IfNotExist，先批量检查键是否存在
+	if options.IfNotExist {
+		keyStrs := make([]string, len(pairs))
+		for i, pair := range pairs {
+			keyStrs[i] = pair.keyStr
+		}
+		
+		// 使用 MGET 批量检查键是否存在
+		results, err := s.client.MGet(ctx, keyStrs...).Result()
+		if err != nil {
+			// 如果批量检查失败，回退到单个检查
+			for _, pair := range pairs {
+				exists, checkErr := s.client.Exists(ctx, pair.keyStr).Result()
+				if checkErr != nil {
+					errs[pair.index] = checkErr
+					continue
+				}
+				if exists > 0 {
+					errs[pair.index] = ErrConditionFailed
+				}
+			}
+		} else {
+			// 处理 MGET 结果
+			for i, result := range results {
+				if i < len(pairs) && result != nil {
+					errs[pairs[i].index] = ErrConditionFailed
+				}
+			}
+		}
+		
+		// 过滤掉已经存在的键
+		var validPairs []keyValuePair
+		for _, pair := range pairs {
+			if errs[pair.index] == nil {
+				validPairs = append(validPairs, pair)
+			}
+		}
+		pairs = validPairs
+	}
+
+	// 使用 Pipeline 批量执行 SET 命令
+	if len(pairs) > 0 {
+		pipe := s.client.Pipeline()
+		
+		expiration := time.Duration(options.Expiration)
+		if expiration == 0 && s.defaultTTL > 0 {
+			expiration = time.Duration(s.defaultTTL) * time.Second
+		}
+
+		for _, pair := range pairs {
+			pipe.Set(ctx, pair.keyStr, pair.valueBytes, expiration)
+		}
+
+		// 执行 Pipeline
+		cmds, err := pipe.Exec(ctx)
+		if err != nil {
+			// 如果 Pipeline 执行失败，记录错误
+			for _, pair := range pairs {
+				if errs[pair.index] == nil {
+					errs[pair.index] = err
+				}
+			}
+		} else {
+			// 检查每个命令的执行结果
+			for i, cmd := range cmds {
+				if i < len(pairs) {
+					if cmdErr := cmd.Err(); cmdErr != nil && cmdErr != redis.Nil {
+						errs[pairs[i].index] = cmdErr
+					}
+				}
+			}
+		}
+	}
+
+	return errs, nil
+}
+
+func (s *RedisStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []error, error) {
+	vals := make([]V, len(keys))
+	errs := make([]error, len(keys))
+
+	if len(keys) == 0 {
+		return vals, errs, nil
+	}
+
+	// 序列化所有键
+	keyStrs := make([]string, 0, len(keys))
+	keyIndexMap := make(map[int]int) // 原始索引到有效索引的映射
+	validCount := 0
+
+	for i, key := range keys {
+		keyBytes, err := s.keySerializer.Serialize(key)
+		if err != nil {
+			errs[i] = err
+			var zero V
+			vals[i] = zero
+			continue
+		}
+		
+		keyStrs = append(keyStrs, string(keyBytes))
+		keyIndexMap[i] = validCount
+		validCount++
+	}
+
+	// 如果没有有效的键，直接返回
+	if len(keyStrs) == 0 {
+		return vals, errs, nil
+	}
+
+	// 使用 MGET 批量获取
+	results, err := s.client.MGet(ctx, keyStrs...).Result()
+	if err != nil {
+		// 如果 MGET 失败，回退到单个 GET
+		validIndex := 0
+		for i, key := range keys {
+			if errs[i] != nil {
+				continue // 跳过序列化失败的键
+			}
+			
+			val, getErr := s.Get(ctx, key)
+			vals[i] = val
+			errs[i] = getErr
+			validIndex++
+		}
+		return vals, errs, nil
+	}
+
+	// 处理 MGET 结果
+	validIndex := 0
+	for i := range keys {
+		if errs[i] != nil {
+			continue // 跳过序列化失败的键
+		}
+
+		if validIndex < len(results) {
+			result := results[validIndex]
+			if result == nil {
+				// 键不存在
+				var zero V
+				vals[i] = zero
+				errs[i] = ErrKeyNotFound
+			} else {
+				// 反序列化值
+				valueBytes := []byte(result.(string))
+				value, deserErr := s.valSerializer.Deserialize(valueBytes)
+				if deserErr != nil {
+					var zero V
+					vals[i] = zero
+					errs[i] = deserErr
+				} else {
+					vals[i] = value
+					errs[i] = nil
+				}
+			}
+		}
+		validIndex++
+	}
+
+	return vals, errs, nil
+}
+
+func (s *RedisStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, error) {
+	errs := make([]error, len(keys))
+	
+	if len(keys) == 0 {
+		return errs, nil
+	}
+
+	// 序列化所有键
+	type keyInfo struct {
+		keyStr string
+		index  int
+	}
+	
+	var validKeys []keyInfo
+	for i, key := range keys {
+		keyBytes, err := s.keySerializer.Serialize(key)
+		if err != nil {
+			errs[i] = err
+			continue
+		}
+		
+		validKeys = append(validKeys, keyInfo{
+			keyStr: string(keyBytes),
+			index:  i,
+		})
+	}
+
+	// 如果没有有效的键，直接返回
+	if len(validKeys) == 0 {
+		return errs, nil
+	}
+
+	// 使用 Pipeline 批量删除
+	pipe := s.client.Pipeline()
+	
+	for _, keyInfo := range validKeys {
+		pipe.Del(ctx, keyInfo.keyStr)
+	}
+
+	// 执行 Pipeline
+	cmds, err := pipe.Exec(ctx)
+	if err != nil {
+		// 如果 Pipeline 执行失败，记录错误
+		for _, keyInfo := range validKeys {
+			errs[keyInfo.index] = err
+		}
+	} else {
+		// 检查每个命令的执行结果
+		for i, cmd := range cmds {
+			if i < len(validKeys) {
+				if cmdErr := cmd.Err(); cmdErr != nil && cmdErr != redis.Nil {
+					errs[validKeys[i].index] = cmdErr
+				}
+			}
+		}
+	}
+
+	return errs, nil
+}
+
+func (s *RedisStore[K, V]) Close() error {
+	if client, ok := s.client.(*redis.Client); ok {
+		return client.Close()
+	}
+	if clusterClient, ok := s.client.(*redis.ClusterClient); ok {
+		return clusterClient.Close()
+	}
+	return nil
+}
