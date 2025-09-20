@@ -37,7 +37,7 @@ type MultiConfigOptions struct {
 	Sources []*ConfigSourceOptions `cfg:"sources"`
 
 	// 可选的日志配置，用于记录配置变更和处理器执行情况
-	Logger *log.Options `cfg:"logger"`
+	Logger *log.SLogOptions `cfg:"logger"`
 
 	// 可选的处理器执行配置，控制 OnChange/OnKeyChange 回调的执行行为
 	// 包括超时时长、异步/同步执行、错误处理策略等
@@ -137,13 +137,13 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 	var logger log.Logger
 	if options.Logger != nil {
 		var err error
-		logger, err = log.NewLogWithOptions(options.Logger)
+		logger, err = log.NewSLogWithOptions(options.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create logger: %w", err)
 		}
 	} else {
 		var err error
-		logger, err = log.NewLogWithOptions(&log.Options{
+		logger, err = log.NewSLogWithOptions(&log.SLogOptions{
 			Level:  "info",
 			Format: "text",
 		})

@@ -9,9 +9,9 @@ import (
 	"github.com/hatlonely/gox/ref"
 )
 
-func ExampleNewLogWithOptions_console() {
+func ExampleNewSLogWithOptions_console() {
 	// 创建控制台输出的日志配置
-	options := &log.Options{
+	options := &log.SLogOptions{
 		Level:      "info",
 		Format:     "text",
 		TimeFormat: "2006-01-02 15:04:05",
@@ -30,7 +30,7 @@ func ExampleNewLogWithOptions_console() {
 		},
 	}
 
-	logger, err := log.NewLogWithOptions(options)
+	logger, err := log.NewSLogWithOptions(options)
 	if err != nil {
 		fmt.Printf("创建日志失败: %v\n", err)
 		return
@@ -50,13 +50,13 @@ func ExampleNewLogWithOptions_console() {
 	dbLogger.Info("连接数据库成功", "host", "localhost", "port", 5432)
 }
 
-func ExampleNewLogWithOptions_file() {
+func ExampleNewSLogWithOptions_file() {
 	// 确保日志目录存在
 	os.MkdirAll("./logs", 0755)
 	defer os.RemoveAll("./logs") // 清理测试文件
 
 	// 创建文件输出的日志配置
-	options := &log.Options{
+	options := &log.SLogOptions{
 		Level:      "debug",
 		Format:     "json",
 		TimeFormat: "2006-01-02T15:04:05Z07:00",
@@ -74,7 +74,7 @@ func ExampleNewLogWithOptions_file() {
 		},
 	}
 
-	logger, err := log.NewLogWithOptions(options)
+	logger, err := log.NewSLogWithOptions(options)
 	if err != nil {
 		fmt.Printf("创建日志失败: %v\n", err)
 		return
@@ -88,13 +88,13 @@ func ExampleNewLogWithOptions_file() {
 	// Output: 日志已写入文件 ./logs/app.log
 }
 
-func ExampleNewLogWithOptions_multi() {
+func ExampleNewSLogWithOptions_multi() {
 	// 确保日志目录存在
 	os.MkdirAll("./logs", 0755)
 	defer os.RemoveAll("./logs") // 清理测试文件
 
 	// 创建多输出的日志配置
-	options := &log.Options{
+	options := &log.SLogOptions{
 		Level:  "info",
 		Format: "text",
 		Output: ref.TypeOptions{
@@ -122,7 +122,7 @@ func ExampleNewLogWithOptions_multi() {
 		},
 	}
 
-	logger, err := log.NewLogWithOptions(options)
+	logger, err := log.NewSLogWithOptions(options)
 	if err != nil {
 		fmt.Printf("创建日志失败: %v\n", err)
 		return
@@ -134,13 +134,13 @@ func ExampleNewLogWithOptions_multi() {
 	fmt.Println("日志已输出到控制台和文件")
 }
 
-func ExampleNewLogWithOptions_default() {
+func ExampleNewSLogWithOptions_default() {
 	// 使用默认配置（只指定必要参数）
-	options := &log.Options{
+	options := &log.SLogOptions{
 		Level: "info",
 	}
 
-	logger, err := log.NewLogWithOptions(options)
+	logger, err := log.NewSLogWithOptions(options)
 	if err != nil {
 		fmt.Printf("创建日志失败: %v\n", err)
 		return

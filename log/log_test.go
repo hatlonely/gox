@@ -12,7 +12,7 @@ import (
 func TestNewLogWithOptions(t *testing.T) {
 	tests := []struct {
 		name    string
-		options *Options
+		options *SLogOptions
 		wantErr bool
 	}{
 		{
@@ -22,14 +22,14 @@ func TestNewLogWithOptions(t *testing.T) {
 		},
 		{
 			name: "default console output",
-			options: &Options{
+			options: &SLogOptions{
 				Level: "info",
 			},
 			wantErr: false,
 		},
 		{
 			name: "console output with options",
-			options: &Options{
+			options: &SLogOptions{
 				Level:  "debug",
 				Format: "json",
 				Output: ref.TypeOptions{
@@ -45,14 +45,14 @@ func TestNewLogWithOptions(t *testing.T) {
 		},
 		{
 			name: "invalid level",
-			options: &Options{
+			options: &SLogOptions{
 				Level: "invalid",
 			},
 			wantErr: true,
 		},
 		{
 			name: "invalid format",
-			options: &Options{
+			options: &SLogOptions{
 				Level:  "info",
 				Format: "invalid",
 			},
@@ -62,7 +62,7 @@ func TestNewLogWithOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger, err := NewLogWithOptions(tt.options)
+			logger, err := NewSLogWithOptions(tt.options)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewLogWithOptions() error = %v, wantErr %v", err, tt.wantErr)
 				return

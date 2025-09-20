@@ -29,7 +29,7 @@ type HandlerExecutionOptions struct {
 type SingleConfigOptions struct {
 	Provider         ref.TypeOptions          `cfg:"provider"`
 	Decoder          ref.TypeOptions          `cfg:"decoder"`
-	Logger           *log.Options             `cfg:"logger"`
+	Logger           *log.SLogOptions         `cfg:"logger"`
 	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
 }
 
@@ -103,14 +103,14 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 	if options.Logger != nil {
 		// 使用提供的日志配置创建 Logger
 		var err error
-		logger, err = log.NewLogWithOptions(options.Logger)
+		logger, err = log.NewSLogWithOptions(options.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create logger: %w", err)
 		}
 	} else {
 		// 创建默认的终端输出 Logger
 		var err error
-		logger, err = log.NewLogWithOptions(&log.Options{
+		logger, err = log.NewSLogWithOptions(&log.SLogOptions{
 			Level:  "info",
 			Format: "text",
 		})

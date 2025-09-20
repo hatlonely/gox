@@ -238,7 +238,7 @@ func TestMultiConfig_SetLogger(t *testing.T) {
 		config := &MultiConfig{}
 
 		// 创建测试 logger
-		logger, err := log.NewLogWithOptions(&log.Options{
+		logger, err := log.NewSLogWithOptions(&log.SLogOptions{
 			Level:  "debug",
 			Format: "text",
 		})

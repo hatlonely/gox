@@ -3,7 +3,6 @@ package cfg
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
 	"github.com/hatlonely/gox/log"
-	"github.com/hatlonely/gox/log/writer"
 	"github.com/hatlonely/gox/ref"
 )
 
@@ -51,27 +49,8 @@ redis:
 	// 创建 mock writer 来捕获日志
 	mockWriter := &MockWriter{}
 
-	// 创建 logger
-	logger, err := log.NewLogWithOptions(&log.Options{
-		Level:  "info",
-		Format: "json",
-		Output: ref.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log/writer",
-			Type:      "MultiWriter",
-			Options: &writer.MultiWriterOptions{
-				Writers: []ref.TypeOptions{
-					{
-						Type:    "custom",
-						Options: mockWriter,
-					},
-				},
-			},
-		},
-	})
-	if err != nil {
-		// 如果创建 logger 失败，创建一个简单的 mock logger
-		logger = &mockLogger{writer: mockWriter}
-	}
+	// 如果创建 logger 失败，创建一个简单的 mock logger
+	logger := &mockLogger{writer: mockWriter}
 
 	// 创建配置对象
 	options := &SingleConfigOptions{
@@ -241,20 +220,12 @@ func (l *mockLogger) ErrorContext(ctx context.Context, msg string, args ...any) 
 	l.Error(msg, args...)
 }
 
-func (l *mockLogger) Log(ctx context.Context, level slog.Level, msg string, args ...any) {
-	l.Info(msg, args...)
-}
-
 func (l *mockLogger) With(args ...any) log.Logger {
 	return l
 }
 
 func (l *mockLogger) WithGroup(name string) log.Logger {
 	return l
-}
-
-func (l *mockLogger) Handler() slog.Handler {
-	return nil
 }
 
 func TestConfig_WithLoggerOptions(t *testing.T) {
@@ -284,7 +255,7 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
 		},
-		Logger: &log.Options{
+		Logger: &log.SLogOptions{
 			Level:  "debug",
 			Format: "text",
 		},
