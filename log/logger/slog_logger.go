@@ -59,21 +59,9 @@ func NewSLogWithOptions(options *SLogOptions) (*SLog, error) {
 	}
 
 	// 创建输出器
-	var w writer.Writer
-	if options.Output != nil && options.Output.Type != "" {
-		// 使用新的构造方法创建输出器
-		var err error
-		w, err = writer.NewWriterWithOptions(options.Output)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create writer: %w", err)
-		}
-	} else {
-		// 使用默认配置（ConsoleWriter）
-		var err error
-		w, err = writer.NewWriterWithOptions(nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create default writer: %w", err)
-		}
+	w, err := writer.NewWriterWithOptions(options.Output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create writer: %w", err)
 	}
 
 	// 创建 handler
