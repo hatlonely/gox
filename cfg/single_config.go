@@ -102,7 +102,7 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 		var err error
 		log, err = logger.NewLoggerWithOptions(&ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/logger",
-			Type:      "*SLog",
+			Type:      "SLog",
 			Options: &logger.SLogOptions{
 				Level:  "info",
 				Format: "text",

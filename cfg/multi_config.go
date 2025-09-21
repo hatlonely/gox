@@ -137,7 +137,7 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 		var err error
 		log, err = logger.NewLoggerWithOptions(&ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/logger",
-			Type:      "*SLog",
+			Type:      "SLog",
 			Options: &logger.SLogOptions{
 				Level:  "info",
 				Format: "text",
