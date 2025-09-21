@@ -37,7 +37,7 @@ type MultiConfigOptions struct {
 	Sources []*ConfigSourceOptions `cfg:"sources"`
 
 	// 可选的日志配置，用于记录配置变更和处理器执行情况
-	Logger *logger.SLogOptions `cfg:"logger"`
+	Logger *ref.TypeOptions `cfg:"logger"`
 
 	// 可选的处理器执行配置，控制 OnChange/OnKeyChange 回调的执行行为
 	// 包括超时时长、异步/同步执行、错误处理策略等
@@ -86,25 +86,15 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 
 	for i, sourceOptions := range options.Sources {
 		// 创建 Provider 实例
-		providerObj, err := ref.New(sourceOptions.Provider.Namespace, sourceOptions.Provider.Type, sourceOptions.Provider.Options)
+		prov, err := provider.NewProviderWithOptions(&sourceOptions.Provider)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create provider %d: %w", i, err)
 		}
 
-		prov, ok := providerObj.(provider.Provider)
-		if !ok {
-			return nil, fmt.Errorf("provider %d does not implement Provider interface", i)
-		}
-
 		// 创建 Decoder 实例
-		decoderObj, err := ref.New(sourceOptions.Decoder.Namespace, sourceOptions.Decoder.Type, sourceOptions.Decoder.Options)
+		dec, err := decoder.NewDecoderWithOptions(&sourceOptions.Decoder)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create decoder %d: %w", i, err)
-		}
-
-		dec, ok := decoderObj.(decoder.Decoder)
-		if !ok {
-			return nil, fmt.Errorf("decoder %d does not implement Decoder interface", i)
 		}
 
 		// 从 Provider 加载数据
@@ -136,16 +126,22 @@ func NewMultiConfigWithOptions(options *MultiConfigOptions) (*MultiConfig, error
 	// 创建或使用默认 Logger
 	var log logger.Logger
 	if options.Logger != nil {
+		// 使用提供的日志配置创建 Logger
 		var err error
-		log, err = logger.NewSLogWithOptions(options.Logger)
+		log, err = logger.NewLoggerWithOptions(options.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create logger: %w", err)
 		}
 	} else {
+		// 创建默认的终端输出 Logger
 		var err error
-		log, err = logger.NewSLogWithOptions(&logger.SLogOptions{
-			Level:  "info",
-			Format: "text",
+		log, err = logger.NewLoggerWithOptions(&ref.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/log/logger",
+			Type:      "*SLog",
+			Options: &logger.SLogOptions{
+				Level:  "info",
+				Format: "text",
+			},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create default logger: %w", err)
