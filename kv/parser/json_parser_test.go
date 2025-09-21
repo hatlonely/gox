@@ -13,7 +13,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
-			parser, err := NewJsonLineParserWithOptions[string, map[string]interface{}](options)
+			parser, err := NewJsonParserWithOptions[string, map[string]interface{}](options)
 			So(err, ShouldBeNil)
 			So(parser, ShouldNotBeNil)
 			So(parser.keyFields, ShouldResemble, []string{"id"})
@@ -21,7 +21,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 		})
 
 		Convey("空配置使用默认值", func() {
-			parser, err := NewJsonLineParserWithOptions[string, interface{}](nil)
+			parser, err := NewJsonParserWithOptions[string, interface{}](nil)
 			So(err, ShouldBeNil)
 			So(parser, ShouldNotBeNil)
 			So(parser.keySeparator, ShouldEqual, "_")
@@ -33,7 +33,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 				KeyFields:    []string{"user_id"},
 				KeySeparator: "",
 			}
-			parser, err := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, err := NewJsonParserWithOptions[string, interface{}](options)
 			So(err, ShouldBeNil)
 			So(parser.keySeparator, ShouldEqual, "_")
 		})
@@ -58,7 +58,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 					},
 				},
 			}
-			parser, err := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, err := NewJsonParserWithOptions[string, interface{}](options)
 			So(err, ShouldBeNil)
 			So(len(parser.changeTypeRules), ShouldEqual, 2)
 			So(parser.changeTypeRules[0].Logic, ShouldEqual, "AND")
@@ -71,7 +71,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 			}
 
 			Convey("int-string类型", func() {
-				parser, err := NewJsonLineParserWithOptions[int, string](options)
+				parser, err := NewJsonParserWithOptions[int, string](options)
 				So(err, ShouldBeNil)
 				So(parser, ShouldNotBeNil)
 			})
@@ -81,7 +81,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 					Name string `json:"name"`
 					Age  int    `json:"age"`
 				}
-				parser, err := NewJsonLineParserWithOptions[string, User](options)
+				parser, err := NewJsonParserWithOptions[string, User](options)
 				So(err, ShouldBeNil)
 				So(parser, ShouldNotBeNil)
 			})
@@ -226,7 +226,7 @@ func TestGenerateKey(t *testing.T) {
 				KeyFields:    []string{"user_id"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			key, err := parser.generateKey(data)
 			So(err, ShouldBeNil)
@@ -238,7 +238,7 @@ func TestGenerateKey(t *testing.T) {
 				KeyFields:    []string{"user_id", "name"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			key, err := parser.generateKey(data)
 			So(err, ShouldBeNil)
@@ -250,7 +250,7 @@ func TestGenerateKey(t *testing.T) {
 				KeyFields:    []string{"user_id", "user.profile.email"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			key, err := parser.generateKey(data)
 			So(err, ShouldBeNil)
@@ -262,7 +262,7 @@ func TestGenerateKey(t *testing.T) {
 				KeyFields:    []string{"user_id", "name", "age"},
 				KeySeparator: "|",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			key, err := parser.generateKey(data)
 			So(err, ShouldBeNil)
@@ -274,7 +274,7 @@ func TestGenerateKey(t *testing.T) {
 				KeyFields:    []string{"age", "user_id"},
 				KeySeparator: "-",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			key, err := parser.generateKey(data)
 			So(err, ShouldBeNil)
@@ -287,7 +287,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(data)
 				So(err, ShouldNotBeNil)
@@ -300,7 +300,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{"nonexistent"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(data)
 				So(err, ShouldNotBeNil)
@@ -313,7 +313,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{"user.nonexistent"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(data)
 				So(err, ShouldNotBeNil)
@@ -326,7 +326,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{"user_id", "nonexistent"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(data)
 				So(err, ShouldNotBeNil)
@@ -349,7 +349,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{"id", "zero"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(specialData)
 				So(err, ShouldBeNil)
@@ -361,7 +361,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{"id", "empty"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(specialData)
 				So(err, ShouldBeNil)
@@ -373,7 +373,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{"id", "bool"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(specialData)
 				So(err, ShouldBeNil)
@@ -385,7 +385,7 @@ func TestGenerateKey(t *testing.T) {
 					KeyFields:    []string{"id", "null"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				key, err := parser.generateKey(specialData)
 				So(err, ShouldBeNil)
@@ -465,7 +465,7 @@ func TestChangeTypeMatching(t *testing.T) {
 			options := &JsonLineParserOptions{
 				KeyFields: []string{"action"},
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			Convey("AND逻辑规则", func() {
 				Convey("单条件匹配", func() {
@@ -611,7 +611,7 @@ func TestChangeTypeMatching(t *testing.T) {
 						},
 					},
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 				So(parser.determineChangeType(data), ShouldEqual, ChangeTypeDelete)
 			})
 
@@ -635,7 +635,7 @@ func TestChangeTypeMatching(t *testing.T) {
 						},
 					},
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 				So(parser.determineChangeType(data), ShouldEqual, ChangeTypeDelete)
 			})
 
@@ -652,7 +652,7 @@ func TestChangeTypeMatching(t *testing.T) {
 						},
 					},
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 				So(parser.determineChangeType(data), ShouldEqual, ChangeTypeAdd)
 			})
 
@@ -661,7 +661,7 @@ func TestChangeTypeMatching(t *testing.T) {
 					KeyFields:       []string{"action"},
 					ChangeTypeRules: []ChangeTypeRule{},
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 				So(parser.determineChangeType(data), ShouldEqual, ChangeTypeAdd)
 			})
 
@@ -680,7 +680,7 @@ func TestChangeTypeMatching(t *testing.T) {
 						},
 					},
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 				So(parser.determineChangeType(data), ShouldEqual, ChangeTypeDelete)
 			})
 		})
@@ -694,7 +694,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			jsonLine := `{"id":"123","name":"alice","age":25}`
 			changeType, key, value, err := parser.Parse([]byte(jsonLine))
@@ -722,7 +722,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, User](options)
+			parser, _ := NewJsonParserWithOptions[string, User](options)
 
 			jsonLine := `{"id":"123","name":"alice","age":25}`
 			changeType, key, value, err := parser.Parse([]byte(jsonLine))
@@ -740,7 +740,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				KeyFields:    []string{"user_id", "name"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			jsonLine := `{"user_id":"123","name":"alice","action":"create"}`
 			changeType, key, _, err := parser.Parse([]byte(jsonLine))
@@ -755,7 +755,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				KeyFields:    []string{"user.id", "user.profile.email"},
 				KeySeparator: "|",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			jsonLine := `{"user":{"id":"123","profile":{"email":"alice@test.com"}},"action":"update"}`
 			changeType, key, _, err := parser.Parse([]byte(jsonLine))
@@ -787,7 +787,7 @@ func TestJsonLineParserParse(t *testing.T) {
 					},
 				},
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			Convey("匹配delete规则", func() {
 				jsonLine := `{"id":"123","action":"delete","status":"any"}`
@@ -841,7 +841,7 @@ func TestJsonLineParserParse(t *testing.T) {
 					},
 				},
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			Convey("OR逻辑匹配", func() {
 				jsonLine := `{"user_id":"123","action":"remove","user":{"role":"user"}}`
@@ -867,7 +867,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			Convey("无效JSON", func() {
 				jsonLine := `{"id":"123","name":}`
@@ -891,7 +891,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("key类型转换失败", func() {
 				jsonLine := `{"id":"not_a_number"}`
-				parser, _ := NewJsonLineParserWithOptions[int, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[int, interface{}](options)
 
 				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
@@ -908,7 +908,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				}
 
 				jsonLine := `{"id":"123","data":"not_a_number"}`
-				parser, _ := NewJsonLineParserWithOptions[string, InvalidStruct](options)
+				parser, _ := NewJsonParserWithOptions[string, InvalidStruct](options)
 
 				changeType, _, _, err := parser.Parse([]byte(jsonLine))
 
@@ -923,7 +923,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				KeyFields:    []string{"id", "status"},
 				KeySeparator: "_",
 			}
-			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 			Convey("包含null值", func() {
 				jsonLine := `{"id":"123","status":null,"data":"test"}`
@@ -972,7 +972,7 @@ func TestJsonLineParserParse(t *testing.T) {
 					KeyFields:    []string{"id"},
 					KeySeparator: "_",
 				}
-				parser, _ := NewJsonLineParserWithOptions[int, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[int, interface{}](options)
 
 				jsonLine := `{"id":"123","name":"alice"}`
 				changeType, key, _, err := parser.Parse([]byte(jsonLine))
@@ -987,7 +987,7 @@ func TestJsonLineParserParse(t *testing.T) {
 					KeyFields:    []string{"user_id", "timestamp"},
 					KeySeparator: "-",
 				}
-				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
+				parser, _ := NewJsonParserWithOptions[string, interface{}](options)
 
 				jsonLine := `{"user_id":"alice","timestamp":1609459200,"action":"login"}`
 				changeType, key, _, err := parser.Parse([]byte(jsonLine))

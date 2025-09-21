@@ -12,7 +12,7 @@ func TestNewSeparatorLineParserWithOptions(t *testing.T) {
 			options := &SeparatorLineParserOptions{
 				Separator: "\t",
 			}
-			parser, err := NewSeparatorLineParserWithOptions[string, string](options)
+			parser, err := NewLineParserWithOptions[string, string](options)
 			So(err, ShouldBeNil)
 			So(parser, ShouldNotBeNil)
 			So(parser.separator, ShouldEqual, "\t")
@@ -24,14 +24,14 @@ func TestNewSeparatorLineParserWithOptions(t *testing.T) {
 			}
 
 			Convey("string-int类型", func() {
-				parser, err := NewSeparatorLineParserWithOptions[string, int](options)
+				parser, err := NewLineParserWithOptions[string, int](options)
 				So(err, ShouldBeNil)
 				So(parser, ShouldNotBeNil)
 				So(parser.separator, ShouldEqual, ",")
 			})
 
 			Convey("int-string类型", func() {
-				parser, err := NewSeparatorLineParserWithOptions[int, string](options)
+				parser, err := NewLineParserWithOptions[int, string](options)
 				So(err, ShouldBeNil)
 				So(parser, ShouldNotBeNil)
 				So(parser.separator, ShouldEqual, ",")
@@ -42,7 +42,7 @@ func TestNewSeparatorLineParserWithOptions(t *testing.T) {
 			options := &SeparatorLineParserOptions{
 				Separator: "|",
 			}
-			parser, err := NewSeparatorLineParserWithOptions[string, string](options)
+			parser, err := NewLineParserWithOptions[string, string](options)
 			So(err, ShouldBeNil)
 			So(parser, ShouldNotBeNil)
 			So(parser.separator, ShouldEqual, "|")
@@ -57,7 +57,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 		}
 
 		Convey("字符串类型解析", func() {
-			parser, _ := NewSeparatorLineParserWithOptions[string, string](options)
+			parser, _ := NewLineParserWithOptions[string, string](options)
 
 			Convey("基本key-value解析", func() {
 				changeType, key, value, err := parser.Parse([]byte("hello\tworld"))
@@ -121,7 +121,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 		})
 
 		Convey("整数类型解析", func() {
-			parser, _ := NewSeparatorLineParserWithOptions[string, int](options)
+			parser, _ := NewLineParserWithOptions[string, int](options)
 
 			Convey("正常整数解析", func() {
 				changeType, key, value, err := parser.Parse([]byte("count\t42"))
@@ -149,7 +149,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 		})
 
 		Convey("浮点数类型解析", func() {
-			parser, _ := NewSeparatorLineParserWithOptions[string, float64](options)
+			parser, _ := NewLineParserWithOptions[string, float64](options)
 
 			Convey("正常浮点数解析", func() {
 				changeType, key, value, err := parser.Parse([]byte("pi\t3.14159"))
@@ -169,7 +169,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 		})
 
 		Convey("布尔类型解析", func() {
-			parser, _ := NewSeparatorLineParserWithOptions[string, bool](options)
+			parser, _ := NewLineParserWithOptions[string, bool](options)
 
 			Convey("true值解析", func() {
 				changeType, key, value, err := parser.Parse([]byte("enabled\ttrue"))
@@ -193,7 +193,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 				Name string `json:"name"`
 				Age  int    `json:"age"`
 			}
-			parser, _ := NewSeparatorLineParserWithOptions[string, User](options)
+			parser, _ := NewLineParserWithOptions[string, User](options)
 
 			Convey("正常JSON解析", func() {
 				changeType, key, value, err := parser.Parse([]byte("user1\t{\"name\":\"alice\",\"age\":25}"))
@@ -218,7 +218,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			customOptions := &SeparatorLineParserOptions{
 				Separator: "|",
 			}
-			parser, _ := NewSeparatorLineParserWithOptions[string, string](customOptions)
+			parser, _ := NewLineParserWithOptions[string, string](customOptions)
 
 			changeType, key, value, err := parser.Parse([]byte("hello|world|update"))
 			So(err, ShouldBeNil)

@@ -16,7 +16,13 @@ type SeparatorLineParser[K, V any] struct {
 	separator string
 }
 
-func NewSeparatorLineParserWithOptions[K, V any](options *SeparatorLineParserOptions) (*SeparatorLineParser[K, V], error) {
+func NewLineParserWithOptions[K, V any](options *SeparatorLineParserOptions) (*SeparatorLineParser[K, V], error) {
+	if options == nil {
+		return &SeparatorLineParser[K, V]{
+			separator: "\t",
+		}, nil
+	}
+
 	return &SeparatorLineParser[K, V]{
 		separator: options.Separator,
 	}, nil

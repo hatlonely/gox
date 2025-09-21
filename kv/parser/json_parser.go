@@ -19,9 +19,9 @@ type ChangeTypeRule struct {
 }
 
 type JsonLineParserOptions struct {
-	KeyFields       []string        `cfg:"keyFields"`                 // 用于生成key的字段路径
-	KeySeparator    string          `cfg:"keySeparator" def:"_"`      // key字段间的分隔符
-	ChangeTypeRules []ChangeTypeRule `cfg:"changeTypeRules"`          // changeType规则
+	KeyFields       []string         `cfg:"keyFields"`            // 用于生成key的字段路径
+	KeySeparator    string           `cfg:"keySeparator" def:"_"` // key字段间的分隔符
+	ChangeTypeRules []ChangeTypeRule `cfg:"changeTypeRules"`      // changeType规则
 }
 
 type JsonLineParser[K, V any] struct {
@@ -30,16 +30,18 @@ type JsonLineParser[K, V any] struct {
 	changeTypeRules []ChangeTypeRule
 }
 
-func NewJsonLineParserWithOptions[K, V any](options *JsonLineParserOptions) (*JsonLineParser[K, V], error) {
+func NewJsonParserWithOptions[K, V any](options *JsonLineParserOptions) (*JsonLineParser[K, V], error) {
 	if options == nil {
-		options = &JsonLineParserOptions{}
+		return &JsonLineParser[K, V]{
+			keyFields: []string{"id"},
+		}, nil
 	}
-	
+
 	keySeparator := options.KeySeparator
 	if keySeparator == "" {
 		keySeparator = "_"
 	}
-	
+
 	// 为每个规则设置默认Logic
 	rules := make([]ChangeTypeRule, len(options.ChangeTypeRules))
 	for i, rule := range options.ChangeTypeRules {
@@ -49,7 +51,7 @@ func NewJsonLineParserWithOptions[K, V any](options *JsonLineParserOptions) (*Js
 		}
 		rules[i].Logic = strings.ToUpper(rules[i].Logic)
 	}
-	
+
 	return &JsonLineParser[K, V]{
 		keyFields:       options.KeyFields,
 		keySeparator:    keySeparator,
@@ -62,22 +64,22 @@ func getFieldValue(data map[string]interface{}, fieldPath string) (interface{}, 
 	if fieldPath == "" {
 		return nil, false
 	}
-	
+
 	// 支持嵌套路径，如 "user.id" 或 "metadata.timestamp"
 	parts := strings.Split(fieldPath, ".")
 	current := data
-	
+
 	for i, part := range parts {
 		value, exists := current[part]
 		if !exists {
 			return nil, false
 		}
-		
+
 		// 如果是最后一个部分，返回值
 		if i == len(parts)-1 {
 			return value, true
 		}
-		
+
 		// 否则继续向下遍历，检查是否是map类型
 		if nextMap, ok := value.(map[string]interface{}); ok {
 			current = nextMap
@@ -86,7 +88,7 @@ func getFieldValue(data map[string]interface{}, fieldPath string) (interface{}, 
 			return nil, false
 		}
 	}
-	
+
 	return nil, false
 }
 
@@ -95,18 +97,18 @@ func (p *JsonLineParser[K, V]) generateKey(data map[string]interface{}) (string,
 	if len(p.keyFields) == 0 {
 		return "", fmt.Errorf("no key fields configured")
 	}
-	
+
 	var keyParts []string
 	for _, field := range p.keyFields {
 		value, exists := getFieldValue(data, field)
 		if !exists {
 			return "", fmt.Errorf("key field %q not found in JSON", field)
 		}
-		
+
 		// 将值转换为字符串
 		keyParts = append(keyParts, fmt.Sprintf("%v", value))
 	}
-	
+
 	return strings.Join(keyParts, p.keySeparator), nil
 }
 
@@ -118,12 +120,12 @@ func compareValues(actual, expected interface{}) bool {
 	if actual == nil || expected == nil {
 		return false
 	}
-	
+
 	// 直接比较
 	if actual == expected {
 		return true
 	}
-	
+
 	// 类型转换比较
 	actualStr := fmt.Sprintf("%v", actual)
 	expectedStr := fmt.Sprintf("%v", expected)
@@ -136,7 +138,7 @@ func evaluateCondition(data map[string]interface{}, condition Condition) bool {
 	if !exists {
 		return false
 	}
-	
+
 	return compareValues(value, condition.Value)
 }
 
@@ -145,7 +147,7 @@ func (p *JsonLineParser[K, V]) evaluateRule(data map[string]interface{}, rule Ch
 	if len(rule.Conditions) == 0 {
 		return false
 	}
-	
+
 	switch rule.Logic {
 	case "AND":
 		// 所有条件都必须满足
@@ -155,7 +157,7 @@ func (p *JsonLineParser[K, V]) evaluateRule(data map[string]interface{}, rule Ch
 			}
 		}
 		return true
-		
+
 	case "OR":
 		// 任一条件满足即可
 		for _, condition := range rule.Conditions {
@@ -164,7 +166,7 @@ func (p *JsonLineParser[K, V]) evaluateRule(data map[string]interface{}, rule Ch
 			}
 		}
 		return false
-		
+
 	default:
 		// 默认使用AND逻辑
 		for _, condition := range rule.Conditions {
@@ -184,7 +186,7 @@ func (p *JsonLineParser[K, V]) determineChangeType(data map[string]interface{}) 
 			return rule.Type
 		}
 	}
-	
+
 	// 都不匹配时使用默认值
 	return ChangeTypeAdd
 }
@@ -192,28 +194,28 @@ func (p *JsonLineParser[K, V]) determineChangeType(data map[string]interface{}) 
 func (p *JsonLineParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
 	var zeroK K
 	var zeroV V
-	
+
 	// 解析JSON
 	var jsonData map[string]interface{}
 	if err := json.Unmarshal(buf, &jsonData); err != nil {
 		return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to parse JSON: %w", err)
 	}
-	
+
 	// 生成key
 	keyStr, err := p.generateKey(jsonData)
 	if err != nil {
 		return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to generate key: %w", err)
 	}
-	
+
 	// 转换key到目标类型
 	key, err := parseValue[K](keyStr)
 	if err != nil {
 		return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to convert key to type %T: %w", zeroK, err)
 	}
-	
+
 	// 将整个JSON作为value
 	var value V
-	
+
 	// 检查V的类型
 	valueType := reflect.TypeOf(value)
 	if valueType == nil {
@@ -229,9 +231,9 @@ func (p *JsonLineParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
 			return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to unmarshal JSON to type %T: %w", zeroV, err)
 		}
 	}
-	
+
 	// 确定changeType
 	changeType := p.determineChangeType(jsonData)
-	
+
 	return changeType, key, value, nil
 }
