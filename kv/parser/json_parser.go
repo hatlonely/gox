@@ -93,6 +93,26 @@ func getFieldValue(data map[string]interface{}, fieldPath string) (interface{}, 
 	return nil, false
 }
 
+// formatValue 将值格式化为字符串，避免科学记数法
+func formatValue(value interface{}) string {
+	switch v := value.(type) {
+	case float64:
+		// 对于浮点数，检查是否是整数
+		if v == float64(int64(v)) {
+			return fmt.Sprintf("%.0f", v)
+		}
+		return fmt.Sprintf("%g", v)
+	case float32:
+		// 对于浮点数，检查是否是整数
+		if v == float32(int32(v)) {
+			return fmt.Sprintf("%.0f", v)
+		}
+		return fmt.Sprintf("%g", v)
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
 // generateKey 根据配置的字段生成key
 func (p *JsonParser[K, V]) generateKey(data map[string]interface{}) (string, error) {
 	if len(p.keyFields) == 0 {
@@ -106,8 +126,8 @@ func (p *JsonParser[K, V]) generateKey(data map[string]interface{}) (string, err
 			return "", fmt.Errorf("key field %q not found in JSON", field)
 		}
 
-		// 将值转换为字符串
-		keyParts = append(keyParts, fmt.Sprintf("%v", value))
+		// 将值转换为字符串，避免科学记数法
+		keyParts = append(keyParts, formatValue(value))
 	}
 
 	return strings.Join(keyParts, p.keySeparator), nil
