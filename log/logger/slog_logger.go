@@ -61,26 +61,18 @@ func NewSLogWithOptions(options *SLogOptions) (*SLog, error) {
 	// 创建输出器
 	var w writer.Writer
 	if options.Output.Type != "" {
-		// 使用 ref 创建输出器
-		writerObj, err := ref.New(options.Output.Namespace, options.Output.Type, options.Output.Options)
+		// 使用新的构造方法创建输出器
+		var err error
+		w, err = writer.NewWriterWithOptions(&options.Output)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create writer: %w", err)
 		}
-
-		var ok bool
-		w, ok = writerObj.(writer.Writer)
-		if !ok {
-			return nil, fmt.Errorf("writer object does not implement Writer interface")
-		}
 	} else {
-		// 默认使用控制台输出
+		// 使用默认配置（ConsoleWriter）
 		var err error
-		w, err = writer.NewConsoleWriterWithOptions(&writer.ConsoleWriterOptions{
-			Color:  true,
-			Target: "stdout",
-		})
+		w, err = writer.NewWriterWithOptions(nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create default console writer: %w", err)
+			return nil, fmt.Errorf("failed to create default writer: %w", err)
 		}
 	}
 
