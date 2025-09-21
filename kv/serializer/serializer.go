@@ -12,6 +12,10 @@ type Serializer[F, T any] interface {
 
 func NewByteSerializerWithOptions[T any](options *ref.TypeOptions) (Serializer[T, []byte], error) {
 	// 注册 serializer 类型
+	ref.RegisterT[*JSONSerializer[T]](NewJSONSerializer[T])
+	ref.RegisterT[*BSONSerializer[T]](NewBSONSerializer[T])
+	ref.RegisterT[*MsgPackSerializer[T]](NewMsgPackSerializer[T])
+
 	ref.RegisterT[JSONSerializer[T]](NewJSONSerializer[T])
 	ref.RegisterT[BSONSerializer[T]](NewBSONSerializer[T])
 	ref.RegisterT[MsgPackSerializer[T]](NewMsgPackSerializer[T])
