@@ -11,6 +11,7 @@ import (
 	"github.com/hatlonely/gox/cfg/decoder"
 	"github.com/hatlonely/gox/cfg/provider"
 	"github.com/hatlonely/gox/cfg/storage"
+	"github.com/hatlonely/gox/log"
 	"github.com/hatlonely/gox/log/logger"
 	"github.com/hatlonely/gox/ref"
 )
@@ -88,29 +89,10 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 	// 用 ValidateStorage 包装 storage 以提供自动校验功能
 	stor = storage.NewValidateStorage(stor)
 
-	// 创建或使用默认 Logger
-	var log logger.Logger
-	if options.Logger != nil {
-		// 使用提供的日志配置创建 Logger
-		var err error
-		log, err = logger.NewLoggerWithOptions(options.Logger)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create logger: %w", err)
-		}
-	} else {
-		// 创建默认的终端输出 Logger
-		var err error
-		log, err = logger.NewLoggerWithOptions(&ref.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/log/logger",
-			Type:      "SLog",
-			Options: &logger.SLogOptions{
-				Level:  "info",
-				Format: "text",
-			},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create default logger: %w", err)
-		}
+	// 创建 Logger (当 options.Logger 为 nil 时，log.NewLoggerWithOptions 自动返回默认 Logger)
+	logInstance, err := log.NewLoggerWithOptions(options.Logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 
 	// 设置默认的 handler 执行配置
@@ -136,7 +118,7 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 		provider:            prov,
 		storage:             stor,
 		decoder:             dec,
-		logger:              log,
+		logger:              logInstance,
 		handlerExecution:    handlerExecution,
 		onKeyChangeHandlers: make(map[string][]func(storage.Storage) error),
 	}
