@@ -20,6 +20,11 @@ type Parser[K, V any] interface {
 }
 
 func NewParserWithOptions[K, V any](options *ref.TypeOptions) (Parser[K, V], error) {
+	// 注册 parser 类型
+	ref.RegisterT[LineParser[K, V]](NewLineParserWithOptions[K, V])
+	ref.RegisterT[JsonParser[K, V]](NewJsonParserWithOptions[K, V])
+	ref.RegisterT[BsonParser[K, V]](NewBsonParserWithOptions[K, V])
+
 	parser, err := ref.New(options.Namespace, options.Type, options.Options)
 	if err != nil {
 		return nil, errors.WithMessage(err, "refx.NewT failed")

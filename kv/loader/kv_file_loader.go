@@ -45,11 +45,6 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 		return nil, errors.New("options is nil")
 	}
 
-	// 注册 parser 类型
-	ref.RegisterT[parser.LineParser[K, V]](parser.NewLineParserWithOptions[K, V])
-	ref.RegisterT[parser.JsonParser[K, V]](parser.NewJsonParserWithOptions[K, V])
-	ref.RegisterT[parser.BsonParser[K, V]](parser.NewBsonParserWithOptions[K, V])
-
 	if options.ScannerBufferMinSize <= 0 {
 		options.ScannerBufferMinSize = 64 * 1024
 	}
