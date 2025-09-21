@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"reflect"
 	"time"
 
 	"github.com/coocood/freecache"
@@ -26,35 +25,14 @@ type FreeCacheStore[K, V any] struct {
 }
 
 func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*FreeCacheStore[K, V], error) {
-	// 获取K和V的类型名，用于构造默认TypeOptions
-	var k K
-	var v V
-
-	// 设置默认的序列化器配置
-	keySerializerOptions := options.KeySerializer
-	if keySerializerOptions == nil {
-		keySerializerOptions = &ref.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/kv/serializer",
-			Type:      "MsgPackSerializer[" + reflect.TypeOf(k).String() + "]",
-		}
-	}
-
-	valSerializerOptions := options.ValSerializer
-	if valSerializerOptions == nil {
-		valSerializerOptions = &ref.TypeOptions{
-			Namespace: "github.com/hatlonely/gox/kv/serializer",
-			Type:      "MsgPackSerializer[" + reflect.TypeOf(v).String() + "]",
-		}
-	}
-
 	// 构造 key 序列化器
-	keySerializer, err := serializer.NewByteSerializerWithOptions[K](keySerializerOptions)
+	keySerializer, err := serializer.NewByteSerializerWithOptions[K](options.KeySerializer)
 	if err != nil {
 		return nil, err
 	}
 
 	// 构造 value 序列化器
-	valueSerializer, err := serializer.NewByteSerializerWithOptions[V](valSerializerOptions)
+	valueSerializer, err := serializer.NewByteSerializerWithOptions[V](options.ValSerializer)
 	if err != nil {
 		return nil, err
 	}
