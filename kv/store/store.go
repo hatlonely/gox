@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
 )
 
@@ -49,4 +50,29 @@ type Store[K, V any] interface {
 	// BatchDel 批量删除，返回每个键的操作结果
 	BatchDel(ctx context.Context, keys []K) ([]error, error)
 	Close() error
+}
+
+func NewStoreWithOptions[K comparable, V any](options *ref.TypeOptions) (Store[K, V], error) {
+	// 注册 store 类型
+	ref.RegisterT[*MapStore[K, V]](NewMapStoreWithOptions[K, V])
+	ref.RegisterT[*SyncMapStore[K, V]](NewSyncMapStoreWithOptions[K, V])
+	ref.RegisterT[*SliceMapStore[K, V]](NewSliceMapStoreWithOptions[K, V])
+	ref.RegisterT[*FreeCacheStore[K, V]](NewFreeCacheStoreWithOptions[K, V])
+	ref.RegisterT[*BoltDBStore[K, V]](NewBoltDBStoreWithOptions[K, V])
+	ref.RegisterT[*RedisStore[K, V]](NewRedisStoreWithOptions[K, V])
+	ref.RegisterT[*PebbleStore[K, V]](NewPebbleStoreWithOptions[K, V])
+	ref.RegisterT[*LevelDBStore[K, V]](NewLevelDBStoreWithOptions[K, V])
+
+	store, err := ref.New(options.Namespace, options.Type, options.Options)
+	if err != nil {
+		return nil, errors.WithMessage(err, "refx.NewT failed")
+	}
+	if store == nil {
+		return nil, errors.New("store is nil")
+	}
+	if _, ok := store.(Store[K, V]); !ok {
+		return nil, errors.New("store is not a Store")
+	}
+
+	return store.(Store[K, V]), nil
 }
