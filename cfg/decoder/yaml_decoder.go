@@ -10,20 +10,20 @@ import (
 // YamlDecoderOptions YAML解码器配置选项
 type YamlDecoderOptions struct {
 	// Indent YAML缩进空格数，默认为2
-	Indent int
+	Indent int `cfg:"indent"`
 }
 
 // YamlDecoder YAML格式编解码器
 // 支持标准YAML格式，自带注释支持
 type YamlDecoder struct {
-	// Indent YAML缩进空格数，默认为2
-	Indent int
+	// indent YAML缩进空格数，默认为2
+	indent int
 }
 
 // NewYamlDecoder 创建新的YAML解码器，使用默认配置
 func NewYamlDecoder() *YamlDecoder {
 	return &YamlDecoder{
-		Indent: 2, // 默认2个空格缩进
+		indent: 2, // 默认2个空格缩进
 	}
 }
 
@@ -34,14 +34,14 @@ func NewYamlDecoderWithOptions(options *YamlDecoderOptions) *YamlDecoder {
 		return NewYamlDecoder()
 	}
 	return &YamlDecoder{
-		Indent: options.Indent,
+		indent: options.Indent,
 	}
 }
 
 // Decode 将YAML数据解码为Storage对象
 func (y *YamlDecoder) Decode(data []byte) (storage.Storage, error) {
 	var result interface{}
-	
+
 	err := yaml.Unmarshal(data, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode YAML: %w", err)

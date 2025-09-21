@@ -11,20 +11,20 @@ import (
 // TomlDecoderOptions TOML解码器配置选项
 type TomlDecoderOptions struct {
 	// Indent TOML缩进空格数，用于格式化输出
-	Indent string
+	Indent string `cfg:"indent"`
 }
 
 // TomlDecoder TOML格式编解码器
 // 支持标准TOML格式，包含注释支持
 type TomlDecoder struct {
-	// Indent TOML缩进空格数，用于格式化输出
-	Indent string
+	// indent TOML缩进空格数，用于格式化输出
+	indent string
 }
 
 // NewTomlDecoder 创建新的TOML解码器，使用默认配置
 func NewTomlDecoder() *TomlDecoder {
 	return &TomlDecoder{
-		Indent: "  ", // 默认2个空格缩进
+		indent: "  ", // 默认2个空格缩进
 	}
 }
 
@@ -35,20 +35,20 @@ func NewTomlDecoderWithOptions(options *TomlDecoderOptions) *TomlDecoder {
 		return NewTomlDecoder()
 	}
 	return &TomlDecoder{
-		Indent: options.Indent,
+		indent: options.Indent,
 	}
 }
 
 // Decode 将TOML数据解码为Storage对象
 func (t *TomlDecoder) Decode(data []byte) (storage.Storage, error) {
 	var result interface{}
-	
+
 	// 使用 toml.Decode 解析到 map[string]interface{}
 	var parsed map[string]interface{}
 	if err := toml.Unmarshal(data, &parsed); err != nil {
 		return nil, fmt.Errorf("failed to decode TOML: %w", err)
 	}
-	
+
 	result = parsed
 
 	// 创建MapStorage包装解析结果
@@ -72,10 +72,10 @@ func (t *TomlDecoder) Encode(s storage.Storage) ([]byte, error) {
 	// 使用buffer来控制输出格式
 	var buf bytes.Buffer
 	encoder := toml.NewEncoder(&buf)
-	
+
 	// 设置缩进（如果支持的话）
-	encoder.Indent = t.Indent
-	
+	encoder.Indent = t.indent
+
 	if err := encoder.Encode(data); err != nil {
 		return nil, fmt.Errorf("failed to encode TOML: %w", err)
 	}

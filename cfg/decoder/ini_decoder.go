@@ -13,30 +13,27 @@ import (
 // IniDecoderOptions INI解码器配置选项
 type IniDecoderOptions struct {
 	// AllowEmptyValues 允许空值
-	AllowEmptyValues bool
+	AllowEmptyValues bool `cfg:"allowEmptyValues"`
 	// AllowBoolKeys 允许布尔型键（无值的键）
-	AllowBoolKeys bool
+	AllowBoolKeys bool `cfg:"allowBoolKeys"`
 	// AllowShadows 允许重复键（创建数组）
-	AllowShadows bool
+	AllowShadows bool `cfg:"allowShadows"`
 }
 
 // IniDecoder INI格式编解码器
 // 支持标准INI格式，包含注释和分组支持
 type IniDecoder struct {
-	// AllowEmptyValues 允许空值
-	AllowEmptyValues bool
-	// AllowBoolKeys 允许布尔型键（无值的键）
-	AllowBoolKeys bool
-	// AllowShadows 允许重复键（创建数组）
-	AllowShadows bool
+	allowEmptyValues bool
+	allowBoolKeys    bool
+	allowShadows     bool
 }
 
 // NewIniDecoder 创建新的INI解码器，使用默认配置
 func NewIniDecoder() *IniDecoder {
 	return &IniDecoder{
-		AllowEmptyValues: true,
-		AllowBoolKeys:    true,
-		AllowShadows:     true,
+		allowEmptyValues: true,
+		allowBoolKeys:    true,
+		allowShadows:     true,
 	}
 }
 
@@ -47,9 +44,9 @@ func NewIniDecoderWithOptions(options *IniDecoderOptions) *IniDecoder {
 		return NewIniDecoder()
 	}
 	return &IniDecoder{
-		AllowEmptyValues: options.AllowEmptyValues,
-		AllowBoolKeys:    options.AllowBoolKeys,
-		AllowShadows:     options.AllowShadows,
+		allowEmptyValues: options.AllowEmptyValues,
+		allowBoolKeys:    options.AllowBoolKeys,
+		allowShadows:     options.AllowShadows,
 	}
 }
 
@@ -57,8 +54,8 @@ func NewIniDecoderWithOptions(options *IniDecoderOptions) *IniDecoder {
 func (i *IniDecoder) Decode(data []byte) (storage.Storage, error) {
 	// 创建INI加载选项
 	loadOptions := ini.LoadOptions{
-		AllowBooleanKeys:           i.AllowBoolKeys,
-		AllowShadows:               i.AllowShadows,
+		AllowBooleanKeys:           i.allowBoolKeys,
+		AllowShadows:               i.allowShadows,
 		AllowPythonMultilineValues: true,
 		SpaceBeforeInlineComment:   true,
 	}
@@ -103,7 +100,7 @@ func (i *IniDecoder) parseValue(key *ini.Key) interface{} {
 	value := key.String()
 
 	// 处理重复键（shadows）
-	if i.AllowShadows {
+	if i.allowShadows {
 		strings := key.StringsWithShadows(",")
 		if len(strings) > 1 {
 			// 如果有多个值，返回数组
@@ -117,9 +114,9 @@ func (i *IniDecoder) parseValue(key *ini.Key) interface{} {
 
 	// 处理空值：如果允许空值，则返回空字符串；如果是布尔键，则返回true
 	if value == "" {
-		if i.AllowEmptyValues {
+		if i.allowEmptyValues {
 			return ""
-		} else if i.AllowBoolKeys {
+		} else if i.allowBoolKeys {
 			return true
 		}
 	}
@@ -231,7 +228,7 @@ func (i *IniDecoder) encodeToINI(cfg *ini.File, sectionName string, data interfa
 				}
 			case []interface{}:
 				// 数组转换为逗号分隔的字符串或多个键
-				if i.AllowShadows {
+				if i.allowShadows {
 					// 使用shadows支持多个相同键
 					for _, item := range val {
 						section.NewKey(key, fmt.Sprintf("%v", item))
