@@ -15,12 +15,12 @@ const (
 	ChangeTypeDelete                    // 删除
 )
 
-type LineParser[K, V any] interface {
+type Parser[K, V any] interface {
 	Parse(line string) (ChangeType, K, V, error)
 }
 
-func NewLineParserWithOptions[K, V any](options *ref.TypeOptions) (LineParser[K, V], error) {
-	parser, err := ref.NewT[LineParser[K, V]](options)
+func NewParserWithOptions[K, V any](options *ref.TypeOptions) (Parser[K, V], error) {
+	parser, err := ref.NewT[Parser[K, V]](options)
 	if err != nil {
 		return nil, errors.WithMessage(err, "refx.NewT failed")
 	}
