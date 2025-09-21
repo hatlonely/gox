@@ -92,7 +92,7 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 						Separator: "\t",
 					},
 				},
-				Logger: ref.TypeOptions{
+				Logger: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/log",
 					Type:      "GetLogger",
 					Options:   "test",
