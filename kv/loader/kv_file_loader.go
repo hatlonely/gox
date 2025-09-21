@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/hatlonely/gox/kv/parser"
 	"github.com/hatlonely/gox/log"
 	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
@@ -26,7 +27,7 @@ type KVFileLoaderOptions struct {
 
 type KVFileLoader[K, V any] struct {
 	filePath             string
-	kvFileLineParser     KVFileLineParser[K, V]
+	kvFileLineParser     parser.LineParser[K, V]
 	skipDirtyRows        bool
 	scannerBufferMinSize int
 	scannerBufferMaxSize int
@@ -36,7 +37,7 @@ type KVFileLoader[K, V any] struct {
 }
 
 func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFileLoader[K, V], error) {
-	kvFileLineParser, err := NewKVFileLineParserWithOptions[K, V](&options.KVFileLineParser)
+	kvFileLineParser, err := parser.NewLineParserWithOptions[K, V](&options.KVFileLineParser)
 	if err != nil {
 		return nil, err
 	}
@@ -126,13 +127,13 @@ func (l *KVFileLoader[K, V]) Close() error {
 
 type KVFileStream[K, V any] struct {
 	filePath             string
-	kvFileLineParser     KVFileLineParser[K, V]
+	kvFileLineParser     parser.LineParser[K, V]
 	skipDirtyRows        bool
 	scannerBufferMinSize int
 	scannerBufferMaxSize int
 }
 
-func (s *KVFileStream[K, V]) Each(handler func(ChangeType, K, V) error) error {
+func (s *KVFileStream[K, V]) Each(handler func(parser.ChangeType, K, V) error) error {
 	fp, err := os.Open(s.filePath)
 	if err != nil {
 		return errors.Wrap(err, "os.Open failed")
@@ -174,17 +175,4 @@ func (s *KVFileStream[K, V]) Each(handler func(ChangeType, K, V) error) error {
 	}
 
 	return nil
-}
-
-type KVFileLineParser[K, V any] interface {
-	Parse(line string) (ChangeType, K, V, error)
-}
-
-func NewKVFileLineParserWithOptions[K, V any](options *ref.TypeOptions) (KVFileLineParser[K, V], error) {
-	parser, err := ref.NewT[KVFileLineParser[K, V]](options)
-	if err != nil {
-		return nil, errors.WithMessage(err, "refx.NewT failed")
-	}
-
-	return parser, nil
 }

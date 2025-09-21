@@ -1,23 +1,15 @@
 package loader
 
+import "github.com/hatlonely/gox/kv/parser"
+
 const (
 	LoadStrategyReplace = "replace"
 	LoadStrategyInPlace = "inplace"
 )
 
-// ChangeType 数据加载时数据的变更类型
-type ChangeType int
-
-const (
-	ChangeTypeUnknown ChangeType = 0    // 未知
-	ChangeTypeAdd     ChangeType = iota // 新增
-	ChangeTypeUpdate                    // 更新
-	ChangeTypeDelete                    // 删除
-)
-
 // KVStream 用于遍历 KV 数据流
 type KVStream[K, V any] interface {
-	Each(func(changeType ChangeType, key K, val V) error) error
+	Each(func(changeType parser.ChangeType, key K, val V) error) error
 }
 
 // Listener 用于监听 KV 数据变更
