@@ -33,7 +33,8 @@ type JsonLineParser[K, V any] struct {
 func NewJsonParserWithOptions[K, V any](options *JsonLineParserOptions) (*JsonLineParser[K, V], error) {
 	if options == nil {
 		return &JsonLineParser[K, V]{
-			keyFields: []string{"id"},
+			keyFields:    []string{"id"},
+			keySeparator: "_",
 		}, nil
 	}
 
