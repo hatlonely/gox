@@ -255,9 +255,13 @@ func TestConfig_WithLoggerOptions(t *testing.T) {
 			Type:      "YamlDecoder",
 			Options:   &decoder.YamlDecoderOptions{Indent: 2},
 		},
-		Logger: &logger.SLogOptions{
-			Level:  "debug",
-			Format: "text",
+		Logger: &ref.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/log/logger",
+			Type:      "SLog",
+			Options: &logger.SLogOptions{
+				Level:  "debug",
+				Format: "text",
+			},
 		},
 	}
 

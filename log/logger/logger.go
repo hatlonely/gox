@@ -8,7 +8,8 @@ import (
 )
 
 func init() {
-	ref.RegisterT[*SLog](NewSLogWithOptions)
+	ref.MustRegisterT[*SLog](NewSLogWithOptions)
+	ref.MustRegisterT[SLog](NewSLogWithOptions)
 }
 
 // Logger 日志接口
