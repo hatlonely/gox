@@ -20,7 +20,7 @@ func ExampleNewSLogWithOptions_console() {
 			"service": "example-service",
 			"version": "1.0.0",
 		},
-		Output: ref.TypeOptions{
+		Output: &ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "ConsoleWriter",
 			Options: &writer.ConsoleWriterOptions{
@@ -61,7 +61,7 @@ func ExampleNewSLogWithOptions_file() {
 		Format:     "json",
 		TimeFormat: "2006-01-02T15:04:05Z07:00",
 		AddSource:  true,
-		Output: ref.TypeOptions{
+		Output: &ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "FileWriter",
 			Options: &writer.FileWriterOptions{
@@ -97,7 +97,7 @@ func ExampleNewSLogWithOptions_multi() {
 	options := &log.SLogOptions{
 		Level:  "info",
 		Format: "text",
-		Output: ref.TypeOptions{
+		Output: &ref.TypeOptions{
 			Namespace: "github.com/hatlonely/gox/log/writer",
 			Type:      "MultiWriter",
 			Options: &writer.MultiWriterOptions{

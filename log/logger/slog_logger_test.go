@@ -32,7 +32,7 @@ func TestNewLogWithOptions(t *testing.T) {
 			options: &SLogOptions{
 				Level:  "debug",
 				Format: "json",
-				Output: ref.TypeOptions{
+				Output: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/log/writer",
 					Type:      "ConsoleWriter",
 					Options: &writer.ConsoleWriterOptions{

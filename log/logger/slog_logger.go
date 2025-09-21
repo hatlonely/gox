@@ -20,7 +20,7 @@ type SLogOptions struct {
 	Format string `cfg:"format"`
 
 	// 输出目标配置 - 使用 ref.TypeOptions
-	Output ref.TypeOptions `cfg:"output"`
+	Output *ref.TypeOptions `cfg:"output"`
 
 	// 时间格式
 	TimeFormat string `cfg:"timeFormat"`
@@ -60,10 +60,10 @@ func NewSLogWithOptions(options *SLogOptions) (*SLog, error) {
 
 	// 创建输出器
 	var w writer.Writer
-	if options.Output.Type != "" {
+	if options.Output != nil && options.Output.Type != "" {
 		// 使用新的构造方法创建输出器
 		var err error
-		w, err = writer.NewWriterWithOptions(&options.Output)
+		w, err = writer.NewWriterWithOptions(options.Output)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create writer: %w", err)
 		}
