@@ -1,6 +1,9 @@
 package provider
 
-import "github.com/hatlonely/gox/ref"
+import (
+	"github.com/hatlonely/gox/ref"
+	"github.com/pkg/errors"
+)
 
 func init() {
 	ref.MustRegisterT[FileProvider](NewFileProviderWithOptions)
@@ -29,4 +32,19 @@ type Provider interface {
 	Watch() error
 	// Close 关闭提供者，释放资源
 	Close() error
+}
+
+func NewProviderWithOptions(options *ref.TypeOptions) (Provider, error) {
+	provider, err := ref.New(options.Namespace, options.Type, options.Options)
+	if err != nil {
+		return nil, errors.WithMessage(err, "refx.NewT failed")
+	}
+	if provider == nil {
+		return nil, errors.New("provider is nil")
+	}
+	if _, ok := provider.(Provider); !ok {
+		return nil, errors.New("provider is not a Provider")
+	}
+
+	return provider.(Provider), nil
 }
