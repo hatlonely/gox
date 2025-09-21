@@ -29,7 +29,7 @@ type HandlerExecutionOptions struct {
 type SingleConfigOptions struct {
 	Provider         ref.TypeOptions          `cfg:"provider"`
 	Decoder          ref.TypeOptions          `cfg:"decoder"`
-	Logger           *logger.SLogOptions      `cfg:"logger"`
+	Logger           *ref.TypeOptions         `cfg:"logger"`
 	HandlerExecution *HandlerExecutionOptions `cfg:"handlerExecution"`
 }
 
@@ -62,25 +62,15 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 	}
 
 	// 创建 Provider 实例
-	providerObj, err := ref.New(options.Provider.Namespace, options.Provider.Type, options.Provider.Options)
+	prov, err := provider.NewProviderWithOptions(&options.Provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create provider: %w", err)
 	}
 
-	prov, ok := providerObj.(provider.Provider)
-	if !ok {
-		return nil, fmt.Errorf("provider object does not implement Provider interface")
-	}
-
 	// 创建 Decoder 实例
-	decoderObj, err := ref.New(options.Decoder.Namespace, options.Decoder.Type, options.Decoder.Options)
+	dec, err := decoder.NewDecoderWithOptions(&options.Decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create decoder: %w", err)
-	}
-
-	dec, ok := decoderObj.(decoder.Decoder)
-	if !ok {
-		return nil, fmt.Errorf("decoder object does not implement Decoder interface")
 	}
 
 	// 从 Provider 加载数据
@@ -103,16 +93,20 @@ func NewSingleConfigWithOptions(options *SingleConfigOptions) (*SingleConfig, er
 	if options.Logger != nil {
 		// 使用提供的日志配置创建 Logger
 		var err error
-		log, err = logger.NewSLogWithOptions(options.Logger)
+		log, err = logger.NewLoggerWithOptions(options.Logger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create logger: %w", err)
 		}
 	} else {
 		// 创建默认的终端输出 Logger
 		var err error
-		log, err = logger.NewSLogWithOptions(&logger.SLogOptions{
-			Level:  "info",
-			Format: "text",
+		log, err = logger.NewLoggerWithOptions(&ref.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/log/logger",
+			Type:      "*SLog",
+			Options: &logger.SLogOptions{
+				Level:  "info",
+				Format: "text",
+			},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create default logger: %w", err)
