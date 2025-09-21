@@ -1,6 +1,10 @@
 package loader
 
-import "github.com/hatlonely/gox/kv/parser"
+import (
+	"github.com/hatlonely/gox/kv/parser"
+	"github.com/hatlonely/gox/ref"
+	"github.com/pkg/errors"
+)
 
 const (
 	LoadStrategyReplace = "replace"
@@ -21,4 +25,22 @@ type Loader[K, V any] interface {
 	OnChange(listener Listener[K, V]) error
 	// Close 关闭 Loader
 	Close() error
+}
+
+func NewLoaderWithOptions[K, V any](options *ref.TypeOptions) (Loader[K, V], error) {
+	// 注册 loader 类型
+	ref.RegisterT[KVFileLoader[K, V]](NewKVFileLoaderWithOptions[K, V])
+
+	loader, err := ref.New(options.Namespace, options.Type, options.Options)
+	if err != nil {
+		return nil, errors.WithMessage(err, "refx.NewT failed")
+	}
+	if loader == nil {
+		return nil, errors.New("loader is nil")
+	}
+	if _, ok := loader.(Loader[K, V]); !ok {
+		return nil, errors.New("loader is not a Loader")
+	}
+
+	return loader.(Loader[K, V]), nil
 }
