@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"reflect"
+
 	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
 )
@@ -25,7 +27,18 @@ func NewParserWithOptions[K, V any](options *ref.TypeOptions) (Parser[K, V], err
 	ref.RegisterT[JsonParser[K, V]](NewJsonParserWithOptions[K, V])
 	ref.RegisterT[BsonParser[K, V]](NewBsonParserWithOptions[K, V])
 
-	parser, err := ref.New(options.Namespace, options.Type, options.Options)
+	// 处理默认配置
+	actualOptions := options
+	if actualOptions == nil {
+		var k K
+		var v V
+		actualOptions = &ref.TypeOptions{
+			Namespace: "github.com/hatlonely/gox/kv/parser",
+			Type:      "LineParser[" + reflect.TypeOf(k).String() + "," + reflect.TypeOf(v).String() + "]",
+		}
+	}
+
+	parser, err := ref.New(actualOptions.Namespace, actualOptions.Type, actualOptions.Options)
 	if err != nil {
 		return nil, errors.WithMessage(err, "refx.NewT failed")
 	}
