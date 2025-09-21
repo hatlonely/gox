@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/hatlonely/gox/ref"
+	"github.com/pkg/errors"
 )
 
 func init() {
@@ -27,4 +28,19 @@ type Logger interface {
 	// 带字段的日志器
 	With(args ...any) Logger
 	WithGroup(name string) Logger
+}
+
+func NewLoggerWithOptions(options *ref.TypeOptions) (Logger, error) {
+	logger, err := ref.New(options.Namespace, options.Type, options.Options)
+	if err != nil {
+		return nil, errors.WithMessage(err, "refx.NewT failed")
+	}
+	if logger == nil {
+		return nil, errors.New("logger is nil")
+	}
+	if _, ok := logger.(Logger); !ok {
+		return nil, errors.New("logger is not a Logger")
+	}
+
+	return logger.(Logger), nil
 }
