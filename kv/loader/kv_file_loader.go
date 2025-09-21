@@ -57,6 +57,26 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 		return nil, err
 	}
 
+	// 创建 logger
+	var l logger.Logger
+	if options.Logger.Type != "" {
+		loggerObj, err := ref.New(options.Logger.Namespace, options.Logger.Type, options.Logger.Options)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create logger")
+		}
+		
+		var ok bool
+		l, ok = loggerObj.(logger.Logger)
+		if !ok {
+			return nil, errors.New("logger object does not implement Logger interface")
+		}
+	} else {
+		l = log.Default()
+	}
+	
+	// 为 logger 添加组和文件路径上下文
+	l = l.WithGroup("kvFileLoader").With("filePath", options.FilePath)
+
 	return &KVFileLoader[K, V]{
 		filePath:             options.FilePath,
 		parser:               p,
@@ -64,7 +84,7 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 		scannerBufferMaxSize: options.ScannerBufferMaxSize,
 		done:                 make(chan struct{}, 1),
 		skipDirtyRows:        options.SkipDirtyRows,
-		logger:               log.Default().WithGroup("kvFileLoader").With("filePath", options.FilePath),
+		logger:               l,
 	}, nil
 }
 
