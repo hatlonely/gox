@@ -26,15 +26,6 @@ type FreeCacheStore[K, V any] struct {
 }
 
 func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*FreeCacheStore[K, V], error) {
-	// 注册当前泛型类型的序列化器
-	ref.RegisterT[*serializer.JSONSerializer[K]](serializer.NewJSONSerializer[K])
-	ref.RegisterT[*serializer.MsgPackSerializer[K]](serializer.NewMsgPackSerializer[K])
-	ref.RegisterT[*serializer.BSONSerializer[K]](serializer.NewBSONSerializer[K])
-
-	ref.RegisterT[*serializer.JSONSerializer[V]](serializer.NewJSONSerializer[V])
-	ref.RegisterT[*serializer.MsgPackSerializer[V]](serializer.NewMsgPackSerializer[V])
-	ref.RegisterT[*serializer.BSONSerializer[V]](serializer.NewBSONSerializer[V])
-
 	// 获取K和V的类型名，用于构造默认TypeOptions
 	var k K
 	var v V
@@ -57,23 +48,15 @@ func NewFreeCacheStoreWithOptions[K, V any](options *FreeCacheStoreOptions) (*Fr
 	}
 
 	// 构造 key 序列化器
-	keySerializerInterface, err := ref.NewWithOptions(keySerializerOptions)
+	keySerializer, err := serializer.NewByteSerializerWithOptions[K](keySerializerOptions)
 	if err != nil {
 		return nil, err
-	}
-	keySerializer, ok := keySerializerInterface.(serializer.Serializer[K, []byte])
-	if !ok {
-		return nil, errors.New("invalid key serializer type")
 	}
 
 	// 构造 value 序列化器
-	valSerializerInterface, err := ref.NewWithOptions(valSerializerOptions)
+	valueSerializer, err := serializer.NewByteSerializerWithOptions[V](valSerializerOptions)
 	if err != nil {
 		return nil, err
-	}
-	valueSerializer, ok := valSerializerInterface.(serializer.Serializer[V, []byte])
-	if !ok {
-		return nil, errors.New("invalid value serializer type")
 	}
 
 	return &FreeCacheStore[K, V]{
