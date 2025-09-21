@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -30,15 +31,19 @@ func (p *SeparatorLineParser) Parse(line string) (ChangeType, string, string, er
 	changeType := ChangeTypeAdd
 	
 	if len(parts) >= 3 && parts[2] != "" {
-		switch strings.ToLower(parts[2]) {
-		case "add":
-			changeType = ChangeTypeAdd
-		case "update":
-			changeType = ChangeTypeUpdate
-		case "delete":
-			changeType = ChangeTypeDelete
-		default:
-			changeType = ChangeTypeAdd
+		if val, err := strconv.Atoi(parts[2]); err == nil {
+			changeType = ChangeType(val)
+		} else {
+			switch strings.ToLower(parts[2]) {
+			case "add":
+				changeType = ChangeTypeAdd
+			case "update":
+				changeType = ChangeTypeUpdate
+			case "delete":
+				changeType = ChangeTypeDelete
+			default:
+				changeType = ChangeTypeAdd
+			}
 		}
 	}
 	
