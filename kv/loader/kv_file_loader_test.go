@@ -18,7 +18,7 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 		Convey("创建基本KVFileLoader", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/tmp/test.txt",
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -47,7 +47,7 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 		Convey("自定义缓冲区大小", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/tmp/test.txt",
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -67,7 +67,7 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 		Convey("启用跳过脏数据", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/tmp/test.txt",
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -85,7 +85,7 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 		Convey("配置自定义Logger", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/tmp/test.txt",
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -107,7 +107,7 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 		Convey("Parser创建失败", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/tmp/test.txt",
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Type: "InvalidParser",
 				},
 			}
@@ -138,7 +138,7 @@ func TestKVFileLoaderOnChange(t *testing.T) {
 
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -188,7 +188,7 @@ func TestKVFileLoaderOnChange(t *testing.T) {
 		Convey("文件不存在时返回错误", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/nonexistent/file.txt",
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -217,7 +217,7 @@ func TestKVFileLoaderOnChange(t *testing.T) {
 
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -258,7 +258,7 @@ func TestKVFileLoaderClose(t *testing.T) {
 
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{
@@ -288,7 +288,7 @@ func TestKVFileLoaderClose(t *testing.T) {
 		Convey("未启动监听的关闭", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser: ref.TypeOptions{
+				Parser: &ref.TypeOptions{
 					Namespace: "github.com/hatlonely/gox/kv/parser",
 					Type:      "LineParser[string,string]",
 					Options: &parser.LineParserOptions{

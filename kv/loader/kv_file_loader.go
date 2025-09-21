@@ -19,7 +19,7 @@ import (
 
 type KVFileLoaderOptions struct {
 	FilePath string           `cfg:"filePath" validate:"required"` // 文件路径
-	Parser   ref.TypeOptions  `cfg:"parser"`
+	Parser   *ref.TypeOptions `cfg:"parser"`
 	// 是否跳过脏数据（默认遇到脏数据时，直接报错并返回；启用这个选项的话，仅打印错误日志，不提前返回）
 	SkipDirtyRows        bool             `cfg:"skipDirtyRows"`
 	ScannerBufferMinSize int              `cfg:"scannerBufferMinSize" def:"65536"`
@@ -52,7 +52,7 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 		options.ScannerBufferMaxSize = 4 * 1024 * 1024
 	}
 
-	p, err := parser.NewParserWithOptions[K, V](&options.Parser)
+	p, err := parser.NewParserWithOptions[K, V](options.Parser)
 	if err != nil {
 		return nil, err
 	}
