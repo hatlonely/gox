@@ -192,11 +192,6 @@ func RegisterT[T any](newFunc any) error {
 	var t T
 	tType := reflect.TypeOf(t)
 
-	// 如果是指针类型，获取其元素类型
-	for tType.Kind() == reflect.Ptr {
-		tType = tType.Elem()
-	}
-
 	// 从类型中提取包名和类型名作为默认的namespace和type
 	pkgPath := tType.PkgPath()
 	typeName := tType.Name()
