@@ -48,7 +48,11 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 			options := &KVFileLoaderOptions{
 				FilePath: "/tmp/test.txt",
 				Parser: ref.TypeOptions{
-					Type: "LineParser",
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
+					},
 				},
 				ScannerBufferMinSize: 1024,
 				ScannerBufferMaxSize: 2048,
@@ -62,8 +66,14 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 
 		Convey("启用跳过脏数据", func() {
 			options := &KVFileLoaderOptions{
-				FilePath:      "/tmp/test.txt",
-				Parser:        ref.TypeOptions{Type: "LineParser"},
+				FilePath: "/tmp/test.txt",
+				Parser: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
+					},
+				},
 				SkipDirtyRows: true,
 			}
 
@@ -75,13 +85,17 @@ func TestNewKVFileLoaderWithOptions(t *testing.T) {
 		Convey("配置自定义Logger", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/tmp/test.txt",
-				Parser:   ref.TypeOptions{Type: "LineParser"},
-				Logger: ref.TypeOptions{
-					Type: "SLog",
-					Options: map[string]interface{}{
-						"level":  "debug",
-						"format": "json",
+				Parser: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
 					},
+				},
+				Logger: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/log",
+					Type:      "GetLogger",
+					Options:   "test",
 				},
 			}
 
@@ -124,7 +138,13 @@ func TestKVFileLoaderOnChange(t *testing.T) {
 
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser:   ref.TypeOptions{Type: "LineParser"},
+				Parser: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
+					},
+				},
 			}
 
 			loader, err := NewKVFileLoaderWithOptions[string, string](options)
@@ -168,7 +188,13 @@ func TestKVFileLoaderOnChange(t *testing.T) {
 		Convey("文件不存在时返回错误", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: "/nonexistent/file.txt",
-				Parser:   ref.TypeOptions{Type: "LineParser"},
+				Parser: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
+					},
+				},
 			}
 
 			loader, err := NewKVFileLoaderWithOptions[string, string](options)
@@ -191,7 +217,13 @@ func TestKVFileLoaderOnChange(t *testing.T) {
 
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser:   ref.TypeOptions{Type: "LineParser"},
+				Parser: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
+					},
+				},
 			}
 
 			loader, err := NewKVFileLoaderWithOptions[string, string](options)
@@ -226,7 +258,13 @@ func TestKVFileLoaderClose(t *testing.T) {
 
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser:   ref.TypeOptions{Type: "LineParser"},
+				Parser: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
+					},
+				},
 			}
 
 			loader, err := NewKVFileLoaderWithOptions[string, string](options)
@@ -250,7 +288,13 @@ func TestKVFileLoaderClose(t *testing.T) {
 		Convey("未启动监听的关闭", func() {
 			options := &KVFileLoaderOptions{
 				FilePath: testFile,
-				Parser:   ref.TypeOptions{Type: "LineParser"},
+				Parser: ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/parser",
+					Type:      "LineParser[string,string]",
+					Options: &parser.LineParserOptions{
+						Separator: "\t",
+					},
+				},
 			}
 
 			loader, err := NewKVFileLoaderWithOptions[string, string](options)
