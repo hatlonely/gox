@@ -20,10 +20,16 @@ type Parser[K, V any] interface {
 }
 
 func NewParserWithOptions[K, V any](options *ref.TypeOptions) (Parser[K, V], error) {
-	parser, err := ref.NewT[Parser[K, V]](options)
+	parser, err := ref.New(options.Namespace, options.Type, options.Options)
 	if err != nil {
 		return nil, errors.WithMessage(err, "refx.NewT failed")
 	}
+	if parser == nil {
+		return nil, errors.New("parser is nil")
+	}
+	if _, ok := parser.(Parser[K, V]); !ok {
+		return nil, errors.New("parser is not a Parser")
+	}
 
-	return parser, nil
+	return parser.(Parser[K, V]), nil
 }
