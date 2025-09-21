@@ -12,6 +12,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/hatlonely/gox/kv/parser"
 	"github.com/hatlonely/gox/log"
+	"github.com/hatlonely/gox/log/logger"
 	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
 )
@@ -34,6 +35,8 @@ type KVFileLoader[K, V any] struct {
 
 	done chan struct{}
 	wg   sync.WaitGroup
+
+	logger logger.Logger
 }
 
 func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFileLoader[K, V], error) {
@@ -60,6 +63,7 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 		scannerBufferMaxSize: options.ScannerBufferMaxSize,
 		done:                 make(chan struct{}, 1),
 		skipDirtyRows:        options.SkipDirtyRows,
+		logger:               log.Default(),
 	}, nil
 }
 
@@ -71,6 +75,7 @@ func (l *KVFileLoader[K, V]) OnChange(listener Listener[K, V]) error {
 		skipDirtyRows:        l.skipDirtyRows,
 		scannerBufferMaxSize: l.scannerBufferMaxSize,
 		scannerBufferMinSize: l.scannerBufferMinSize,
+		logger:               l.logger,
 	})
 	if err != nil {
 		return errors.WithMessage(err, "listener failed")
@@ -113,13 +118,13 @@ func (l *KVFileLoader[K, V]) OnChange(listener Listener[K, V]) error {
 					skipDirtyRows:    l.skipDirtyRows,
 				})
 				if err != nil {
-					log.Default().Warn("KVFileLoader.OnChange: listener failed: %v", err)
+					l.logger.Warn("KVFileLoader.OnChange: listener failed: %v", err)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
-				log.Default().Warn("KVFileLoader.OnChange: watcher error: %v", err)
+				l.logger.Warn("KVFileLoader.OnChange: watcher error: %v", err)
 			case <-l.done:
 				return
 			}
@@ -142,6 +147,7 @@ type KVFileStream[K, V any] struct {
 	skipDirtyRows        bool
 	scannerBufferMinSize int
 	scannerBufferMaxSize int
+	logger               logger.Logger
 }
 
 func (s *KVFileStream[K, V]) Each(handler func(parser.ChangeType, K, V) error) error {
@@ -163,7 +169,7 @@ func (s *KVFileStream[K, V]) Each(handler func(parser.ChangeType, K, V) error) e
 
 		// debug log for the 1st line
 		if rowCount == 1 {
-			log.Default().Debug("[kvFileStream] [%s] first row is: %s. parsed key: %s. parsed val: %v", s.filePath, line, key, val)
+			s.logger.Debug("[kvFileStream] [%s] first row is: %s. parsed key: %s. parsed val: %v", s.filePath, line, key, val)
 		}
 
 		if err2 == nil {
@@ -173,7 +179,7 @@ func (s *KVFileStream[K, V]) Each(handler func(parser.ChangeType, K, V) error) e
 		if err2 != nil {
 			dirtyRowCount++
 			if s.skipDirtyRows {
-				log.Default().Error("[kvFileStream] [%s] parse failed for line %d, content: %q. err: %s. skip this line", s.filePath, rowCount, line, err2.Error())
+				s.logger.Error("[kvFileStream] [%s] parse failed for line %d, content: %q. err: %s. skip this line", s.filePath, rowCount, line, err2.Error())
 				continue
 			} else {
 				return errors.Wrapf(err2, "[kvFileStream] parse failed for line %d, content: %q", rowCount, line)
