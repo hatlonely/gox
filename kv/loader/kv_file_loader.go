@@ -45,6 +45,11 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 		return nil, errors.New("options is nil")
 	}
 
+	// 注册 parser 类型
+	ref.RegisterT[parser.LineParser[K, V]](parser.NewLineParserWithOptions[K, V])
+	ref.RegisterT[parser.JsonParser[K, V]](parser.NewJsonParserWithOptions[K, V])
+	ref.RegisterT[parser.BsonParser[K, V]](parser.NewBsonParserWithOptions[K, V])
+
 	if options.ScannerBufferMinSize <= 0 {
 		options.ScannerBufferMinSize = 64 * 1024
 	}
@@ -64,7 +69,7 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create logger")
 		}
-		
+
 		var ok bool
 		l, ok = loggerObj.(logger.Logger)
 		if !ok {
@@ -73,7 +78,7 @@ func NewKVFileLoaderWithOptions[K, V any](options *KVFileLoaderOptions) (*KVFile
 	} else {
 		l = log.Default()
 	}
-	
+
 	// 为 logger 添加组和文件路径上下文
 	l = l.WithGroup("kvFileLoader").With("filePath", options.FilePath)
 

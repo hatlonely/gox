@@ -8,27 +8,27 @@ import (
 	"strings"
 )
 
-type SeparatorLineParserOptions struct {
+type LineParserOptions struct {
 	Separator string `cfg:"separator" def:"\t"`
 }
 
-type SeparatorLineParser[K, V any] struct {
+type LineParser[K, V any] struct {
 	separator string
 }
 
-func NewLineParserWithOptions[K, V any](options *SeparatorLineParserOptions) (*SeparatorLineParser[K, V], error) {
+func NewLineParserWithOptions[K, V any](options *LineParserOptions) (*LineParser[K, V], error) {
 	if options == nil {
-		return &SeparatorLineParser[K, V]{
+		return &LineParser[K, V]{
 			separator: "\t",
 		}, nil
 	}
 
-	return &SeparatorLineParser[K, V]{
+	return &LineParser[K, V]{
 		separator: options.Separator,
 	}, nil
 }
 
-func (p *SeparatorLineParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
+func (p *LineParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
 	var zeroK K
 	var zeroV V
 

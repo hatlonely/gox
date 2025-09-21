@@ -9,7 +9,7 @@ import (
 func TestNewSeparatorLineParserWithOptions(t *testing.T) {
 	Convey("NewSeparatorLineParserWithOptions", t, func() {
 		Convey("创建基本SeparatorLineParser", func() {
-			options := &SeparatorLineParserOptions{
+			options := &LineParserOptions{
 				Separator: "\t",
 			}
 			parser, err := NewLineParserWithOptions[string, string](options)
@@ -19,7 +19,7 @@ func TestNewSeparatorLineParserWithOptions(t *testing.T) {
 		})
 
 		Convey("支持不同数据类型", func() {
-			options := &SeparatorLineParserOptions{
+			options := &LineParserOptions{
 				Separator: ",",
 			}
 
@@ -39,7 +39,7 @@ func TestNewSeparatorLineParserWithOptions(t *testing.T) {
 		})
 
 		Convey("自定义分隔符", func() {
-			options := &SeparatorLineParserOptions{
+			options := &LineParserOptions{
 				Separator: "|",
 			}
 			parser, err := NewLineParserWithOptions[string, string](options)
@@ -52,7 +52,7 @@ func TestNewSeparatorLineParserWithOptions(t *testing.T) {
 
 func TestSeparatorLineParserParse(t *testing.T) {
 	Convey("SeparatorLineParser.Parse", t, func() {
-		options := &SeparatorLineParserOptions{
+		options := &LineParserOptions{
 			Separator: "\t",
 		}
 
@@ -215,7 +215,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 		})
 
 		Convey("自定义分隔符", func() {
-			customOptions := &SeparatorLineParserOptions{
+			customOptions := &LineParserOptions{
 				Separator: "|",
 			}
 			parser, _ := NewLineParserWithOptions[string, string](customOptions)

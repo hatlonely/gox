@@ -18,21 +18,21 @@ type ChangeTypeRule struct {
 	Type       ChangeType  `cfg:"type"`            // 满足条件时的changeType
 }
 
-type JsonLineParserOptions struct {
+type JsonParserOptions struct {
 	KeyFields       []string         `cfg:"keyFields"`            // 用于生成key的字段路径
 	KeySeparator    string           `cfg:"keySeparator" def:"_"` // key字段间的分隔符
 	ChangeTypeRules []ChangeTypeRule `cfg:"changeTypeRules"`      // changeType规则
 }
 
-type JsonLineParser[K, V any] struct {
+type JsonParser[K, V any] struct {
 	keyFields       []string
 	keySeparator    string
 	changeTypeRules []ChangeTypeRule
 }
 
-func NewJsonParserWithOptions[K, V any](options *JsonLineParserOptions) (*JsonLineParser[K, V], error) {
+func NewJsonParserWithOptions[K, V any](options *JsonParserOptions) (*JsonParser[K, V], error) {
 	if options == nil {
-		return &JsonLineParser[K, V]{
+		return &JsonParser[K, V]{
 			keyFields:    []string{"id"},
 			keySeparator: "_",
 		}, nil
@@ -53,7 +53,7 @@ func NewJsonParserWithOptions[K, V any](options *JsonLineParserOptions) (*JsonLi
 		rules[i].Logic = strings.ToUpper(rules[i].Logic)
 	}
 
-	return &JsonLineParser[K, V]{
+	return &JsonParser[K, V]{
 		keyFields:       options.KeyFields,
 		keySeparator:    keySeparator,
 		changeTypeRules: rules,
@@ -94,7 +94,7 @@ func getFieldValue(data map[string]interface{}, fieldPath string) (interface{}, 
 }
 
 // generateKey 根据配置的字段生成key
-func (p *JsonLineParser[K, V]) generateKey(data map[string]interface{}) (string, error) {
+func (p *JsonParser[K, V]) generateKey(data map[string]interface{}) (string, error) {
 	if len(p.keyFields) == 0 {
 		return "", fmt.Errorf("no key fields configured")
 	}
@@ -144,7 +144,7 @@ func evaluateCondition(data map[string]interface{}, condition Condition) bool {
 }
 
 // evaluateRule 评估规则是否匹配
-func (p *JsonLineParser[K, V]) evaluateRule(data map[string]interface{}, rule ChangeTypeRule) bool {
+func (p *JsonParser[K, V]) evaluateRule(data map[string]interface{}, rule ChangeTypeRule) bool {
 	if len(rule.Conditions) == 0 {
 		return false
 	}
@@ -180,7 +180,7 @@ func (p *JsonLineParser[K, V]) evaluateRule(data map[string]interface{}, rule Ch
 }
 
 // determineChangeType 根据规则确定changeType
-func (p *JsonLineParser[K, V]) determineChangeType(data map[string]interface{}) ChangeType {
+func (p *JsonParser[K, V]) determineChangeType(data map[string]interface{}) ChangeType {
 	// 按顺序检查规则，第一个匹配的规则决定changeType
 	for _, rule := range p.changeTypeRules {
 		if p.evaluateRule(data, rule) {
@@ -192,7 +192,7 @@ func (p *JsonLineParser[K, V]) determineChangeType(data map[string]interface{}) 
 	return ChangeTypeAdd
 }
 
-func (p *JsonLineParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
+func (p *JsonParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
 	var zeroK K
 	var zeroV V
 

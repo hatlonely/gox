@@ -9,7 +9,7 @@ import (
 func TestNewJsonLineParserWithOptions(t *testing.T) {
 	Convey("NewJsonLineParserWithOptions", t, func() {
 		Convey("创建基本JsonLineParser", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
@@ -29,7 +29,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 		})
 
 		Convey("空分隔符使用默认值", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user_id"},
 				KeySeparator: "",
 			}
@@ -39,7 +39,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 		})
 
 		Convey("ChangeTypeRules配置", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields: []string{"id"},
 				ChangeTypeRules: []ChangeTypeRule{
 					{
@@ -66,7 +66,7 @@ func TestNewJsonLineParserWithOptions(t *testing.T) {
 		})
 
 		Convey("支持不同泛型类型", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields: []string{"id"},
 			}
 
@@ -222,7 +222,7 @@ func TestGenerateKey(t *testing.T) {
 		}
 
 		Convey("单字段key生成", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user_id"},
 				KeySeparator: "_",
 			}
@@ -234,7 +234,7 @@ func TestGenerateKey(t *testing.T) {
 		})
 
 		Convey("多字段key生成", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user_id", "name"},
 				KeySeparator: "_",
 			}
@@ -246,7 +246,7 @@ func TestGenerateKey(t *testing.T) {
 		})
 
 		Convey("嵌套字段key生成", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user_id", "user.profile.email"},
 				KeySeparator: "_",
 			}
@@ -258,7 +258,7 @@ func TestGenerateKey(t *testing.T) {
 		})
 
 		Convey("自定义分隔符", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user_id", "name", "age"},
 				KeySeparator: "|",
 			}
@@ -270,7 +270,7 @@ func TestGenerateKey(t *testing.T) {
 		})
 
 		Convey("数字类型字段", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"age", "user_id"},
 				KeySeparator: "-",
 			}
@@ -283,7 +283,7 @@ func TestGenerateKey(t *testing.T) {
 
 		Convey("错误情况", func() {
 			Convey("无key字段配置", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{},
 					KeySeparator: "_",
 				}
@@ -296,7 +296,7 @@ func TestGenerateKey(t *testing.T) {
 			})
 
 			Convey("key字段不存在", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"nonexistent"},
 					KeySeparator: "_",
 				}
@@ -309,7 +309,7 @@ func TestGenerateKey(t *testing.T) {
 			})
 
 			Convey("嵌套key字段不存在", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"user.nonexistent"},
 					KeySeparator: "_",
 				}
@@ -322,7 +322,7 @@ func TestGenerateKey(t *testing.T) {
 			})
 
 			Convey("部分字段存在", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"user_id", "nonexistent"},
 					KeySeparator: "_",
 				}
@@ -345,7 +345,7 @@ func TestGenerateKey(t *testing.T) {
 			}
 
 			Convey("包含零值", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"id", "zero"},
 					KeySeparator: "_",
 				}
@@ -357,7 +357,7 @@ func TestGenerateKey(t *testing.T) {
 			})
 
 			Convey("包含空字符串", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"id", "empty"},
 					KeySeparator: "_",
 				}
@@ -369,7 +369,7 @@ func TestGenerateKey(t *testing.T) {
 			})
 
 			Convey("包含布尔值", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"id", "bool"},
 					KeySeparator: "_",
 				}
@@ -381,7 +381,7 @@ func TestGenerateKey(t *testing.T) {
 			})
 
 			Convey("包含nil值", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"id", "null"},
 					KeySeparator: "_",
 				}
@@ -462,7 +462,7 @@ func TestChangeTypeMatching(t *testing.T) {
 		})
 
 		Convey("evaluateRule函数", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields: []string{"action"},
 			}
 			parser, _ := NewJsonParserWithOptions[string, interface{}](options)
@@ -592,7 +592,7 @@ func TestChangeTypeMatching(t *testing.T) {
 
 		Convey("determineChangeType函数", func() {
 			Convey("第一个规则匹配", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields: []string{"action"},
 					ChangeTypeRules: []ChangeTypeRule{
 						{
@@ -616,7 +616,7 @@ func TestChangeTypeMatching(t *testing.T) {
 			})
 
 			Convey("第二个规则匹配", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields: []string{"action"},
 					ChangeTypeRules: []ChangeTypeRule{
 						{
@@ -640,7 +640,7 @@ func TestChangeTypeMatching(t *testing.T) {
 			})
 
 			Convey("无规则匹配使用默认值", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields: []string{"action"},
 					ChangeTypeRules: []ChangeTypeRule{
 						{
@@ -657,7 +657,7 @@ func TestChangeTypeMatching(t *testing.T) {
 			})
 
 			Convey("空规则列表使用默认值", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:       []string{"action"},
 					ChangeTypeRules: []ChangeTypeRule{},
 				}
@@ -666,7 +666,7 @@ func TestChangeTypeMatching(t *testing.T) {
 			})
 
 			Convey("复杂条件组合", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields: []string{"action"},
 					ChangeTypeRules: []ChangeTypeRule{
 						{
@@ -690,7 +690,7 @@ func TestChangeTypeMatching(t *testing.T) {
 func TestJsonLineParserParse(t *testing.T) {
 	Convey("JsonLineParser.Parse", t, func() {
 		Convey("基本JSON解析", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
@@ -718,7 +718,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				Age  int    `json:"age"`
 			}
 
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
@@ -736,7 +736,7 @@ func TestJsonLineParserParse(t *testing.T) {
 		})
 
 		Convey("多字段key生成", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user_id", "name"},
 				KeySeparator: "_",
 			}
@@ -751,7 +751,7 @@ func TestJsonLineParserParse(t *testing.T) {
 		})
 
 		Convey("嵌套字段key生成", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user.id", "user.profile.email"},
 				KeySeparator: "|",
 			}
@@ -766,7 +766,7 @@ func TestJsonLineParserParse(t *testing.T) {
 		})
 
 		Convey("ChangeType规则匹配", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 				ChangeTypeRules: []ChangeTypeRule{
@@ -819,7 +819,7 @@ func TestJsonLineParserParse(t *testing.T) {
 		})
 
 		Convey("复杂条件规则", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"user_id"},
 				KeySeparator: "_",
 				ChangeTypeRules: []ChangeTypeRule{
@@ -863,7 +863,7 @@ func TestJsonLineParserParse(t *testing.T) {
 		})
 
 		Convey("错误情况", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"id"},
 				KeySeparator: "_",
 			}
@@ -919,7 +919,7 @@ func TestJsonLineParserParse(t *testing.T) {
 		})
 
 		Convey("特殊值处理", func() {
-			options := &JsonLineParserOptions{
+			options := &JsonParserOptions{
 				KeyFields:    []string{"id", "status"},
 				KeySeparator: "_",
 			}
@@ -968,7 +968,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 		Convey("不同key类型", func() {
 			Convey("int类型key", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"id"},
 					KeySeparator: "_",
 				}
@@ -983,7 +983,7 @@ func TestJsonLineParserParse(t *testing.T) {
 			})
 
 			Convey("复合key类型", func() {
-				options := &JsonLineParserOptions{
+				options := &JsonParserOptions{
 					KeyFields:    []string{"user_id", "timestamp"},
 					KeySeparator: "-",
 				}
