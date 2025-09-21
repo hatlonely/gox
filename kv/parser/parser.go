@@ -16,7 +16,7 @@ const (
 )
 
 type Parser[K, V any] interface {
-	Parse(line string) (ChangeType, K, V, error)
+	Parse(buf []byte) (ChangeType, K, V, error)
 }
 
 func NewParserWithOptions[K, V any](options *ref.TypeOptions) (Parser[K, V], error) {

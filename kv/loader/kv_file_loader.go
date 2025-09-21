@@ -148,7 +148,7 @@ func (s *KVFileStream[K, V]) Each(handler func(parser.ChangeType, K, V) error) e
 	for scanner.Scan() {
 		rowCount++
 		line := scanner.Text()
-		changeType, key, val, err2 := s.kvFileLineParser.Parse(line)
+		changeType, key, val, err2 := s.kvFileLineParser.Parse([]byte(line))
 
 		// debug log for the 1st line
 		if rowCount == 1 {
