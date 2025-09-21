@@ -32,6 +32,9 @@ type Logger interface {
 }
 
 func NewLoggerWithOptions(options *ref.TypeOptions) (Logger, error) {
+	if options == nil {
+		return nil, errors.New("options cannot be nil")
+	}
 	logger, err := ref.New(options.Namespace, options.Type, options.Options)
 	if err != nil {
 		return nil, errors.WithMessage(err, "refx.NewT failed")

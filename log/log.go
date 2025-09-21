@@ -54,3 +54,12 @@ func GetLogger(name string) logger.Logger {
 	}
 	return defaultLogger
 }
+
+// NewLoggerWithOptions 使用指定配置创建日志器
+// 当 options 为 nil 时，返回默认日志器
+func NewLoggerWithOptions(options *ref.TypeOptions) (logger.Logger, error) {
+	if options == nil {
+		return defaultLogger, nil
+	}
+	return logger.NewLoggerWithOptions(options)
+}
