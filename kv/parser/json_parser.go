@@ -189,13 +189,13 @@ func (p *JsonLineParser[K, V]) determineChangeType(data map[string]interface{}) 
 	return ChangeTypeAdd
 }
 
-func (p *JsonLineParser[K, V]) Parse(line string) (ChangeType, K, V, error) {
+func (p *JsonLineParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
 	var zeroK K
 	var zeroV V
 	
 	// 解析JSON
 	var jsonData map[string]interface{}
-	if err := json.Unmarshal([]byte(line), &jsonData); err != nil {
+	if err := json.Unmarshal(buf, &jsonData); err != nil {
 		return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 	
@@ -225,7 +225,7 @@ func (p *JsonLineParser[K, V]) Parse(line string) (ChangeType, K, V, error) {
 		}
 	} else {
 		// V是具体类型，使用JSON反序列化
-		if err := json.Unmarshal([]byte(line), &value); err != nil {
+		if err := json.Unmarshal(buf, &value); err != nil {
 			return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to unmarshal JSON to type %T: %w", zeroV, err)
 		}
 	}

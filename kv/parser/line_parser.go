@@ -22,20 +22,21 @@ func NewSeparatorLineParserWithOptions[K, V any](options *SeparatorLineParserOpt
 	}, nil
 }
 
-func (p *SeparatorLineParser[K, V]) Parse(line string) (ChangeType, K, V, error) {
+func (p *SeparatorLineParser[K, V]) Parse(buf []byte) (ChangeType, K, V, error) {
 	var zeroK K
 	var zeroV V
-	
+
+	line := string(buf)
 	parts := strings.Split(line, p.separator)
-	
+
 	if len(parts) < 2 {
 		return ChangeTypeUnknown, zeroK, zeroV, nil
 	}
-	
+
 	keyStr := parts[0]
 	valueStr := parts[1]
 	changeType := ChangeTypeAdd
-	
+
 	if len(parts) >= 3 && parts[2] != "" {
 		if val, err := strconv.Atoi(parts[2]); err == nil {
 			changeType = ChangeType(val)
@@ -52,26 +53,26 @@ func (p *SeparatorLineParser[K, V]) Parse(line string) (ChangeType, K, V, error)
 			}
 		}
 	}
-	
+
 	key, err := parseValue[K](keyStr)
 	if err != nil {
 		return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to parse key: %w", err)
 	}
-	
+
 	value, err := parseValue[V](valueStr)
 	if err != nil {
 		return ChangeTypeUnknown, zeroK, zeroV, fmt.Errorf("failed to parse value: %w", err)
 	}
-	
+
 	return changeType, key, value, nil
 }
 
 func parseValue[T any](str string) (T, error) {
 	var result T
 	var zeroT T
-	
+
 	rt := reflect.TypeOf(result)
-	
+
 	switch rt.Kind() {
 	case reflect.String:
 		if v, ok := any(str).(T); ok {
@@ -161,6 +162,6 @@ func parseValue[T any](str string) (T, error) {
 		}
 		return zeroT, fmt.Errorf("unsupported type conversion from string to %T", result)
 	}
-	
+
 	return zeroT, fmt.Errorf("failed to convert string %q to type %T", str, result)
 }

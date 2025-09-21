@@ -60,7 +60,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			parser, _ := NewSeparatorLineParserWithOptions[string, string](options)
 
 			Convey("基本key-value解析", func() {
-				changeType, key, value, err := parser.Parse("hello\tworld")
+				changeType, key, value, err := parser.Parse([]byte("hello\tworld"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "hello")
@@ -69,7 +69,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 
 			Convey("带changeType的解析", func() {
 				Convey("数值类型changeType", func() {
-					changeType, key, value, err := parser.Parse("hello\tworld\t2")
+					changeType, key, value, err := parser.Parse([]byte("hello\tworld\t2"))
 					So(err, ShouldBeNil)
 					So(changeType, ShouldEqual, ChangeTypeUpdate)
 					So(key, ShouldEqual, "hello")
@@ -77,7 +77,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 				})
 
 				Convey("字符串类型changeType", func() {
-					changeType, key, value, err := parser.Parse("hello\tworld\tdelete")
+					changeType, key, value, err := parser.Parse([]byte("hello\tworld\tdelete"))
 					So(err, ShouldBeNil)
 					So(changeType, ShouldEqual, ChangeTypeDelete)
 					So(key, ShouldEqual, "hello")
@@ -85,7 +85,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 				})
 
 				Convey("未知changeType默认为add", func() {
-					changeType, key, value, err := parser.Parse("hello\tworld\tunknown")
+					changeType, key, value, err := parser.Parse([]byte("hello\tworld\tunknown"))
 					So(err, ShouldBeNil)
 					So(changeType, ShouldEqual, ChangeTypeAdd)
 					So(key, ShouldEqual, "hello")
@@ -95,7 +95,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 
 			Convey("边界情况", func() {
 				Convey("只有一个字段", func() {
-					changeType, key, value, err := parser.Parse("hello")
+					changeType, key, value, err := parser.Parse([]byte("hello"))
 					So(err, ShouldBeNil)
 					So(changeType, ShouldEqual, ChangeTypeUnknown)
 					So(key, ShouldEqual, "")
@@ -103,7 +103,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 				})
 
 				Convey("空字符串", func() {
-					changeType, key, value, err := parser.Parse("")
+					changeType, key, value, err := parser.Parse([]byte(""))
 					So(err, ShouldBeNil)
 					So(changeType, ShouldEqual, ChangeTypeUnknown)
 					So(key, ShouldEqual, "")
@@ -111,7 +111,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 				})
 
 				Convey("空的changeType字段", func() {
-					changeType, key, value, err := parser.Parse("hello\tworld\t")
+					changeType, key, value, err := parser.Parse([]byte("hello\tworld\t"))
 					So(err, ShouldBeNil)
 					So(changeType, ShouldEqual, ChangeTypeAdd)
 					So(key, ShouldEqual, "hello")
@@ -124,7 +124,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			parser, _ := NewSeparatorLineParserWithOptions[string, int](options)
 
 			Convey("正常整数解析", func() {
-				changeType, key, value, err := parser.Parse("count\t42")
+				changeType, key, value, err := parser.Parse([]byte("count\t42"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "count")
@@ -132,7 +132,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			})
 
 			Convey("负数解析", func() {
-				changeType, key, value, err := parser.Parse("temp\t-10")
+				changeType, key, value, err := parser.Parse([]byte("temp\t-10"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "temp")
@@ -140,7 +140,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			})
 
 			Convey("无效整数", func() {
-				changeType, key, value, err := parser.Parse("count\tabc")
+				changeType, key, value, err := parser.Parse([]byte("count\tabc"))
 				So(err, ShouldNotBeNil)
 				So(changeType, ShouldEqual, ChangeTypeUnknown)
 				So(key, ShouldEqual, "")
@@ -152,7 +152,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			parser, _ := NewSeparatorLineParserWithOptions[string, float64](options)
 
 			Convey("正常浮点数解析", func() {
-				changeType, key, value, err := parser.Parse("pi\t3.14159")
+				changeType, key, value, err := parser.Parse([]byte("pi\t3.14159"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "pi")
@@ -160,7 +160,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			})
 
 			Convey("整数到浮点数", func() {
-				changeType, key, value, err := parser.Parse("number\t42")
+				changeType, key, value, err := parser.Parse([]byte("number\t42"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "number")
@@ -172,7 +172,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			parser, _ := NewSeparatorLineParserWithOptions[string, bool](options)
 
 			Convey("true值解析", func() {
-				changeType, key, value, err := parser.Parse("enabled\ttrue")
+				changeType, key, value, err := parser.Parse([]byte("enabled\ttrue"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "enabled")
@@ -180,7 +180,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			})
 
 			Convey("false值解析", func() {
-				changeType, key, value, err := parser.Parse("disabled\tfalse")
+				changeType, key, value, err := parser.Parse([]byte("disabled\tfalse"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "disabled")
@@ -196,7 +196,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			parser, _ := NewSeparatorLineParserWithOptions[string, User](options)
 
 			Convey("正常JSON解析", func() {
-				changeType, key, value, err := parser.Parse("user1\t{\"name\":\"alice\",\"age\":25}")
+				changeType, key, value, err := parser.Parse([]byte("user1\t{\"name\":\"alice\",\"age\":25}"))
 				So(err, ShouldBeNil)
 				So(changeType, ShouldEqual, ChangeTypeAdd)
 				So(key, ShouldEqual, "user1")
@@ -205,7 +205,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			})
 
 			Convey("无效JSON", func() {
-				changeType, key, value, err := parser.Parse("user1\t{invalid json}")
+				changeType, key, value, err := parser.Parse([]byte("user1\t{invalid json}"))
 				So(err, ShouldNotBeNil)
 				So(changeType, ShouldEqual, ChangeTypeUnknown)
 				So(key, ShouldEqual, "")
@@ -220,7 +220,7 @@ func TestSeparatorLineParserParse(t *testing.T) {
 			}
 			parser, _ := NewSeparatorLineParserWithOptions[string, string](customOptions)
 
-			changeType, key, value, err := parser.Parse("hello|world|update")
+			changeType, key, value, err := parser.Parse([]byte("hello|world|update"))
 			So(err, ShouldBeNil)
 			So(changeType, ShouldEqual, ChangeTypeUpdate)
 			So(key, ShouldEqual, "hello")

@@ -697,7 +697,7 @@ func TestJsonLineParserParse(t *testing.T) {
 			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
 
 			jsonLine := `{"id":"123","name":"alice","age":25}`
-			changeType, key, value, err := parser.Parse(jsonLine)
+			changeType, key, value, err := parser.Parse([]byte(jsonLine))
 
 			So(err, ShouldBeNil)
 			So(changeType, ShouldEqual, ChangeTypeAdd)
@@ -725,7 +725,7 @@ func TestJsonLineParserParse(t *testing.T) {
 			parser, _ := NewJsonLineParserWithOptions[string, User](options)
 
 			jsonLine := `{"id":"123","name":"alice","age":25}`
-			changeType, key, value, err := parser.Parse(jsonLine)
+			changeType, key, value, err := parser.Parse([]byte(jsonLine))
 
 			So(err, ShouldBeNil)
 			So(changeType, ShouldEqual, ChangeTypeAdd)
@@ -743,7 +743,7 @@ func TestJsonLineParserParse(t *testing.T) {
 			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
 
 			jsonLine := `{"user_id":"123","name":"alice","action":"create"}`
-			changeType, key, _, err := parser.Parse(jsonLine)
+			changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 			So(err, ShouldBeNil)
 			So(key, ShouldEqual, "123_alice")
@@ -758,7 +758,7 @@ func TestJsonLineParserParse(t *testing.T) {
 			parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
 
 			jsonLine := `{"user":{"id":"123","profile":{"email":"alice@test.com"}},"action":"update"}`
-			changeType, key, _, err := parser.Parse(jsonLine)
+			changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 			So(err, ShouldBeNil)
 			So(key, ShouldEqual, "123|alice@test.com")
@@ -791,7 +791,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("匹配delete规则", func() {
 				jsonLine := `{"id":"123","action":"delete","status":"any"}`
-				changeType, key, value, err := parser.Parse(jsonLine)
+				changeType, key, value, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "123")
@@ -801,7 +801,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("匹配update规则", func() {
 				jsonLine := `{"id":"456","action":"update","status":"active"}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "456")
@@ -810,7 +810,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("无规则匹配使用默认", func() {
 				jsonLine := `{"id":"789","action":"create","status":"pending"}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "789")
@@ -845,7 +845,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("OR逻辑匹配", func() {
 				jsonLine := `{"user_id":"123","action":"remove","user":{"role":"user"}}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "123")
@@ -854,7 +854,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("AND逻辑匹配", func() {
 				jsonLine := `{"user_id":"456","action":"modify","user":{"role":"admin"},"force":true}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "456")
@@ -871,7 +871,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("无效JSON", func() {
 				jsonLine := `{"id":"123","name":}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldContainSubstring, "failed to parse JSON")
@@ -881,7 +881,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("key字段缺失", func() {
 				jsonLine := `{"name":"alice","age":25}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldContainSubstring, "failed to generate key")
@@ -893,7 +893,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				jsonLine := `{"id":"not_a_number"}`
 				parser, _ := NewJsonLineParserWithOptions[int, interface{}](options)
 
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldContainSubstring, "failed to convert key")
@@ -910,7 +910,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				jsonLine := `{"id":"123","data":"not_a_number"}`
 				parser, _ := NewJsonLineParserWithOptions[string, InvalidStruct](options)
 
-				changeType, _, _, err := parser.Parse(jsonLine)
+				changeType, _, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldContainSubstring, "failed to unmarshal JSON")
@@ -927,7 +927,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("包含null值", func() {
 				jsonLine := `{"id":"123","status":null,"data":"test"}`
-				changeType, key, value, err := parser.Parse(jsonLine)
+				changeType, key, value, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "123_<nil>")
@@ -939,7 +939,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("包含嵌套对象", func() {
 				jsonLine := `{"id":"123","status":"active","user":{"name":"alice","settings":{"theme":"dark"}}}`
-				changeType, key, value, err := parser.Parse(jsonLine)
+				changeType, key, value, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "123_active")
@@ -952,7 +952,7 @@ func TestJsonLineParserParse(t *testing.T) {
 
 			Convey("包含数组", func() {
 				jsonLine := `{"id":"123","status":"active","tags":["admin","user"]}`
-				changeType, key, value, err := parser.Parse(jsonLine)
+				changeType, key, value, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "123_active")
@@ -975,7 +975,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				parser, _ := NewJsonLineParserWithOptions[int, interface{}](options)
 
 				jsonLine := `{"id":"123","name":"alice"}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, 123)
@@ -990,7 +990,7 @@ func TestJsonLineParserParse(t *testing.T) {
 				parser, _ := NewJsonLineParserWithOptions[string, interface{}](options)
 
 				jsonLine := `{"user_id":"alice","timestamp":1609459200,"action":"login"}`
-				changeType, key, _, err := parser.Parse(jsonLine)
+				changeType, key, _, err := parser.Parse([]byte(jsonLine))
 
 				So(err, ShouldBeNil)
 				So(key, ShouldEqual, "alice-1609459200")
