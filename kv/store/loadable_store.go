@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/hatlonely/gox/kv/loader"
 	"github.com/hatlonely/gox/kv/parser"
@@ -41,12 +43,22 @@ func NewLoadableStoreWithOptions[K comparable, V any](options *LoadableStoreOpti
 	l = l.WithGroup("loadableStore")
 
 	loadableStore := &LoadableStore[K, V]{
-		store:        store,
 		loader:       loaderInstance,
 		loadStrategy: options.LoadStrategy,
 		storeOptions: options.Store, // 保存原始配置
+		closeDelay:   options.CloseDelay,
 		logger:       l,
-		closed:       false,
+		oldStores:    make(chan Store[K, V], 100), // 缓冲队列
+		done:         make(chan struct{}),
+	}
+	
+	// 设置初始 store
+	loadableStore.store.Store(&store)
+	
+	// 启动延迟关闭 worker（仅在 replace 策略下）
+	if options.LoadStrategy == loader.LoadStrategyReplace {
+		loadableStore.wg.Add(1)
+		go loadableStore.closeWorker()
 	}
 
 	// 注册数据变更监听器，首次加载数据
@@ -62,113 +74,115 @@ type LoadableStoreOptions struct {
 	Store        *ref.TypeOptions `cfg:"store" validate:"required"`
 	Loader       *ref.TypeOptions `cfg:"loader" validate:"required"`
 	LoadStrategy string           `cfg:"loadStrategy" def:"inplace"` // "inplace" 或 "replace"
+	CloseDelay   time.Duration    `cfg:"closeDelay" def:"1s"`       // 延迟关闭时间
 	Logger       *ref.TypeOptions `cfg:"logger"`
 }
 
 type LoadableStore[K comparable, V any] struct {
-	store         Store[K, V]
-	loader        loader.Loader[K, V]
-	loadStrategy  string
-	storeOptions  *ref.TypeOptions // 保存原始 store 配置用于 replace 策略
-	mutex         sync.RWMutex
-	logger        logger.Logger
-	closed        bool
+	store        atomic.Pointer[Store[K, V]] // 使用原子指针
+	loader       loader.Loader[K, V]
+	loadStrategy string
+	storeOptions *ref.TypeOptions // 保存原始 store 配置用于 replace 策略
+	closeDelay   time.Duration
+	logger       logger.Logger
+	closed       atomic.Bool
+	
+	// 延迟关闭管理
+	oldStores chan Store[K, V]
+	done      chan struct{}
+	wg        sync.WaitGroup
 }
 
-// Store 接口实现
+// Store 接口实现 - 完全无锁
 func (ls *LoadableStore[K, V]) Set(ctx context.Context, key K, value V, opts ...setOption) error {
-	if ls.closed {
+	if ls.closed.Load() {
 		return errors.New("store is closed")
 	}
 	
-	if ls.loadStrategy == loader.LoadStrategyReplace {
-		ls.mutex.RLock()
-		defer ls.mutex.RUnlock()
-	}
-	
-	return ls.store.Set(ctx, key, value, opts...)
+	store := ls.store.Load()
+	return (*store).Set(ctx, key, value, opts...)
 }
 
 func (ls *LoadableStore[K, V]) Get(ctx context.Context, key K) (V, error) {
-	if ls.closed {
+	if ls.closed.Load() {
 		var zero V
 		return zero, errors.New("store is closed")
 	}
 	
-	if ls.loadStrategy == loader.LoadStrategyReplace {
-		ls.mutex.RLock()
-		defer ls.mutex.RUnlock()
-	}
-	
-	return ls.store.Get(ctx, key)
+	store := ls.store.Load()
+	return (*store).Get(ctx, key)
 }
 
 func (ls *LoadableStore[K, V]) Del(ctx context.Context, key K) error {
-	if ls.closed {
+	if ls.closed.Load() {
 		return errors.New("store is closed")
 	}
 	
-	if ls.loadStrategy == loader.LoadStrategyReplace {
-		ls.mutex.RLock()
-		defer ls.mutex.RUnlock()
-	}
-	
-	return ls.store.Del(ctx, key)
+	store := ls.store.Load()
+	return (*store).Del(ctx, key)
 }
 
 func (ls *LoadableStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, opts ...setOption) ([]error, error) {
-	if ls.closed {
+	if ls.closed.Load() {
 		return nil, errors.New("store is closed")
 	}
 	
-	if ls.loadStrategy == loader.LoadStrategyReplace {
-		ls.mutex.RLock()
-		defer ls.mutex.RUnlock()
-	}
-	
-	return ls.store.BatchSet(ctx, keys, vals, opts...)
+	store := ls.store.Load()
+	return (*store).BatchSet(ctx, keys, vals, opts...)
 }
 
 func (ls *LoadableStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []error, error) {
-	if ls.closed {
+	if ls.closed.Load() {
 		return nil, nil, errors.New("store is closed")
 	}
 	
-	if ls.loadStrategy == loader.LoadStrategyReplace {
-		ls.mutex.RLock()
-		defer ls.mutex.RUnlock()
-	}
-	
-	return ls.store.BatchGet(ctx, keys)
+	store := ls.store.Load()
+	return (*store).BatchGet(ctx, keys)
 }
 
 func (ls *LoadableStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, error) {
-	if ls.closed {
+	if ls.closed.Load() {
 		return nil, errors.New("store is closed")
 	}
 	
-	if ls.loadStrategy == loader.LoadStrategyReplace {
-		ls.mutex.RLock()
-		defer ls.mutex.RUnlock()
-	}
-	
-	return ls.store.BatchDel(ctx, keys)
+	store := ls.store.Load()
+	return (*store).BatchDel(ctx, keys)
 }
 
 func (ls *LoadableStore[K, V]) Close() error {
-	if ls.closed {
-		return nil
+	if ls.closed.Swap(true) {
+		return nil // 已经关闭过了
 	}
 	
-	ls.closed = true
-	
 	var errs []error
+	
+	// 关闭 loader
 	if err := ls.loader.Close(); err != nil {
 		errs = append(errs, errors.WithMessage(err, "failed to close loader"))
 	}
 	
-	if err := ls.store.Close(); err != nil {
-		errs = append(errs, errors.WithMessage(err, "failed to close store"))
+	// 停止延迟关闭 worker
+	if ls.loadStrategy == loader.LoadStrategyReplace {
+		close(ls.done)
+		ls.wg.Wait()
+	}
+	
+	// 关闭当前 store
+	store := ls.store.Load()
+	if store != nil && *store != nil {
+		if err := (*store).Close(); err != nil {
+			errs = append(errs, errors.WithMessage(err, "failed to close current store"))
+		}
+	}
+	
+	// 关闭所有待关闭的 store
+	if ls.loadStrategy == loader.LoadStrategyReplace {
+		close(ls.oldStores)
+		for oldStore := range ls.oldStores {
+			if err := oldStore.Close(); err != nil {
+				errs = append(errs, errors.WithMessage(err, "failed to close old store"))
+			}
+		}
 	}
 	
 	if len(errs) > 0 {
@@ -180,7 +194,7 @@ func (ls *LoadableStore[K, V]) Close() error {
 
 // handleDataChange 处理数据变更事件
 func (ls *LoadableStore[K, V]) handleDataChange(stream loader.KVStream[K, V]) error {
-	if ls.closed {
+	if ls.closed.Load() {
 		return errors.New("store is closed")
 	}
 
@@ -194,27 +208,28 @@ func (ls *LoadableStore[K, V]) handleDataChange(stream loader.KVStream[K, V]) er
 	}
 }
 
-// handleInPlaceLoad 处理增量加载策略
+// handleInPlaceLoad 处理增量加载策略 - 无锁
 func (ls *LoadableStore[K, V]) handleInPlaceLoad(stream loader.KVStream[K, V]) error {
 	ctx := context.Background()
+	store := ls.store.Load()
 	
 	return stream.Each(func(changeType parser.ChangeType, key K, val V) error {
 		switch changeType {
 		case parser.ChangeTypeAdd, parser.ChangeTypeUpdate:
-			return ls.store.Set(ctx, key, val)
+			return (*store).Set(ctx, key, val)
 		case parser.ChangeTypeDelete:
-			return ls.store.Del(ctx, key)
+			return (*store).Del(ctx, key)
 		case parser.ChangeTypeUnknown:
 			// 对于未知类型，默认当做更新处理
 			ls.logger.Warn("unknown change type, treating as update", "key", key)
-			return ls.store.Set(ctx, key, val)
+			return (*store).Set(ctx, key, val)
 		default:
 			return errors.Errorf("unsupported change type: %d", changeType)
 		}
 	})
 }
 
-// handleReplaceLoad 处理替换加载策略
+// handleReplaceLoad 处理替换加载策略 - 完全无锁
 func (ls *LoadableStore[K, V]) handleReplaceLoad(stream loader.KVStream[K, V]) error {
 	ctx := context.Background()
 	
@@ -248,18 +263,59 @@ func (ls *LoadableStore[K, V]) handleReplaceLoad(stream loader.KVStream[K, V]) e
 	}
 	
 	// 原子性替换 store
-	ls.mutex.Lock()
-	oldStore := ls.store
-	ls.store = newStore
-	ls.mutex.Unlock()
+	oldStore := ls.store.Swap(&newStore)
 	
-	// 关闭旧的 store
-	if err := oldStore.Close(); err != nil {
-		ls.logger.Warn("failed to close old store", "error", err)
+	// 将旧 store 加入延迟关闭队列
+	if oldStore != nil && *oldStore != nil {
+		ls.scheduleClose(*oldStore)
 	}
 	
 	ls.logger.Info("store replaced successfully")
 	return nil
+}
+
+// scheduleClose 将 store 加入延迟关闭队列
+func (ls *LoadableStore[K, V]) scheduleClose(store Store[K, V]) {
+	select {
+	case ls.oldStores <- store:
+		// 成功加入队列
+	default:
+		// 队列满时，启动新的 goroutine 立即关闭
+		go func() {
+			time.Sleep(ls.closeDelay)
+			if err := store.Close(); err != nil {
+				ls.logger.Warn("failed to close old store in fallback", "error", err)
+			}
+		}()
+	}
+}
+
+// closeWorker 延迟关闭 worker
+func (ls *LoadableStore[K, V]) closeWorker() {
+	defer ls.wg.Done()
+	
+	for {
+		select {
+		case store := <-ls.oldStores:
+			// 延迟关闭
+			time.Sleep(ls.closeDelay)
+			if err := store.Close(); err != nil {
+				ls.logger.Warn("failed to close old store", "error", err)
+			}
+		case <-ls.done:
+			// 收到关闭信号，处理剩余的 store 后退出
+			for {
+				select {
+				case store := <-ls.oldStores:
+					if err := store.Close(); err != nil {
+						ls.logger.Warn("failed to close old store on shutdown", "error", err)
+					}
+				default:
+					return
+				}
+			}
+		}
+	}
 }
 
 // getStoreOptions 获取当前 store 的配置选项
