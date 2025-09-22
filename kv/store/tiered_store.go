@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"sync"
 
 	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
@@ -31,7 +30,6 @@ type TieredStore[K comparable, V any] struct {
 	tiers       []Store[K, V]
 	writePolicy string
 	promote     bool
-	mu          sync.RWMutex
 }
 
 func NewTieredStoreWithOptions[K comparable, V any](options *TieredStoreOptions) (*TieredStore[K, V], error) {
@@ -147,17 +145,12 @@ func (ts *TieredStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, e
 }
 
 func (ts *TieredStore[K, V]) Close() error {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-
 	var errs []error
 	for i, tier := range ts.tiers {
 		if err := tier.Close(); err != nil {
 			errs = append(errs, errors.WithMessagef(err, "failed to close tier %d", i))
 		}
 	}
-
-	ts.tiers = nil
 
 	if len(errs) > 0 {
 		return errors.Errorf("close errors: %v", errs)

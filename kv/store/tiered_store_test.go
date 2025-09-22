@@ -546,8 +546,8 @@ func TestTieredStoreClose(t *testing.T) {
 			err = store.Close()
 			So(err, ShouldBeNil)
 
-			// 确保层数为 0
-			So(store.GetTierCount(), ShouldEqual, 0)
+			// Close() 只负责关闭各层 store，不修改结构
+			So(store.GetTierCount(), ShouldEqual, 2)
 		})
 	})
 }
