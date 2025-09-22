@@ -175,9 +175,13 @@ func (ts *TieredStore[K, V]) writeThrough(ctx context.Context, key K, value V, o
 	var lastErr error
 	success := false
 
-	for i, tier := range ts.tiers {
+	for _, tier := range ts.tiers {
 		if err := tier.Set(ctx, key, value, opts...); err != nil {
-			lastErr = errors.WithMessagef(err, "tier %d set failed", i)
+			lastErr = err
+			// 如果是条件失败，直接返回，不继续尝试其他层
+			if err == ErrConditionFailed {
+				return err
+			}
 		} else {
 			success = true
 		}
