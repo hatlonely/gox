@@ -2,11 +2,19 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/hatlonely/gox/ref"
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+func randomName(prefix string) string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("%s_%d", prefix, rand.Int63())
+}
 
 func TestNewObservableStoreWithOptions(t *testing.T) {
 	Convey("NewObservableStoreWithOptions", t, func() {
@@ -16,7 +24,7 @@ func TestNewObservableStoreWithOptions(t *testing.T) {
 					Namespace: "github.com/hatlonely/gox/kv/store",
 					Type:      "MapStore[string,string]",
 				},
-				Name:          "test_store",
+				Name:          randomName("test_store"),
 				EnableMetrics: true,
 				EnableLogging: false,
 				EnableTracing: false,
