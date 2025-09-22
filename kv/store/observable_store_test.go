@@ -70,36 +70,54 @@ func TestNewObservableStoreWithOptions(t *testing.T) {
 
 func TestObservableStoreSet(t *testing.T) {
 	Convey("ObservableStore.Set", t, func() {
-		options := &ObservableStoreOptions{
-			Store: &ref.TypeOptions{
-				Namespace: "github.com/hatlonely/gox/kv/store",
-				Type:      "MapStore[string,string]",
-			},
-			Logger: &ref.TypeOptions{
-				Namespace: "github.com/hatlonely/gox/log",
-				Type:      "GetLogger",
-				Options:   "test",
-			},
-			Name:          "test_store",
-			EnableMetrics: true,
-			EnableLogging: true,
-		}
-		store, err := NewObservableStoreWithOptions[string, string](options)
-		So(err, ShouldBeNil)
-		defer store.Close()
-
-		ctx := context.Background()
-
 		Convey("基本设置操作", func() {
-			err := store.Set(ctx, "test_key", "test_value")
+			options := &ObservableStoreOptions{
+				Store: &ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/store",
+					Type:      "MapStore[string,string]",
+				},
+				Logger: &ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/log",
+					Type:      "GetLogger",
+					Options:   "test",
+				},
+				Name:          "test_store_set_basic",
+				EnableMetrics: true,
+				EnableLogging: true,
+			}
+			store, err := NewObservableStoreWithOptions[string, string](options)
+			So(err, ShouldBeNil)
+			defer store.Close()
+
+			ctx := context.Background()
+			err = store.Set(ctx, "test_key", "test_value")
 			So(err, ShouldBeNil)
 		})
 
 		Convey("条件设置操作", func() {
+			options := &ObservableStoreOptions{
+				Store: &ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/store",
+					Type:      "MapStore[string,string]",
+				},
+				Logger: &ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/log",
+					Type:      "GetLogger",
+					Options:   "test",
+				},
+				Name:          "test_store_set_condition",
+				EnableMetrics: true,
+				EnableLogging: true,
+			}
+			store, err := NewObservableStoreWithOptions[string, string](options)
+			So(err, ShouldBeNil)
+			defer store.Close()
+
+			ctx := context.Background()
 			key := "test_key_ifnotexist"
 			value := "test_value"
 
-			err := store.Set(ctx, key, value, WithIfNotExist())
+			err = store.Set(ctx, key, value, WithIfNotExist())
 			So(err, ShouldBeNil)
 
 			err = store.Set(ctx, key, "new_value", WithIfNotExist())
@@ -115,7 +133,7 @@ func TestObservableStoreGet(t *testing.T) {
 				Namespace: "github.com/hatlonely/gox/kv/store",
 				Type:      "MapStore[string,string]",
 			},
-			Name:          "test_store",
+			Name:          "test_store_get",
 			EnableMetrics: true,
 			EnableLogging: false,
 		}
@@ -151,7 +169,7 @@ func TestObservableStoreDel(t *testing.T) {
 				Namespace: "github.com/hatlonely/gox/kv/store",
 				Type:      "MapStore[string,string]",
 			},
-			Name:          "test_store",
+			Name:          "test_store_del",
 			EnableMetrics: true,
 			EnableLogging: false,
 		}
@@ -189,7 +207,7 @@ func TestObservableStoreBatchSet(t *testing.T) {
 				Namespace: "github.com/hatlonely/gox/kv/store",
 				Type:      "MapStore[string,string]",
 			},
-			Name:          "test_store",
+			Name:          "test_store_batch_set",
 			EnableMetrics: true,
 			EnableLogging: false,
 		}
@@ -244,7 +262,7 @@ func TestObservableStoreBatchGet(t *testing.T) {
 				Namespace: "github.com/hatlonely/gox/kv/store",
 				Type:      "MapStore[string,string]",
 			},
-			Name:          "test_store",
+			Name:          "test_store_batch_get",
 			EnableMetrics: true,
 			EnableLogging: false,
 		}
@@ -303,7 +321,7 @@ func TestObservableStoreBatchDel(t *testing.T) {
 				Namespace: "github.com/hatlonely/gox/kv/store",
 				Type:      "MapStore[string,string]",
 			},
-			Name:          "test_store",
+			Name:          "test_store_batch_del",
 			EnableMetrics: true,
 			EnableLogging: false,
 		}
@@ -362,7 +380,7 @@ func TestObservableStoreClose(t *testing.T) {
 				Namespace: "github.com/hatlonely/gox/kv/store",
 				Type:      "MapStore[string,string]",
 			},
-			Name:          "test_store",
+			Name:          "test_store_close",
 			EnableMetrics: true,
 			EnableLogging: false,
 		}
@@ -392,7 +410,7 @@ func TestObservableStoreObservation(t *testing.T) {
 					Namespace: "github.com/hatlonely/gox/kv/store",
 					Type:      "MapStore[string,string]",
 				},
-				Name:          "test_store",
+				Name:          "test_store_no_observe",
 				EnableMetrics: false,
 				EnableLogging: false,
 				EnableTracing: false,
