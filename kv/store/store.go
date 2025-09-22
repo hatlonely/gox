@@ -62,6 +62,7 @@ func NewStoreWithOptions[K comparable, V any](options *ref.TypeOptions) (Store[K
 	ref.RegisterT[*RedisStore[K, V]](NewRedisStoreWithOptions[K, V])
 	ref.RegisterT[*PebbleStore[K, V]](NewPebbleStoreWithOptions[K, V])
 	ref.RegisterT[*LevelDBStore[K, V]](NewLevelDBStoreWithOptions[K, V])
+	ref.RegisterT[*LoadableStore[K, V]](NewLoadableStoreWithOptions[K, V])
 
 	store, err := ref.New(options.Namespace, options.Type, options.Options)
 	if err != nil {
