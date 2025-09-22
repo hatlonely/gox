@@ -2,8 +2,6 @@ package store
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/hatlonely/gox/log"
@@ -46,19 +44,17 @@ type ObservableMetrics struct {
 
 // NewObservableMetrics 创建指标收集器
 func NewObservableMetrics(name string) *ObservableMetrics {
-	// 为了避免测试中的名称冲突，添加随机后缀
-	uniqueName := fmt.Sprintf("%s_%d", name, rand.Int63())
 	metrics := &ObservableMetrics{
 		operationCounter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: uniqueName + "_operations_total",
+				Name: name + "_operations_total",
 				Help: "Total number of store operations",
 			},
 			[]string{"operation", "status"},
 		),
 		operationDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    uniqueName + "_operation_duration_seconds",
+				Name:    name + "_operation_duration_seconds",
 				Help:    "Duration of store operations in seconds",
 				Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0},
 			},
@@ -66,14 +62,14 @@ func NewObservableMetrics(name string) *ObservableMetrics {
 		),
 		activeOperations: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: uniqueName + "_active_operations",
+				Name: name + "_active_operations",
 				Help: "Number of active store operations",
 			},
 			[]string{"operation"},
 		),
 		batchSizeHistogram: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    uniqueName + "_batch_size",
+				Name:    name + "_batch_size",
 				Help:    "Size of batch operations",
 				Buckets: []float64{1, 5, 10, 50, 100, 500, 1000},
 			},
