@@ -471,21 +471,15 @@ func TestTieredStoreDynamicConfiguration(t *testing.T) {
 		So(err, ShouldBeNil)
 		defer store.Close()
 
-		Convey("动态修改写策略", func() {
-			err := store.SetWritePolicy("writeBack")
+		Convey("测试基本功能", func() {
+			ctx := context.Background()
+			// 测试基本的 Set/Get 操作
+			err := store.Set(ctx, "test_key", "test_value")
 			So(err, ShouldBeNil)
 
-			err = store.SetWritePolicy("writeThrough")
+			value, err := store.Get(ctx, "test_key")
 			So(err, ShouldBeNil)
-
-			err = store.SetWritePolicy("invalid")
-			So(err, ShouldNotBeNil)
-			So(err.Error(), ShouldContainSubstring, "invalid write policy")
-		})
-
-		Convey("动态修改提升策略", func() {
-			store.SetPromote(false)
-			store.SetPromote(true)
+			So(value, ShouldEqual, "test_value")
 		})
 	})
 }

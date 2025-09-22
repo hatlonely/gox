@@ -68,9 +68,6 @@ func NewTieredStoreWithOptions[K comparable, V any](options *TieredStoreOptions)
 }
 
 func (ts *TieredStore[K, V]) Set(ctx context.Context, key K, value V, opts ...setOption) error {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	if len(ts.tiers) == 0 {
 		return errors.New("no tiers available")
 	}
@@ -86,9 +83,6 @@ func (ts *TieredStore[K, V]) Set(ctx context.Context, key K, value V, opts ...se
 }
 
 func (ts *TieredStore[K, V]) Get(ctx context.Context, key K) (V, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	var zero V
 
 	for i, tier := range ts.tiers {
@@ -110,9 +104,6 @@ func (ts *TieredStore[K, V]) Get(ctx context.Context, key K) (V, error) {
 }
 
 func (ts *TieredStore[K, V]) Del(ctx context.Context, key K) error {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	var lastErr error
 	for _, tier := range ts.tiers {
 		if err := tier.Del(ctx, key); err != nil {
@@ -123,9 +114,6 @@ func (ts *TieredStore[K, V]) Del(ctx context.Context, key K) error {
 }
 
 func (ts *TieredStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, opts ...setOption) ([]error, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	if len(keys) != len(vals) {
 		return nil, errors.New("keys and vals length mismatch")
 	}
@@ -138,9 +126,6 @@ func (ts *TieredStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, o
 }
 
 func (ts *TieredStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []error, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	vals := make([]V, len(keys))
 	errs := make([]error, len(keys))
 
@@ -154,9 +139,6 @@ func (ts *TieredStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []err
 }
 
 func (ts *TieredStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	errs := make([]error, len(keys))
 	for i, key := range keys {
 		errs[i] = ts.Del(ctx, key)
@@ -223,9 +205,6 @@ func (ts *TieredStore[K, V]) writeBack(ctx context.Context, key K, value V, opts
 
 // promoteToUpperTiers 异步提升数据到上层缓存
 func (ts *TieredStore[K, V]) promoteToUpperTiers(ctx context.Context, key K, value V, fromTier int) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	// 从找到数据的层开始，往上层写入
 	for i := fromTier - 1; i >= 0; i-- {
 		if tier := ts.tiers[i]; tier != nil {
@@ -236,9 +215,6 @@ func (ts *TieredStore[K, V]) promoteToUpperTiers(ctx context.Context, key K, val
 
 // writeToLowerTiers 异步写入下层存储
 func (ts *TieredStore[K, V]) writeToLowerTiers(ctx context.Context, key K, value V, opts ...setOption) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	// 从第二层开始写入
 	for i := 1; i < len(ts.tiers); i++ {
 		if tier := ts.tiers[i]; tier != nil {
@@ -249,16 +225,11 @@ func (ts *TieredStore[K, V]) writeToLowerTiers(ctx context.Context, key K, value
 
 // GetTierCount 返回当前层数
 func (ts *TieredStore[K, V]) GetTierCount() int {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
 	return len(ts.tiers)
 }
 
 // GetFromTier 从指定层获取数据 (用于测试和监控)
 func (ts *TieredStore[K, V]) GetFromTier(ctx context.Context, tier int, key K) (V, error) {
-	ts.mu.RLock()
-	defer ts.mu.RUnlock()
-
 	var zero V
 	if tier < 0 || tier >= len(ts.tiers) {
 		return zero, errors.Errorf("invalid tier index: %d", tier)
@@ -267,21 +238,3 @@ func (ts *TieredStore[K, V]) GetFromTier(ctx context.Context, tier int, key K) (
 	return ts.tiers[tier].Get(ctx, key)
 }
 
-// SetWritePolicy 动态修改写策略
-func (ts *TieredStore[K, V]) SetWritePolicy(policy string) error {
-	if policy != "writeThrough" && policy != "writeBack" {
-		return errors.Errorf("invalid write policy: %s", policy)
-	}
-
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	ts.writePolicy = policy
-	return nil
-}
-
-// SetPromote 动态修改提升策略
-func (ts *TieredStore[K, V]) SetPromote(promote bool) {
-	ts.mu.Lock()
-	defer ts.mu.Unlock()
-	ts.promote = promote
-}
