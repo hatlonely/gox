@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hatlonely/gox/log"
@@ -9,6 +10,10 @@ import (
 	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ObservableStoreOptions struct {
@@ -94,6 +99,7 @@ type ObservableStore[K comparable, V any] struct {
 
 	logger        logger.Logger
 	metrics       *ObservableMetrics
+	tracer        trace.Tracer
 	name          string
 	enableMetrics bool
 	enableLogging bool
@@ -133,12 +139,29 @@ func NewObservableStoreWithOptions[K comparable, V any](options *ObservableStore
 		obs.metrics = NewObservableMetrics(options.Name)
 	}
 
+	// 创建 tracer（可选）
+	if options.EnableTracing {
+		obs.tracer = otel.Tracer(fmt.Sprintf("store.%s", options.Name))
+	}
+
 	return obs, nil
 }
 
 // observeOperation 统一的操作观测逻辑
-func (obs *ObservableStore[K, V]) observeOperation(ctx context.Context, operation string, fn func() error) error {
+func (obs *ObservableStore[K, V]) observeOperation(ctx context.Context, operation string, fn func(context.Context) error) error {
 	start := time.Now()
+	
+	// 创建 tracing span
+	var span trace.Span
+	if obs.enableTracing && obs.tracer != nil {
+		ctx, span = obs.tracer.Start(ctx, fmt.Sprintf("store.%s", operation),
+			trace.WithAttributes(
+				attribute.String("component", obs.name),
+				attribute.String("operation", operation),
+			),
+		)
+		defer span.End()
+	}
 
 	// 记录活跃操作数
 	if obs.enableMetrics && obs.metrics != nil {
@@ -147,8 +170,21 @@ func (obs *ObservableStore[K, V]) observeOperation(ctx context.Context, operatio
 	}
 
 	// 执行实际操作
-	err := fn()
+	err := fn(ctx)
 	duration := time.Since(start)
+
+	// 更新 tracing span
+	if obs.enableTracing && span != nil {
+		span.SetAttributes(
+			attribute.Int64("duration_ms", duration.Milliseconds()),
+		)
+		if err != nil {
+			span.SetStatus(codes.Error, err.Error())
+			span.RecordError(err)
+		} else {
+			span.SetStatus(codes.Ok, "")
+		}
+	}
 
 	// 记录指标
 	if obs.enableMetrics && obs.metrics != nil {
@@ -182,8 +218,21 @@ func (obs *ObservableStore[K, V]) observeOperation(ctx context.Context, operatio
 }
 
 // observeBatchOperation 批量操作的观测逻辑
-func (obs *ObservableStore[K, V]) observeBatchOperation(ctx context.Context, operation string, batchSize int, fn func() error) error {
+func (obs *ObservableStore[K, V]) observeBatchOperation(ctx context.Context, operation string, batchSize int, fn func(context.Context) error) error {
 	start := time.Now()
+	
+	// 创建 tracing span
+	var span trace.Span
+	if obs.enableTracing && obs.tracer != nil {
+		ctx, span = obs.tracer.Start(ctx, fmt.Sprintf("store.%s", operation),
+			trace.WithAttributes(
+				attribute.String("component", obs.name),
+				attribute.String("operation", operation),
+				attribute.Int("batch_size", batchSize),
+			),
+		)
+		defer span.End()
+	}
 
 	// 记录批量大小
 	if obs.enableMetrics && obs.metrics != nil {
@@ -193,8 +242,21 @@ func (obs *ObservableStore[K, V]) observeBatchOperation(ctx context.Context, ope
 	}
 
 	// 执行实际操作
-	err := fn()
+	err := fn(ctx)
 	duration := time.Since(start)
+
+	// 更新 tracing span
+	if obs.enableTracing && span != nil {
+		span.SetAttributes(
+			attribute.Int64("duration_ms", duration.Milliseconds()),
+		)
+		if err != nil {
+			span.SetStatus(codes.Error, err.Error())
+			span.RecordError(err)
+		} else {
+			span.SetStatus(codes.Ok, "")
+		}
+	}
 
 	// 记录指标
 	if obs.enableMetrics && obs.metrics != nil {
@@ -230,14 +292,14 @@ func (obs *ObservableStore[K, V]) observeBatchOperation(ctx context.Context, ope
 }
 
 func (obs *ObservableStore[K, V]) Set(ctx context.Context, key K, value V, opts ...setOption) error {
-	return obs.observeOperation(ctx, "set", func() error {
+	return obs.observeOperation(ctx, "set", func(ctx context.Context) error {
 		return obs.store.Set(ctx, key, value, opts...)
 	})
 }
 
 func (obs *ObservableStore[K, V]) Get(ctx context.Context, key K) (V, error) {
 	var result V
-	err := obs.observeOperation(ctx, "get", func() error {
+	err := obs.observeOperation(ctx, "get", func(ctx context.Context) error {
 		var getErr error
 		result, getErr = obs.store.Get(ctx, key)
 		return getErr
@@ -246,14 +308,14 @@ func (obs *ObservableStore[K, V]) Get(ctx context.Context, key K) (V, error) {
 }
 
 func (obs *ObservableStore[K, V]) Del(ctx context.Context, key K) error {
-	return obs.observeOperation(ctx, "del", func() error {
+	return obs.observeOperation(ctx, "del", func(ctx context.Context) error {
 		return obs.store.Del(ctx, key)
 	})
 }
 
 func (obs *ObservableStore[K, V]) BatchSet(ctx context.Context, keys []K, vals []V, opts ...setOption) ([]error, error) {
 	var result []error
-	err := obs.observeBatchOperation(ctx, "batch_set", len(keys), func() error {
+	err := obs.observeBatchOperation(ctx, "batch_set", len(keys), func(ctx context.Context) error {
 		var batchErr error
 		result, batchErr = obs.store.BatchSet(ctx, keys, vals, opts...)
 		return batchErr
@@ -264,7 +326,7 @@ func (obs *ObservableStore[K, V]) BatchSet(ctx context.Context, keys []K, vals [
 func (obs *ObservableStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, []error, error) {
 	var vals []V
 	var errs []error
-	err := obs.observeBatchOperation(ctx, "batch_get", len(keys), func() error {
+	err := obs.observeBatchOperation(ctx, "batch_get", len(keys), func(ctx context.Context) error {
 		var batchErr error
 		vals, errs, batchErr = obs.store.BatchGet(ctx, keys)
 		return batchErr
@@ -274,7 +336,7 @@ func (obs *ObservableStore[K, V]) BatchGet(ctx context.Context, keys []K) ([]V, 
 
 func (obs *ObservableStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]error, error) {
 	var result []error
-	err := obs.observeBatchOperation(ctx, "batch_del", len(keys), func() error {
+	err := obs.observeBatchOperation(ctx, "batch_del", len(keys), func(ctx context.Context) error {
 		var batchErr error
 		result, batchErr = obs.store.BatchDel(ctx, keys)
 		return batchErr
@@ -283,7 +345,7 @@ func (obs *ObservableStore[K, V]) BatchDel(ctx context.Context, keys []K) ([]err
 }
 
 func (obs *ObservableStore[K, V]) Close() error {
-	return obs.observeOperation(context.Background(), "close", func() error {
+	return obs.observeOperation(context.Background(), "close", func(ctx context.Context) error {
 		return obs.store.Close()
 	})
 }
