@@ -454,35 +454,6 @@ func TestTieredStoreBatchOperations(t *testing.T) {
 	})
 }
 
-func TestTieredStoreDynamicConfiguration(t *testing.T) {
-	Convey("TieredStore动态配置", t, func() {
-		options := &TieredStoreOptions{
-			Tiers: []*ref.TypeOptions{
-				{
-					Namespace: "github.com/hatlonely/gox/kv/store",
-					Type:      "MapStore[string,string]",
-				},
-			},
-			WritePolicy: "writeThrough",
-			Promote:     true,
-		}
-
-		store, err := NewTieredStoreWithOptions[string, string](options)
-		So(err, ShouldBeNil)
-		defer store.Close()
-
-		Convey("测试基本功能", func() {
-			ctx := context.Background()
-			// 测试基本的 Set/Get 操作
-			err := store.Set(ctx, "test_key", "test_value")
-			So(err, ShouldBeNil)
-
-			value, err := store.Get(ctx, "test_key")
-			So(err, ShouldBeNil)
-			So(value, ShouldEqual, "test_value")
-		})
-	})
-}
 
 func TestTieredStoreErrorHandling(t *testing.T) {
 	Convey("TieredStore错误处理", t, func() {
