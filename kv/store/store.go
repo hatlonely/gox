@@ -64,6 +64,7 @@ func NewStoreWithOptions[K comparable, V any](options *ref.TypeOptions) (Store[K
 	ref.RegisterT[*LevelDBStore[K, V]](NewLevelDBStoreWithOptions[K, V])
 	ref.RegisterT[*LoadableStore[K, V]](NewLoadableStoreWithOptions[K, V])
 	ref.RegisterT[*TieredStore[K, V]](NewTieredStoreWithOptions[K, V])
+	ref.RegisterT[*ObservableStore[K, V]](NewObservableStoreWithOptions[K, V])
 
 	store, err := ref.New(options.Namespace, options.Type, options.Options)
 	if err != nil {

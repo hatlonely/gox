@@ -34,8 +34,9 @@ func TestNewObservableStoreWithOptions(t *testing.T) {
 					Type:      "MapStore[string,string]",
 				},
 				Logger: &ref.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/log/logger",
-					Type:      "SLog",
+					Namespace: "github.com/hatlonely/gox/log",
+					Type:      "GetLogger",
+					Options:   "test",
 				},
 				Name:          "test_store_with_logger",
 				EnableMetrics: true,
@@ -71,10 +72,13 @@ func TestObservableStoreSet(t *testing.T) {
 	Convey("ObservableStore.Set", t, func() {
 		options := &ObservableStoreOptions{
 			Store: &ref.TypeOptions{
-				Type: "MapStore",
+				Namespace: "github.com/hatlonely/gox/kv/store",
+				Type:      "MapStore[string,string]",
 			},
 			Logger: &ref.TypeOptions{
-				Type: "SLog",
+				Namespace: "github.com/hatlonely/gox/log",
+				Type:      "GetLogger",
+				Options:   "test",
 			},
 			Name:          "test_store",
 			EnableMetrics: true,
@@ -108,7 +112,8 @@ func TestObservableStoreGet(t *testing.T) {
 	Convey("ObservableStore.Get", t, func() {
 		options := &ObservableStoreOptions{
 			Store: &ref.TypeOptions{
-				Type: "MapStore",
+				Namespace: "github.com/hatlonely/gox/kv/store",
+				Type:      "MapStore[string,string]",
 			},
 			Name:          "test_store",
 			EnableMetrics: true,
@@ -143,7 +148,8 @@ func TestObservableStoreDel(t *testing.T) {
 	Convey("ObservableStore.Del", t, func() {
 		options := &ObservableStoreOptions{
 			Store: &ref.TypeOptions{
-				Type: "MapStore",
+				Namespace: "github.com/hatlonely/gox/kv/store",
+				Type:      "MapStore[string,string]",
 			},
 			Name:          "test_store",
 			EnableMetrics: true,
@@ -180,7 +186,8 @@ func TestObservableStoreBatchSet(t *testing.T) {
 	Convey("ObservableStore.BatchSet", t, func() {
 		options := &ObservableStoreOptions{
 			Store: &ref.TypeOptions{
-				Type: "MapStore",
+				Namespace: "github.com/hatlonely/gox/kv/store",
+				Type:      "MapStore[string,string]",
 			},
 			Name:          "test_store",
 			EnableMetrics: true,
@@ -234,7 +241,8 @@ func TestObservableStoreBatchGet(t *testing.T) {
 	Convey("ObservableStore.BatchGet", t, func() {
 		options := &ObservableStoreOptions{
 			Store: &ref.TypeOptions{
-				Type: "MapStore",
+				Namespace: "github.com/hatlonely/gox/kv/store",
+				Type:      "MapStore[string,string]",
 			},
 			Name:          "test_store",
 			EnableMetrics: true,
@@ -292,7 +300,8 @@ func TestObservableStoreBatchDel(t *testing.T) {
 	Convey("ObservableStore.BatchDel", t, func() {
 		options := &ObservableStoreOptions{
 			Store: &ref.TypeOptions{
-				Type: "MapStore",
+				Namespace: "github.com/hatlonely/gox/kv/store",
+				Type:      "MapStore[string,string]",
 			},
 			Name:          "test_store",
 			EnableMetrics: true,
@@ -350,7 +359,8 @@ func TestObservableStoreClose(t *testing.T) {
 	Convey("ObservableStore.Close", t, func() {
 		options := &ObservableStoreOptions{
 			Store: &ref.TypeOptions{
-				Type: "MapStore",
+				Namespace: "github.com/hatlonely/gox/kv/store",
+				Type:      "MapStore[string,string]",
 			},
 			Name:          "test_store",
 			EnableMetrics: true,
@@ -430,8 +440,9 @@ func TestObservableStoreObservation(t *testing.T) {
 					Type:      "MapStore[string,string]",
 				},
 				Logger: &ref.TypeOptions{
-					Namespace: "github.com/hatlonely/gox/log/logger",
-					Type:      "SLog",
+					Namespace: "github.com/hatlonely/gox/log",
+					Type:      "GetLogger",
+					Options:   "test",
 				},
 				Name:          "full_observable_store",
 				EnableMetrics: true,
