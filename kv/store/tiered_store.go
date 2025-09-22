@@ -9,16 +9,29 @@ import (
 )
 
 type TieredStoreOptions struct {
-	Tiers       []*ref.TypeOptions `cfg:"tiers" validate:"required,min=1"`
-	WritePolicy string             `cfg:"writePolicy" def:"writeThrough"` // "writeThrough" or "writeBack"
-	Promote     bool               `cfg:"promote" def:"true"`             // 是否将读取的数据提升到上层缓存
+	// Tiers 多级存储层配置，按优先级从高到低排列
+	// 第一层应该是最快的缓存（如内存），最后一层是持久化存储
+	// 至少需要配置一层存储
+	Tiers []*ref.TypeOptions `cfg:"tiers" validate:"required,min=1,dive,required"`
+
+	// WritePolicy 写入策略，支持以下两种模式：
+	// - "writeThrough": 写穿模式，同步写入所有层，保证数据一致性但性能较低
+	// - "writeBack": 写回模式，只写入第一层，异步写入其他层，性能较高但可能存在数据丢失风险
+	WritePolicy string `cfg:"writePolicy" def:"writeThrough" validate:"oneof=writeThrough writeBack"`
+
+	// Promote 数据提升策略，控制是否将从下层读取的数据提升到上层缓存
+	// - true: 启用提升，从下层读取数据后会异步写入到上层缓存，提高后续访问性能
+	// - false: 禁用提升，数据只在原层访问，适用于访问模式相对固定的场景
+	Promote bool `cfg:"promote" def:"true"`
 }
 
+// TieredStore 多级缓存存储实现
+// 支持多层级的缓存架构，提供数据提升和不同的写入策略
 type TieredStore[K comparable, V any] struct {
 	tiers       []Store[K, V]
 	writePolicy string
 	promote     bool
-	mu          sync.RWMutex // 保护 tiers 切片操作
+	mu          sync.RWMutex
 }
 
 func NewTieredStoreWithOptions[K comparable, V any](options *TieredStoreOptions) (*TieredStore[K, V], error) {
