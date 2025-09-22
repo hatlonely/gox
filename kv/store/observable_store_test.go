@@ -493,3 +493,110 @@ func TestObservableStoreObservation(t *testing.T) {
 		})
 	})
 }
+
+func TestObservableStoreTracing(t *testing.T) {
+	Convey("ObservableStore Tracing功能", t, func() {
+		Convey("只启用tracing", func() {
+			options := &ObservableStoreOptions{
+				Store: &ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/store",
+					Type:      "MapStore[string,string]",
+				},
+				Name:          randomName("tracing_only_store"),
+				EnableMetrics: false,
+				EnableLogging: false,
+				EnableTracing: true,
+			}
+			store, err := NewObservableStoreWithOptions[string, string](options)
+			So(err, ShouldBeNil)
+			defer store.Close()
+
+			So(store.tracer, ShouldNotBeNil)
+			So(store.enableTracing, ShouldBeTrue)
+			So(store.metrics, ShouldBeNil)
+			So(store.logger, ShouldBeNil)
+
+			ctx := context.Background()
+			
+			// 测试基本操作
+			err = store.Set(ctx, "trace_key", "trace_value")
+			So(err, ShouldBeNil)
+
+			value, err := store.Get(ctx, "trace_key")
+			So(err, ShouldBeNil)
+			So(value, ShouldEqual, "trace_value")
+
+			err = store.Del(ctx, "trace_key")
+			So(err, ShouldBeNil)
+		})
+
+		Convey("测试批量操作的tracing", func() {
+			options := &ObservableStoreOptions{
+				Store: &ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/store",
+					Type:      "MapStore[string,string]",
+				},
+				Name:          randomName("batch_tracing_store"),
+				EnableMetrics: false,
+				EnableLogging: false,
+				EnableTracing: true,
+			}
+			store, err := NewObservableStoreWithOptions[string, string](options)
+			So(err, ShouldBeNil)
+			defer store.Close()
+
+			ctx := context.Background()
+			keys := []string{"trace_key1", "trace_key2", "trace_key3"}
+			vals := []string{"trace_val1", "trace_val2", "trace_val3"}
+
+			// 测试批量设置
+			errs, err := store.BatchSet(ctx, keys, vals)
+			So(err, ShouldBeNil)
+			So(len(errs), ShouldEqual, 3)
+			for _, e := range errs {
+				So(e, ShouldBeNil)
+			}
+
+			// 测试批量获取
+			gotVals, gotErrs, err := store.BatchGet(ctx, keys)
+			So(err, ShouldBeNil)
+			So(len(gotVals), ShouldEqual, 3)
+			So(len(gotErrs), ShouldEqual, 3)
+			for i := range keys {
+				So(gotErrs[i], ShouldBeNil)
+				So(gotVals[i], ShouldEqual, vals[i])
+			}
+
+			// 测试批量删除
+			delErrs, err := store.BatchDel(ctx, keys)
+			So(err, ShouldBeNil)
+			So(len(delErrs), ShouldEqual, 3)
+			for _, e := range delErrs {
+				So(e, ShouldBeNil)
+			}
+		})
+
+		Convey("禁用tracing时tracer应为nil", func() {
+			options := &ObservableStoreOptions{
+				Store: &ref.TypeOptions{
+					Namespace: "github.com/hatlonely/gox/kv/store",
+					Type:      "MapStore[string,string]",
+				},
+				Name:          randomName("no_tracing_store"),
+				EnableMetrics: false,
+				EnableLogging: false,
+				EnableTracing: false,
+			}
+			store, err := NewObservableStoreWithOptions[string, string](options)
+			So(err, ShouldBeNil)
+			defer store.Close()
+
+			So(store.tracer, ShouldBeNil)
+			So(store.enableTracing, ShouldBeFalse)
+
+			ctx := context.Background()
+			err = store.Set(ctx, "key", "value")
+			So(err, ShouldBeNil)
+		})
+	})
+}
