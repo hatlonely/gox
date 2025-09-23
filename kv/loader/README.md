@@ -25,9 +25,17 @@ type KVStream[K, V any] interface {
 }
 ```
 
+## 实现类型
+
+### KVFileLoader
+从文件加载键值对数据并监听文件变化，支持数据解析和处理。
+
+### FileTrigger  
+监听文件变化并触发通知，不读取文件内容，只通知使用者数据发生了变化。
+
 ## 基本用法
 
-### 创建文件加载器
+### 创建KV文件加载器
 
 ```go
 import "github.com/hatlonely/gox/kv/loader"
@@ -66,7 +74,36 @@ if err != nil {
 }
 ```
 
+### 创建文件触发器
+
+```go
+options := &loader.FileTriggerOptions{
+    FilePath: "/path/to/any-file.txt",
+}
+
+trigger, err := loader.NewFileTriggerWithOptions[string, string](options)
+if err != nil {
+    panic(err)
+}
+defer trigger.Close()
+
+// 监听文件变化，不读取内容
+listener := func(stream loader.KVStream[string, string]) error {
+    // stream 是空的，不包含任何数据
+    // 在这里执行自定义的数据加载逻辑
+    fmt.Println("文件发生变化，请重新加载数据")
+    return nil
+}
+
+err = trigger.OnChange(listener)
+if err != nil {
+    panic(err)
+}
+```
+
 ## 配置选项
+
+### KVFileLoaderOptions
 
 | 参数 | 类型 | 描述 | 默认值 |
 |------|------|------|--------|
@@ -75,6 +112,13 @@ if err != nil {
 | `SkipDirtyRows` | bool | 是否跳过脏数据 | false |
 | `ScannerBufferMinSize` | int | 扫描器最小缓冲区大小 | 65536 |
 | `ScannerBufferMaxSize` | int | 扫描器最大缓冲区大小 | 4194304 |
+| `Logger` | *ref.TypeOptions | 日志配置 | - |
+
+### FileTriggerOptions
+
+| 参数 | 类型 | 描述 | 默认值 |
+|------|------|------|--------|
+| `FilePath` | string | 监听的文件路径 | 必填 |
 | `Logger` | *ref.TypeOptions | 日志配置 | - |
 
 ## 数据格式

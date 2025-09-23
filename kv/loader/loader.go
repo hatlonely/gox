@@ -30,6 +30,7 @@ type Loader[K, V any] interface {
 func NewLoaderWithOptions[K, V any](options *ref.TypeOptions) (Loader[K, V], error) {
 	// 注册 loader 类型
 	ref.RegisterT[KVFileLoader[K, V]](NewKVFileLoaderWithOptions[K, V])
+	ref.RegisterT[FileTrigger[K, V]](NewFileTriggerWithOptions[K, V])
 
 	loader, err := ref.New(options.Namespace, options.Type, options.Options)
 	if err != nil {
