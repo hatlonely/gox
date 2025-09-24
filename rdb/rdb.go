@@ -91,58 +91,79 @@ type QueryOptions struct {
 
 type QueryOption func(*QueryOptions)
 
+// Record 通用记录接口，用于数据转换
+type Record interface {
+	// 查询时的转换方法
+	Scan(dest interface{}) error
+	ScanStruct(dest interface{}) error
+	
+	// 写入时的数据提取方法  
+	Fields() map[string]interface{}
+	TableName() string
+	PrimaryKey() (string, interface{})
+}
+
+// RecordBuilder 记录构建器，用于创建Record实例
+type RecordBuilder interface {
+	FromStruct(v interface{}) Record
+	FromMap(data map[string]interface{}, table string) Record
+}
+
 // Transaction 事务接口
 type Transaction interface {
 	Commit() error
 	Rollback() error
 }
 
-// RDB ORM接口，支持结构体到数据库的直接映射
-type RDB[T any] interface {
+// RDB ORM接口，统一使用Record接口实现类型灵活性
+type RDB interface {
 	// Migrate 自动创建/更新表结构
-	Migrate(ctx context.Context) error
-	
+	Migrate(ctx context.Context, table string, model interface{}) error
+
 	// Create 创建记录
-	Create(ctx context.Context, record *T, opts ...CreateOption) error
-	
+	Create(ctx context.Context, record Record, opts ...CreateOption) error
+
 	// Get 根据主键获取记录
-	Get(ctx context.Context, id any) (*T, error)
-	
+	Get(ctx context.Context, table string, id any) (Record, error)
+
 	// Update 更新记录（根据主键）
-	Update(ctx context.Context, record *T) error
-	
+	Update(ctx context.Context, record Record) error
+
 	// Delete 根据主键删除记录
-	Delete(ctx context.Context, id any) error
-	
+	Delete(ctx context.Context, table string, id any) error
+
 	// Find 根据查询条件查询多条记录
-	Find(ctx context.Context, query QueryNode, opts ...QueryOption) ([]*T, error)
-	
+	Find(ctx context.Context, table string, query QueryNode, opts ...QueryOption) ([]Record, error)
+
 	// FindOne 根据查询条件查询单条记录
-	FindOne(ctx context.Context, query QueryNode) (*T, error)
-	
+	FindOne(ctx context.Context, table string, query QueryNode) (Record, error)
+
 	// Count 统计记录数量
-	Count(ctx context.Context, query QueryNode) (int64, error)
-	
+	Count(ctx context.Context, table string, query QueryNode) (int64, error)
+
 	// BatchCreate 批量创建记录
-	BatchCreate(ctx context.Context, records []*T, opts ...CreateOption) error
-	
+	BatchCreate(ctx context.Context, records []Record, opts ...CreateOption) error
+
 	// BatchUpdate 批量更新记录
-	BatchUpdate(ctx context.Context, records []*T) error
-	
+	BatchUpdate(ctx context.Context, records []Record) error
+
 	// BatchDelete 批量删除记录
-	BatchDelete(ctx context.Context, ids []any) error
-	
+	BatchDelete(ctx context.Context, table string, ids []any) error
+
 	// BeginTx 开始事务
-	BeginTx(ctx context.Context) (RDB[T], error)
-	
+	BeginTx(ctx context.Context) (RDB, error)
+
 	// WithTx 在事务中执行操作
-	WithTx(ctx context.Context, fn func(tx RDB[T]) error) error
-	
+	WithTx(ctx context.Context, fn func(tx RDB) error) error
+
+	// GetBuilder 获取记录构建器
+	GetBuilder() RecordBuilder
+
 	// Close 关闭连接
 	Close() error
 }
 
 // 工厂方法
-func NewRDBWithOptions[T any](options *ref.TypeOptions) (RDB[T], error) {
+func NewRDBWithOptions(options *ref.TypeOptions) (RDB, error) {
 	return nil, errors.New("not implemented yet")
 }
