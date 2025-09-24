@@ -94,19 +94,19 @@ type QueryOption func(*QueryOptions)
 // Record 通用记录接口，用于数据转换
 type Record interface {
 	// 查询时的转换方法
-	Scan(dest interface{}) error
-	ScanStruct(dest interface{}) error
+	Scan(dest any) error
+	ScanStruct(dest any) error
 	
 	// 写入时的数据提取方法  
-	Fields() map[string]interface{}
+	Fields() map[string]any
 	TableName() string
-	PrimaryKey() (string, interface{})
+	PrimaryKey() map[string]any  // 支持复合主键：字段名 -> 值
 }
 
 // RecordBuilder 记录构建器，用于创建Record实例
 type RecordBuilder interface {
-	FromStruct(v interface{}) Record
-	FromMap(data map[string]interface{}, table string) Record
+	FromStruct(v any) Record
+	FromMap(data map[string]any, table string) Record
 }
 
 // Transaction 事务接口
@@ -118,19 +118,19 @@ type Transaction interface {
 // RDB ORM接口，统一使用Record接口实现类型灵活性
 type RDB interface {
 	// Migrate 自动创建/更新表结构
-	Migrate(ctx context.Context, table string, model interface{}) error
+	Migrate(ctx context.Context, table string, model any) error
 
 	// Create 创建记录
 	Create(ctx context.Context, record Record, opts ...CreateOption) error
 
 	// Get 根据主键获取记录
-	Get(ctx context.Context, table string, id any) (Record, error)
+	Get(ctx context.Context, table string, pk map[string]any) (Record, error)
 
 	// Update 更新记录（根据主键）
 	Update(ctx context.Context, record Record) error
 
 	// Delete 根据主键删除记录
-	Delete(ctx context.Context, table string, id any) error
+	Delete(ctx context.Context, table string, pk map[string]any) error
 
 	// Find 根据查询条件查询多条记录
 	Find(ctx context.Context, table string, query QueryNode, opts ...QueryOption) ([]Record, error)
@@ -148,7 +148,7 @@ type RDB interface {
 	BatchUpdate(ctx context.Context, records []Record) error
 
 	// BatchDelete 批量删除记录
-	BatchDelete(ctx context.Context, table string, ids []any) error
+	BatchDelete(ctx context.Context, table string, pks []map[string]any) error
 
 	// BeginTx 开始事务
 	BeginTx(ctx context.Context) (RDB, error)
