@@ -17,7 +17,6 @@ const (
 // Query 查询节点接口
 type Query interface {
 	Type() QueryType
-	Children() []Query
 	// 后端适配器接口
 	ToES() map[string]interface{}
 	ToSQL() (string, []interface{}, error)
