@@ -37,11 +37,11 @@ type Record interface {
 	// 查询时的转换方法
 	Scan(dest any) error
 	ScanStruct(dest any) error
-	
-	// 写入时的数据提取方法  
+
+	// 写入时的数据提取方法
 	Fields() map[string]any
 	TableName() string
-	PrimaryKey() map[string]any  // 支持复合主键：字段名 -> 值
+	PrimaryKey() map[string]any // 支持复合主键：字段名 -> 值
 }
 
 // RecordBuilder 记录构建器，用于创建Record实例
@@ -74,13 +74,13 @@ type RDB interface {
 	Delete(ctx context.Context, table string, pk map[string]any) error
 
 	// Find 根据查询条件查询多条记录
-	Find(ctx context.Context, table string, query query.QueryNode, opts ...QueryOption) ([]Record, error)
+	Find(ctx context.Context, table string, query query.Query, opts ...QueryOption) ([]Record, error)
 
 	// FindOne 根据查询条件查询单条记录
-	FindOne(ctx context.Context, table string, query query.QueryNode) (Record, error)
+	FindOne(ctx context.Context, table string, query query.Query) (Record, error)
 
 	// Count 统计记录数量
-	Count(ctx context.Context, table string, query query.QueryNode) (int64, error)
+	Count(ctx context.Context, table string, query query.Query) (int64, error)
 
 	// BatchCreate 批量创建记录
 	BatchCreate(ctx context.Context, records []Record, opts ...CreateOption) error

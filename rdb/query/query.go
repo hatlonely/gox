@@ -14,10 +14,10 @@ const (
 	QueryTypeRegexp   QueryType = "regexp"
 )
 
-// QueryNode 查询节点接口
-type QueryNode interface {
+// Query 查询节点接口
+type Query interface {
 	Type() QueryType
-	Children() []QueryNode
+	Children() []Query
 	// 后端适配器接口
 	ToES() map[string]interface{}
 	ToSQL() (string, []interface{}, error)
@@ -26,11 +26,11 @@ type QueryNode interface {
 
 // BoolQuery 布尔查询
 type BoolQuery struct {
-	Must           []QueryNode `json:"must,omitempty"`
-	Should         []QueryNode `json:"should,omitempty"`
-	MustNot        []QueryNode `json:"must_not,omitempty"`
-	Filter         []QueryNode `json:"filter,omitempty"`
-	MinShouldMatch *int        `json:"minimum_should_match,omitempty"`
+	Must           []Query `json:"must,omitempty"`
+	Should         []Query `json:"should,omitempty"`
+	MustNot        []Query `json:"must_not,omitempty"`
+	Filter         []Query `json:"filter,omitempty"`
+	MinShouldMatch *int    `json:"minimum_should_match,omitempty"`
 }
 
 // TermQuery 精确匹配查询
