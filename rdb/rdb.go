@@ -3,6 +3,7 @@ package rdb
 import (
 	"context"
 
+	"github.com/hatlonely/gox/rdb/query"
 	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
 )
@@ -12,66 +13,6 @@ var (
 	ErrDuplicateKey     = errors.New("duplicate key")
 	ErrInvalidCondition = errors.New("invalid condition")
 )
-
-// QueryType 查询类型
-type QueryType string
-
-const (
-	QueryTypeBool     QueryType = "bool"
-	QueryTypeTerm     QueryType = "term"
-	QueryTypeMatch    QueryType = "match"
-	QueryTypeRange    QueryType = "range"
-	QueryTypeExists   QueryType = "exists"
-	QueryTypeWildcard QueryType = "wildcard"
-	QueryTypePrefix   QueryType = "prefix"
-	QueryTypeRegexp   QueryType = "regexp"
-)
-
-// QueryNode 查询节点接口
-type QueryNode interface {
-	Type() QueryType
-	Children() []QueryNode
-	// 后端适配器接口
-	ToES() map[string]interface{}
-	ToSQL() (string, []interface{}, error)
-	ToMongo() (map[string]interface{}, error)
-}
-
-// BoolQuery 布尔查询
-type BoolQuery struct {
-	MustClauses    []QueryNode `json:"must,omitempty"`
-	ShouldClauses  []QueryNode `json:"should,omitempty"`
-	MustNotClauses []QueryNode `json:"must_not,omitempty"`
-	FilterClauses  []QueryNode `json:"filter,omitempty"`
-	MinShouldMatch *int        `json:"minimum_should_match,omitempty"`
-}
-
-// TermQuery 精确匹配查询
-type TermQuery struct {
-	Field string      `json:"field"`
-	Value interface{} `json:"value"`
-}
-
-// RangeQuery 范围查询
-type RangeQuery struct {
-	Field string                 `json:"field"`
-	Gt    interface{}            `json:"gt,omitempty"`
-	Gte   interface{}            `json:"gte,omitempty"`
-	Lt    interface{}            `json:"lt,omitempty"`
-	Lte   interface{}            `json:"lte,omitempty"`
-	Extra map[string]interface{} `json:"extra,omitempty"`
-}
-
-// MatchQuery 全文搜索查询
-type MatchQuery struct {
-	Field string      `json:"field"`
-	Value interface{} `json:"value"`
-}
-
-// ExistsQuery 字段存在查询
-type ExistsQuery struct {
-	Field string `json:"field"`
-}
 
 // CreateOptions 创建记录时的选项
 type CreateOptions struct {
@@ -133,13 +74,13 @@ type RDB interface {
 	Delete(ctx context.Context, table string, pk map[string]any) error
 
 	// Find 根据查询条件查询多条记录
-	Find(ctx context.Context, table string, query QueryNode, opts ...QueryOption) ([]Record, error)
+	Find(ctx context.Context, table string, query query.QueryNode, opts ...QueryOption) ([]Record, error)
 
 	// FindOne 根据查询条件查询单条记录
-	FindOne(ctx context.Context, table string, query QueryNode) (Record, error)
+	FindOne(ctx context.Context, table string, query query.QueryNode) (Record, error)
 
 	// Count 统计记录数量
-	Count(ctx context.Context, table string, query QueryNode) (int64, error)
+	Count(ctx context.Context, table string, query query.QueryNode) (int64, error)
 
 	// BatchCreate 批量创建记录
 	BatchCreate(ctx context.Context, records []Record, opts ...CreateOption) error
