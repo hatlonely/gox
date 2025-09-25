@@ -3,6 +3,7 @@ package rdb
 import (
 	"context"
 
+	"github.com/hatlonely/gox/rdb/aggregation"
 	"github.com/hatlonely/gox/rdb/query"
 	"github.com/hatlonely/gox/ref"
 	"github.com/pkg/errors"
@@ -82,6 +83,9 @@ type RDB interface {
 
 	// Count 统计记录数量
 	Count(ctx context.Context, table string, query query.Query) (int64, error)
+
+	// Aggregate 执行聚合查询
+	Aggregate(ctx context.Context, table string, query query.Query, aggs []aggregation.Aggregation, opts ...QueryOption) (aggregation.AggregationResult, error)
 
 	// BatchCreate 批量创建记录
 	BatchCreate(ctx context.Context, records []Record, opts ...CreateOption) error
