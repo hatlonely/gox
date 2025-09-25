@@ -22,29 +22,29 @@ func (a *DateHistogramAggregation) ToES() map[string]interface{} {
 		"field":    a.Field,
 		"interval": a.Interval,
 	}
-	
+
 	if a.Format != "" {
 		dateHisto["format"] = a.Format
 	}
-	
+
 	if a.TimeZone != "" {
 		dateHisto["time_zone"] = a.TimeZone
 	}
-	
+
 	result := map[string]interface{}{
 		"date_histogram": dateHisto,
 	}
-	
+
 	if subAggs := buildSubAggregations(a.SubAggregations); subAggs != nil {
 		result["aggs"] = subAggs
 	}
-	
+
 	return result
 }
 
 func (a *DateHistogramAggregation) ToSQL() (string, []interface{}, error) {
 	var dateFormat string
-	
+
 	switch a.Interval {
 	case "1d", "day":
 		dateFormat = "DATE(%s)"
@@ -57,27 +57,27 @@ func (a *DateHistogramAggregation) ToSQL() (string, []interface{}, error) {
 	default:
 		dateFormat = "DATE(%s)"
 	}
-	
+
 	groupBy := fmt.Sprintf("GROUP BY %s", fmt.Sprintf(dateFormat, a.Field))
-	
+
 	var parts []string
 	var args []interface{}
-	
+
 	parts = append(parts, groupBy)
-	
+
 	if subSQLs, subArgs, err := buildSubAggregationsSQL(a.SubAggregations); err != nil {
 		return "", nil, err
 	} else if len(subSQLs) > 0 {
 		parts = append(parts, strings.Join(subSQLs, ", "))
 		args = append(args, subArgs...)
 	}
-	
+
 	return strings.Join(parts, " "), args, nil
 }
 
 func (a *DateHistogramAggregation) ToMongo() (map[string]interface{}, error) {
 	var dateExpression interface{}
-	
+
 	switch a.Interval {
 	case "1d", "day":
 		dateExpression = map[string]interface{}{
@@ -103,26 +103,26 @@ func (a *DateHistogramAggregation) ToMongo() (map[string]interface{}, error) {
 	default:
 		dateExpression = "$" + a.Field
 	}
-	
+
 	groupStage := map[string]interface{}{
 		"$group": map[string]interface{}{
 			"_id": dateExpression,
 		},
 	}
-	
+
 	if subAggs, err := buildSubAggregationsMongo(a.SubAggregations); err != nil {
 		return nil, err
-	} else if subAggs != nil {
+	} else {
 		for name, agg := range subAggs {
 			groupStage["$group"].(map[string]interface{})[name] = agg
 		}
 	}
-	
+
 	pipeline := []interface{}{
 		groupStage,
 		map[string]interface{}{"$sort": map[string]interface{}{"_id": 1}},
 	}
-	
+
 	return map[string]interface{}{
 		"$facet": map[string]interface{}{
 			a.AggName: pipeline,
