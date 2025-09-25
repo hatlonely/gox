@@ -1,6 +1,7 @@
 package query
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -105,8 +106,20 @@ func (q *BoolQuery) ToSQL() (string, []interface{}, error) {
 			shouldConditions = append(shouldConditions, sql)
 			args = append(args, queryArgs...)
 		}
+		
 		if len(shouldConditions) > 0 {
-			conditions = append(conditions, "("+strings.Join(shouldConditions, " OR ")+")")
+			// 如果设置了 MinShouldMatch 且不为1，使用条件计数方案
+			if q.MinShouldMatch != nil && *q.MinShouldMatch != 1 {
+				caseConditions := make([]string, len(shouldConditions))
+				for i, condition := range shouldConditions {
+					caseConditions[i] = fmt.Sprintf("CASE WHEN (%s) THEN 1 ELSE 0 END", condition)
+				}
+				shouldSQL := fmt.Sprintf("(%s) >= %d", strings.Join(caseConditions, " + "), *q.MinShouldMatch)
+				conditions = append(conditions, shouldSQL)
+			} else {
+				// 默认行为：使用 OR 连接
+				conditions = append(conditions, "("+strings.Join(shouldConditions, " OR ")+")")
+			}
 		}
 	}
 
@@ -165,7 +178,31 @@ func (q *BoolQuery) ToMongo() (map[string]interface{}, error) {
 			}
 			orConditions = append(orConditions, condition)
 		}
-		andConditions = append(andConditions, map[string]interface{}{"$or": orConditions})
+		
+		// 如果设置了 MinShouldMatch 且不为1，使用 $expr 条件计数方案
+		if q.MinShouldMatch != nil && *q.MinShouldMatch != 1 {
+			condArray := make([]interface{}, len(orConditions))
+			for i, condition := range orConditions {
+				condArray[i] = map[string]interface{}{
+					"$cond": []interface{}{condition, 1, 0},
+				}
+			}
+			
+			exprCondition := map[string]interface{}{
+				"$expr": map[string]interface{}{
+					"$gte": []interface{}{
+						map[string]interface{}{
+							"$add": condArray,
+						},
+						*q.MinShouldMatch,
+					},
+				},
+			}
+			andConditions = append(andConditions, exprCondition)
+		} else {
+			// 默认行为：使用 $or
+			andConditions = append(andConditions, map[string]interface{}{"$or": orConditions})
+		}
 	}
 
 	if len(q.MustNot) > 0 {
