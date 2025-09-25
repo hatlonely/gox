@@ -8,7 +8,7 @@ import (
 )
 
 // 演示如何使用各种聚合类型
-func ExampleAggregations() {
+func ExampleAggregation_basic() {
 	// 1. 指标聚合示例
 	sumAgg := &aggregation.SumAggregation{
 		MetricAggregation: aggregation.MetricAggregation{
@@ -110,7 +110,7 @@ func ExampleAggregations() {
 }
 
 // 演示复杂的嵌套聚合场景
-func ExampleComplexAggregation() {
+func ExampleAggregation_complex() {
 	// 场景：按地区分组，每个地区内按产品类别分组，计算各种指标
 	regionAgg := &aggregation.TermsAggregation{
 		BucketAggregation: aggregation.BucketAggregation{
@@ -184,14 +184,14 @@ func ExampleComplexAggregation() {
 func init() {
 	// 运行示例
 	fmt.Println("=== Aggregation Examples ===")
-	ExampleAggregations()
+	ExampleAggregation_basic()
 	
 	fmt.Println("\n=== Complex Aggregation Example ===")
-	ExampleComplexAggregation()
+	ExampleAggregation_complex()
 }
 
 // 演示如何在实际业务中使用聚合（伪代码）
-func ExampleBusinessUsage() {
+func ExampleAggregation_business() {
 	// 这个例子展示如何在业务代码中使用聚合接口
 	
 	// 假设有一个 RDB 实例
