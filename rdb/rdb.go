@@ -50,8 +50,9 @@ type RecordBuilder interface {
 	FromMap(data map[string]any, table string) Record
 }
 
-// Transaction 事务接口
+// Transaction 事务接口，继承RDB的所有功能
 type Transaction interface {
+	RDB
 	Commit() error
 	Rollback() error
 }
@@ -92,10 +93,10 @@ type RDB interface {
 	BatchDelete(ctx context.Context, table string, pks []map[string]any) error
 
 	// BeginTx 开始事务
-	BeginTx(ctx context.Context) (RDB, error)
+	BeginTx(ctx context.Context) (Transaction, error)
 
 	// WithTx 在事务中执行操作
-	WithTx(ctx context.Context, fn func(tx RDB) error) error
+	WithTx(ctx context.Context, fn func(tx Transaction) error) error
 
 	// GetBuilder 获取记录构建器
 	GetBuilder() RecordBuilder
