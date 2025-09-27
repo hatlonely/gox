@@ -216,7 +216,7 @@ func setFieldValue(fieldValue reflect.Value, value any) error {
 	return fmt.Errorf("cannot convert %v to %v", valueType, fieldType)
 }
 
-// 实现 RDB 接口
+// 实现 Database 接口
 func (s *SQL) Migrate(ctx context.Context, model *TableModel) error {
 	// 构建 CREATE TABLE 语句
 	createTableSQL := s.buildCreateTableSQL(model)

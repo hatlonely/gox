@@ -49,15 +49,15 @@ type RecordBuilder interface {
 	FromMap(data map[string]any, table string) Record
 }
 
-// Transaction 事务接口，继承RDB的所有功能
+// Transaction 事务接口，继承Database的所有功能
 type Transaction interface {
-	RDB
+	Database
 	Commit() error
 	Rollback() error
 }
 
-// RDB ORM接口，统一使用Record接口实现类型灵活性
-type RDB interface {
+// Database ORM接口，统一使用Record接口实现类型灵活性
+type Database interface {
 	// Migrate 自动创建/更新表结构
 	Migrate(ctx context.Context, model *TableModel) error
 
@@ -102,6 +102,6 @@ type RDB interface {
 }
 
 // 工厂方法
-func NewRDBWithOptions(options *ref.TypeOptions) (RDB, error) {
+func NewDatabaseWithOptions(options *ref.TypeOptions) (Database, error) {
 	return nil, errors.New("not implemented yet")
 }
