@@ -110,8 +110,14 @@ func structToMap(v any) map[string]any {
 			continue
 		}
 
+		// 检查 json 标签
+		tag := field.Tag.Get("json")
+		if tag == "-" {
+			continue // 跳过被忽略的字段
+		}
+
 		fieldName := field.Name
-		if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
+		if tag != "" {
 			if idx := strings.Index(tag, ","); idx != -1 {
 				fieldName = tag[:idx]
 			} else {
@@ -164,8 +170,38 @@ func mapToStruct(data map[string]any, dest any) error {
 
 // 辅助函数：设置字段值
 func setFieldValue(fieldValue reflect.Value, value any) error {
+	if value == nil {
+		return nil
+	}
+
 	valueType := reflect.TypeOf(value)
 	fieldType := fieldValue.Type()
+
+	// 特殊处理：MySQL BOOLEAN 字段返回 int64，需要转换为 bool
+	if fieldType.Kind() == reflect.Bool {
+		switch v := value.(type) {
+		case int64:
+			fieldValue.SetBool(v != 0)
+			return nil
+		case int:
+			fieldValue.SetBool(v != 0)
+			return nil
+		case bool:
+			fieldValue.SetBool(v)
+			return nil
+		}
+	}
+
+	// 特殊处理：数据库返回的数字类型转换
+	if fieldType.Kind() == reflect.Int && valueType.Kind() == reflect.Int64 {
+		fieldValue.SetInt(value.(int64))
+		return nil
+	}
+
+	if fieldType.Kind() == reflect.Float64 && valueType.Kind() == reflect.Float32 {
+		fieldValue.SetFloat(float64(value.(float32)))
+		return nil
+	}
 
 	if valueType.AssignableTo(fieldType) {
 		fieldValue.Set(reflect.ValueOf(value))
@@ -198,7 +234,9 @@ func (s *SQL) Migrate(ctx context.Context, model *TableModel) error {
 		indexSQL := s.buildCreateIndexSQL(model.Table, index)
 		if _, err := s.db.ExecContext(ctx, indexSQL); err != nil {
 			// 如果索引已存在，忽略错误
-			if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
+			if !strings.Contains(err.Error(), "already exists") && 
+			   !strings.Contains(err.Error(), "already exist") &&
+			   !strings.Contains(err.Error(), "Duplicate key name") {
 				return fmt.Errorf("failed to create index %s: %v", index.Name, err)
 			}
 		}
@@ -295,6 +333,12 @@ func (s *SQL) buildCreateIndexSQL(table string, index IndexDefinition) string {
 	indexType := "INDEX"
 	if index.Unique {
 		indexType = "UNIQUE INDEX"
+	}
+	
+	// MySQL 不支持 IF NOT EXISTS 语法用于索引
+	if s.driver == "mysql" {
+		return fmt.Sprintf("CREATE %s %s ON %s (%s)",
+			indexType, index.Name, table, strings.Join(index.Fields, ", "))
 	}
 	
 	return fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)",
@@ -878,7 +922,9 @@ func (tx *SQLTransaction) Migrate(ctx context.Context, model *TableModel) error 
 		indexSQL := tx.buildCreateIndexSQL(model.Table, index)
 		if _, err := tx.tx.ExecContext(ctx, indexSQL); err != nil {
 			// 如果索引已存在，忽略错误
-			if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
+			if !strings.Contains(err.Error(), "already exists") && 
+			   !strings.Contains(err.Error(), "already exist") &&
+			   !strings.Contains(err.Error(), "Duplicate key name") {
 				return fmt.Errorf("failed to create index %s: %v", index.Name, err)
 			}
 		}
@@ -995,6 +1041,12 @@ func (tx *SQLTransaction) buildCreateIndexSQL(table string, index IndexDefinitio
 	indexType := "INDEX"
 	if index.Unique {
 		indexType = "UNIQUE INDEX"
+	}
+	
+	// MySQL 不支持 IF NOT EXISTS 语法用于索引
+	if tx.driver == "mysql" {
+		return fmt.Sprintf("CREATE %s %s ON %s (%s)",
+			indexType, index.Name, table, strings.Join(index.Fields, ", "))
 	}
 	
 	return fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)",
