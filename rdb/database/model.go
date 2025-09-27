@@ -9,7 +9,7 @@ import (
 
 // TableModel 表模型定义
 type TableModel struct {
-	Table      string            // 表名
+	Table      string // 表名
 	Fields     []FieldDefinition
 	PrimaryKey []string          // 主键字段名列表，支持复合主键
 	Indexes    []IndexDefinition // 普通索引
@@ -65,7 +65,7 @@ func (b *TableModelBuilder) FromStruct(v any) (*TableModel, error) {
 	}
 
 	rt := rv.Type()
-	
+
 	// 获取表名
 	tableName := b.getTableName(rt)
 	if tableName == "" {
@@ -138,13 +138,13 @@ func (b *TableModelBuilder) getTableName(rt reflect.Type) string {
 			return tableTag
 		}
 	}
-	
+
 	// 检查结构体本身是否有 table tag（通过匿名字段实现）
 	if rt.Kind() == reflect.Struct {
 		// 这里可以扩展支持结构体级别的 tag
 		// 目前使用结构体名称的小写形式
 	}
-	
+
 	return ""
 }
 
@@ -164,7 +164,7 @@ func (b *TableModelBuilder) parseFieldTag(field reflect.StructField, tag string)
 
 	// 解析 tag 参数
 	parts := strings.Split(tag, ",")
-	
+
 	// 第一部分是字段名（如果指定）
 	if parts[0] != "" && !strings.Contains(parts[0], "=") {
 		fieldDef.Name = parts[0]
@@ -245,7 +245,7 @@ func (b *TableModelBuilder) inferFieldType(t reflect.Type) FieldType {
 	case reflect.String:
 		return FieldTypeString
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		 reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return FieldTypeInt
 	case reflect.Float32, reflect.Float64:
 		return FieldTypeFloat
