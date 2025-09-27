@@ -67,11 +67,7 @@ func (b *TableModelBuilder) FromStruct(v any) (*TableModel, error) {
 	rt := rv.Type()
 
 	// 获取表名
-	tableName := b.getTableName(rt)
-	if tableName == "" {
-		// 如果没有指定表名，使用结构体名的小写形式
-		tableName = strings.ToLower(rt.Name())
-	}
+	tableName := b.getTableName(v, rt)
 
 	model := &TableModel{
 		Table:   tableName,
@@ -130,22 +126,14 @@ func (b *TableModelBuilder) FromStruct(v any) (*TableModel, error) {
 }
 
 // getTableName 从结构体类型获取表名
-func (b *TableModelBuilder) getTableName(rt reflect.Type) string {
-	// 检查是否有 table tag
-	for i := 0; i < rt.NumField(); i++ {
-		field := rt.Field(i)
-		if tableTag := field.Tag.Get("table"); tableTag != "" {
-			return tableTag
-		}
+func (b *TableModelBuilder) getTableName(v any, rt reflect.Type) string {
+	// 检查结构体是否实现了 Table() 方法
+	if tabler, ok := v.(interface{ Table() string }); ok {
+		return tabler.Table()
 	}
-
-	// 检查结构体本身是否有 table tag（通过匿名字段实现）
-	if rt.Kind() == reflect.Struct {
-		// 这里可以扩展支持结构体级别的 tag
-		// 目前使用结构体名称的小写形式
-	}
-
-	return ""
+	
+	// 如果没有实现 Table() 方法，直接使用结构体名称
+	return rt.Name()
 }
 
 // parseFieldTag 解析字段的 rdb tag
