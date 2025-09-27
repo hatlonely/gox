@@ -345,6 +345,12 @@ func (s *SQL) buildCreateIndexSQL(table string, index IndexDefinition) string {
 		indexType, index.Name, table, strings.Join(index.Fields, ", "))
 }
 
+func (s *SQL) DropTable(ctx context.Context, table string) error {
+	sqlStr := fmt.Sprintf("DROP TABLE IF EXISTS %s", table)
+	_, err := s.db.ExecContext(ctx, sqlStr)
+	return err
+}
+
 func (s *SQL) GetBuilder() RecordBuilder {
 	return s.builder
 }
@@ -1017,6 +1023,12 @@ func (tx *SQLTransaction) Migrate(ctx context.Context, model *TableModel) error 
 	}
 
 	return nil
+}
+
+func (tx *SQLTransaction) DropTable(ctx context.Context, table string) error {
+	sqlStr := fmt.Sprintf("DROP TABLE IF EXISTS %s", table)
+	_, err := tx.tx.ExecContext(ctx, sqlStr)
+	return err
 }
 
 func (tx *SQLTransaction) GetBuilder() RecordBuilder {

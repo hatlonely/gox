@@ -75,6 +75,9 @@ type Database interface {
 	// Migrate 自动创建/更新表结构
 	Migrate(ctx context.Context, model *TableModel) error
 
+	// DropTable 删除表
+	DropTable(ctx context.Context, table string) error
+
 	// Create 创建记录
 	Create(ctx context.Context, table string, record Record, opts ...CreateOption) error
 
