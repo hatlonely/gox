@@ -13,7 +13,7 @@ import (
 // Repository 泛型仓库接口，T 为实体类型
 type Repository[T any] interface {
 	// 自动迁移表结构
-	AutoMigrate(ctx context.Context) error
+	Migrate(ctx context.Context) error
 
 	// 基础 CRUD 操作
 	Create(ctx context.Context, entity *T, opts ...database.CreateOption) error
@@ -60,8 +60,8 @@ func NewRepository[T any](db database.Database) (Repository[T], error) {
 	return repo, nil
 }
 
-// AutoMigrate 自动迁移表结构
-func (r *repositoryImpl[T]) AutoMigrate(ctx context.Context) error {
+// Migrate 自动迁移表结构
+func (r *repositoryImpl[T]) Migrate(ctx context.Context) error {
 	return r.db.Migrate(ctx, r.model)
 }
 
