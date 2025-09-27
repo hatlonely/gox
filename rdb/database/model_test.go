@@ -29,6 +29,17 @@ type Product struct {
 	InStock     bool    `rdb:"in_stock,type=bool,default=true"`
 }
 
+// CustomTableStruct 测试实现 Table() 方法的结构体
+type CustomTableStruct struct {
+	ID   int64  `rdb:"id,primary"`
+	Name string `rdb:"name,required"`
+}
+
+// Table 实现自定义表名
+func (CustomTableStruct) Table() string {
+	return "custom_table_name"
+}
+
 func TestTableModelBuilder_FromStruct(t *testing.T) {
 	builder := NewTableModelBuilder()
 
@@ -40,7 +51,7 @@ func TestTableModelBuilder_FromStruct(t *testing.T) {
 		}
 
 		// 验证表名
-		expectedTable := "user"
+		expectedTable := "User"
 		if model.Table != expectedTable {
 			t.Errorf("Expected table name %s, got %s", expectedTable, model.Table)
 		}
@@ -151,7 +162,7 @@ func TestTableModelBuilder_FromStruct(t *testing.T) {
 		}
 
 		// 验证表名
-		expectedTable := "product"
+		expectedTable := "Product"
 		if model.Table != expectedTable {
 			t.Errorf("Expected table name %s, got %s", expectedTable, model.Table)
 		}
@@ -187,6 +198,28 @@ func TestTableModelBuilder_FromStruct(t *testing.T) {
 		}
 
 		t.Logf("Generated model: %+v", model)
+	})
+
+	t.Run("CustomTableStruct with Table() method", func(t *testing.T) {
+		custom := CustomTableStruct{}
+		model, err := builder.FromStruct(custom)
+		if err != nil {
+			t.Fatalf("Failed to build model: %v", err)
+		}
+
+		// 验证表名使用 Table() 方法返回的值
+		expectedTable := "custom_table_name"
+		if model.Table != expectedTable {
+			t.Errorf("Expected table name %s, got %s", expectedTable, model.Table)
+		}
+
+		// 验证字段数量
+		expectedFieldCount := 2
+		if len(model.Fields) != expectedFieldCount {
+			t.Errorf("Expected %d fields, got %d", expectedFieldCount, len(model.Fields))
+		}
+
+		t.Logf("Generated model with custom table name: %+v", model)
 	})
 }
 
