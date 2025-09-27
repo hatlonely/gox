@@ -11,3 +11,7 @@ type SQL struct {
 func NewSQLWithOptions(options *SQLOptions) (*SQL, error) {
 	return &SQL{}, nil
 }
+
+type SQLRecord struct{}
+
+type SQLRecordBuilder struct{}
