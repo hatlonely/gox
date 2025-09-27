@@ -41,8 +41,6 @@ type Record interface {
 
 	// 写入时的数据提取方法
 	Fields() map[string]any
-	TableName() string
-	PrimaryKey() map[string]any // 支持复合主键：字段名 -> 值
 }
 
 // RecordBuilder 记录构建器，用于创建Record实例
@@ -64,13 +62,13 @@ type RDB interface {
 	Migrate(ctx context.Context, table string, model any) error
 
 	// Create 创建记录
-	Create(ctx context.Context, record Record, opts ...CreateOption) error
+	Create(ctx context.Context, table string, record Record, opts ...CreateOption) error
 
 	// Get 根据主键获取记录
 	Get(ctx context.Context, table string, pk map[string]any) (Record, error)
 
 	// Update 更新记录（根据主键）
-	Update(ctx context.Context, record Record) error
+	Update(ctx context.Context, table string, pk map[string]any, record Record) error
 
 	// Delete 根据主键删除记录
 	Delete(ctx context.Context, table string, pk map[string]any) error
@@ -88,10 +86,10 @@ type RDB interface {
 	Aggregate(ctx context.Context, table string, query query.Query, aggs []aggregation.Aggregation, opts ...QueryOption) (aggregation.AggregationResult, error)
 
 	// BatchCreate 批量创建记录
-	BatchCreate(ctx context.Context, records []Record, opts ...CreateOption) error
+	BatchCreate(ctx context.Context, table string, records []Record, opts ...CreateOption) error
 
 	// BatchUpdate 批量更新记录
-	BatchUpdate(ctx context.Context, records []Record) error
+	BatchUpdate(ctx context.Context, table string, pks []map[string]any, records []Record) error
 
 	// BatchDelete 批量删除记录
 	BatchDelete(ctx context.Context, table string, pks []map[string]any) error
