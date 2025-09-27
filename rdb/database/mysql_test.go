@@ -1,4 +1,4 @@
-package rdb
+package database
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func TestNewSQLWithOptions(t *testing.T) {
 			So(sql.driver, ShouldEqual, "mysql")
 			So(sql.db, ShouldNotBeNil)
 			So(sql.builder, ShouldNotBeNil)
-			
+
 			// 清理资源
 			sql.Close()
 		})
@@ -56,7 +56,7 @@ func TestNewSQLWithOptions(t *testing.T) {
 			sql, err := NewSQLWithOptions(options)
 			So(err, ShouldBeNil)
 			So(sql, ShouldNotBeNil)
-			
+
 			// 清理资源
 			sql.Close()
 		})
@@ -70,7 +70,7 @@ func TestNewSQLWithOptions(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(sql, ShouldNotBeNil)
 			So(sql.driver, ShouldEqual, "sqlite3")
-			
+
 			// 清理资源
 			sql.Close()
 		})
@@ -140,10 +140,10 @@ func TestSQLRecordBuilder(t *testing.T) {
 				Score:    95.5,
 				CreateAt: time.Now(),
 			}
-			
+
 			record := builder.FromStruct(user)
 			So(record, ShouldNotBeNil)
-			
+
 			fields := record.Fields()
 			So(fields["id"], ShouldEqual, 1)
 			So(fields["name"], ShouldEqual, "John Doe")
@@ -159,10 +159,10 @@ func TestSQLRecordBuilder(t *testing.T) {
 				"name":  "John Doe",
 				"email": "john@example.com",
 			}
-			
+
 			record := builder.FromMap(data, "users")
 			So(record, ShouldNotBeNil)
-			
+
 			fields := record.Fields()
 			So(fields, ShouldResemble, data)
 		})
@@ -178,7 +178,7 @@ func TestStructToMap(t *testing.T) {
 				Email: "john@example.com",
 				Age:   30,
 			}
-			
+
 			result := structToMap(user)
 			So(result["id"], ShouldEqual, 1)
 			So(result["name"], ShouldEqual, "John Doe")
@@ -191,7 +191,7 @@ func TestStructToMap(t *testing.T) {
 				ID:   1,
 				Name: "John Doe",
 			}
-			
+
 			result := structToMap(user)
 			So(result["id"], ShouldEqual, 1)
 			So(result["name"], ShouldEqual, "John Doe")
@@ -215,7 +215,7 @@ func TestMapToStruct(t *testing.T) {
 				"active": true,
 				"score":  95.5,
 			}
-			
+
 			var user TestUser
 			err := mapToStruct(data, &user)
 			So(err, ShouldBeNil)
@@ -330,7 +330,7 @@ func TestSQLCRUDOperations(t *testing.T) {
 				Score:    95.5,
 				CreateAt: time.Now(),
 			}
-			
+
 			record := sql.builder.FromStruct(user)
 			err := sql.Create(ctx, "test_crud_users", record)
 			So(err, ShouldBeNil)
@@ -487,7 +487,7 @@ func TestSQLFind(t *testing.T) {
 			})
 			So(err, ShouldBeNil)
 			So(len(results), ShouldEqual, 3)
-			
+
 			// 验证排序 (Jane:25, Alice:28, John:30)
 			var firstUser TestUser
 			results[0].Scan(&firstUser)
@@ -544,7 +544,7 @@ func TestSQLAggregate(t *testing.T) {
 			countAgg := &aggregation.CountAggregation{}
 			countAgg.AggName = "total_count"
 			countAgg.Field = "id"
-			
+
 			aggs := []aggregation.Aggregation{countAgg}
 			result, err := sql.Aggregate(ctx, "test_agg_users", termQuery, aggs)
 			So(err, ShouldBeNil)
@@ -583,12 +583,12 @@ func TestSQLBatchOperations(t *testing.T) {
 				{ID: 2, Name: "User2", Age: 21, CreateAt: time.Now()},
 				{ID: 3, Name: "User3", Age: 22, CreateAt: time.Now()},
 			}
-			
+
 			var records []Record
 			for _, user := range users {
 				records = append(records, sql.builder.FromStruct(user))
 			}
-			
+
 			err := sql.BatchCreate(ctx, "test_batch_users", records)
 			So(err, ShouldBeNil)
 		})
@@ -616,7 +616,7 @@ func TestSQLBatchOperations(t *testing.T) {
 				updatedRecords = append(updatedRecords, sql.builder.FromStruct(user))
 				pks = append(pks, map[string]any{"id": user.ID})
 			}
-			
+
 			err := sql.BatchUpdate(ctx, "test_batch_users", pks, updatedRecords)
 			So(err, ShouldBeNil)
 		})
@@ -638,7 +638,7 @@ func TestSQLBatchOperations(t *testing.T) {
 				{"id": 6},
 				{"id": 7},
 			}
-			
+
 			err := sql.BatchDelete(ctx, "test_batch_users", pks)
 			So(err, ShouldBeNil)
 		})
@@ -842,7 +842,7 @@ func TestSQLFormatSQL(t *testing.T) {
 
 			sqlStr := "SELECT * FROM users WHERE id = ? AND name = ?"
 			args := []any{1, "John"}
-			
+
 			formattedSQL, formattedArgs := sql.formatSQL(sqlStr, args)
 			So(formattedSQL, ShouldEqual, "SELECT * FROM users WHERE id = ? AND name = ?")
 			So(formattedArgs, ShouldResemble, []any{1, "John"})
@@ -851,10 +851,10 @@ func TestSQLFormatSQL(t *testing.T) {
 		Convey("PostgreSQL 驱动 (模拟)", func() {
 			// 创建一个模拟的 PostgreSQL SQL 实例
 			sql := &SQL{driver: "postgres"}
-			
+
 			sqlStr := "SELECT * FROM users WHERE id = ? AND name = ?"
 			args := []any{1, "John"}
-			
+
 			formattedSQL, formattedArgs := sql.formatSQL(sqlStr, args)
 			So(formattedSQL, ShouldEqual, "SELECT * FROM users WHERE id = $1 AND name = $2")
 			So(formattedArgs, ShouldResemble, []any{1, "John"})
@@ -964,13 +964,13 @@ func TestSQLEdgeCases(t *testing.T) {
 				privateField string // 未导出字段
 				Name         string `rdb:"name"`
 			}
-			
+
 			s := StructWithPrivateFields{
 				ID:           1,
 				privateField: "private",
 				Name:         "test",
 			}
-			
+
 			result := structToMap(s)
 			So(result["id"], ShouldEqual, 1)
 			So(result["name"], ShouldEqual, "test")
@@ -983,13 +983,13 @@ func TestSQLEdgeCases(t *testing.T) {
 				Ignored string `rdb:"-"`
 				Name    string `rdb:"name"`
 			}
-			
+
 			s := StructWithIgnoredField{
 				ID:      1,
 				Ignored: "ignored",
 				Name:    "test",
 			}
-			
+
 			result := structToMap(s)
 			So(result["id"], ShouldEqual, 1)
 			So(result["name"], ShouldEqual, "test")
@@ -1019,7 +1019,7 @@ func TestSQLEdgeCases(t *testing.T) {
 		Convey("测试批量操作长度不匹配", func() {
 			pks := []map[string]any{{"id": 1}, {"id": 2}}
 			records := []Record{sql.builder.FromStruct(TestUser{ID: 1})} // 只有一个记录
-			
+
 			ctx := context.Background()
 			err := sql.BatchUpdate(ctx, "test_table", pks, records)
 			So(err, ShouldNotBeNil)

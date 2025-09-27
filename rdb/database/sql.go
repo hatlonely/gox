@@ -1,4 +1,4 @@
-package rdb
+package database
 
 import (
 	"context"
@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"strings"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/hatlonely/gox/rdb/aggregation"
 	"github.com/hatlonely/gox/rdb/query"
-	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -220,7 +220,7 @@ func setFieldValue(fieldValue reflect.Value, value any) error {
 func (s *SQL) Migrate(ctx context.Context, model *TableModel) error {
 	// 构建 CREATE TABLE 语句
 	createTableSQL := s.buildCreateTableSQL(model)
-	
+
 	// 执行创建表语句
 	if _, err := s.db.ExecContext(ctx, createTableSQL); err != nil {
 		// 如果表已存在，忽略错误（可根据需要调整策略）
@@ -228,62 +228,62 @@ func (s *SQL) Migrate(ctx context.Context, model *TableModel) error {
 			return fmt.Errorf("failed to create table %s: %v", model.Table, err)
 		}
 	}
-	
+
 	// 创建索引
 	for _, index := range model.Indexes {
 		indexSQL := s.buildCreateIndexSQL(model.Table, index)
 		if _, err := s.db.ExecContext(ctx, indexSQL); err != nil {
 			// 如果索引已存在，忽略错误
-			if !strings.Contains(err.Error(), "already exists") && 
-			   !strings.Contains(err.Error(), "already exist") &&
-			   !strings.Contains(err.Error(), "Duplicate key name") {
+			if !strings.Contains(err.Error(), "already exists") &&
+				!strings.Contains(err.Error(), "already exist") &&
+				!strings.Contains(err.Error(), "Duplicate key name") {
 				return fmt.Errorf("failed to create index %s: %v", index.Name, err)
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 // buildCreateTableSQL 构建创建表的 SQL 语句
 func (s *SQL) buildCreateTableSQL(model *TableModel) string {
 	var columns []string
-	
+
 	// 构建字段定义
 	for _, field := range model.Fields {
 		columnDef := s.buildColumnDefinition(field)
 		columns = append(columns, columnDef)
 	}
-	
+
 	// 添加主键定义
 	if len(model.PrimaryKey) > 0 {
 		pkDef := fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(model.PrimaryKey, ", "))
 		columns = append(columns, pkDef)
 	}
-	
-	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)", 
+
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)",
 		model.Table, strings.Join(columns, ",\n  "))
 }
 
 // buildColumnDefinition 构建单个字段定义
 func (s *SQL) buildColumnDefinition(field FieldDefinition) string {
 	var parts []string
-	
+
 	// 字段名和类型
 	parts = append(parts, field.Name)
 	parts = append(parts, s.mapFieldTypeToSQL(field.Type, field.Size))
-	
+
 	// 是否必需
 	if field.Required {
 		parts = append(parts, "NOT NULL")
 	}
-	
+
 	// 默认值
 	if field.Default != nil {
 		defaultValue := s.formatDefaultValue(field.Default)
 		parts = append(parts, fmt.Sprintf("DEFAULT %s", defaultValue))
 	}
-	
+
 	return strings.Join(parts, " ")
 }
 
@@ -334,13 +334,13 @@ func (s *SQL) buildCreateIndexSQL(table string, index IndexDefinition) string {
 	if index.Unique {
 		indexType = "UNIQUE INDEX"
 	}
-	
+
 	// MySQL 不支持 IF NOT EXISTS 语法用于索引
 	if s.driver == "mysql" {
 		return fmt.Sprintf("CREATE %s %s ON %s (%s)",
 			indexType, index.Name, table, strings.Join(index.Fields, ", "))
 	}
-	
+
 	return fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)",
 		indexType, index.Name, table, strings.Join(index.Fields, ", "))
 }
@@ -394,22 +394,22 @@ func (s *SQL) scanRowToRecord(rows *sql.Rows) (Record, error) {
 // CRUD 操作实现
 func (s *SQL) Create(ctx context.Context, table string, record Record, opts ...CreateOption) error {
 	fields := record.Fields()
-	
+
 	var columns []string
 	var placeholders []string
 	var args []any
-	
+
 	for col, val := range fields {
 		columns = append(columns, col)
 		placeholders = append(placeholders, "?")
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
 		table,
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "))
-	
+
 	sqlStr, args = s.formatSQL(sqlStr, args)
 	_, err := s.db.ExecContext(ctx, sqlStr, args...)
 	return err
@@ -418,51 +418,51 @@ func (s *SQL) Create(ctx context.Context, table string, record Record, opts ...C
 func (s *SQL) Get(ctx context.Context, table string, pk map[string]any) (Record, error) {
 	var whereParts []string
 	var args []any
-	
+
 	for col, val := range pk {
 		whereParts = append(whereParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("SELECT * FROM %s WHERE %s",
 		table, strings.Join(whereParts, " AND "))
-	
+
 	sqlStr, args = s.formatSQL(sqlStr, args)
 	rows, err := s.db.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	if !rows.Next() {
 		return nil, ErrRecordNotFound
 	}
-	
+
 	return s.scanRowToRecord(rows)
 }
 
 func (s *SQL) Update(ctx context.Context, table string, pk map[string]any, record Record) error {
 	fields := record.Fields()
-	
+
 	var setParts []string
 	var args []any
-	
+
 	for col, val := range fields {
 		setParts = append(setParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	var whereParts []string
 	for col, val := range pk {
 		whereParts = append(whereParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("UPDATE %s SET %s WHERE %s",
 		table,
 		strings.Join(setParts, ", "),
 		strings.Join(whereParts, " AND "))
-	
+
 	sqlStr, args = s.formatSQL(sqlStr, args)
 	_, err := s.db.ExecContext(ctx, sqlStr, args...)
 	return err
@@ -471,15 +471,15 @@ func (s *SQL) Update(ctx context.Context, table string, pk map[string]any, recor
 func (s *SQL) Delete(ctx context.Context, table string, pk map[string]any) error {
 	var whereParts []string
 	var args []any
-	
+
 	for col, val := range pk {
 		whereParts = append(whereParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("DELETE FROM %s WHERE %s",
 		table, strings.Join(whereParts, " AND "))
-	
+
 	sqlStr, args = s.formatSQL(sqlStr, args)
 	_, err := s.db.ExecContext(ctx, sqlStr, args...)
 	return err
@@ -492,16 +492,16 @@ func (s *SQL) Find(ctx context.Context, table string, query query.Query, opts ..
 	for _, opt := range opts {
 		opt(options)
 	}
-	
+
 	// 构建 WHERE 条件
 	whereSQL, whereArgs, err := query.ToSQL()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 构建完整 SQL
 	sqlStr := fmt.Sprintf("SELECT * FROM %s WHERE %s", table, whereSQL)
-	
+
 	// 添加排序
 	if options.OrderBy != "" {
 		direction := "ASC"
@@ -510,7 +510,7 @@ func (s *SQL) Find(ctx context.Context, table string, query query.Query, opts ..
 		}
 		sqlStr += fmt.Sprintf(" ORDER BY %s %s", options.OrderBy, direction)
 	}
-	
+
 	// 添加分页
 	if options.Limit > 0 {
 		sqlStr += fmt.Sprintf(" LIMIT %d", options.Limit)
@@ -518,7 +518,7 @@ func (s *SQL) Find(ctx context.Context, table string, query query.Query, opts ..
 	if options.Offset > 0 {
 		sqlStr += fmt.Sprintf(" OFFSET %d", options.Offset)
 	}
-	
+
 	// 执行查询
 	sqlStr, whereArgs = s.formatSQL(sqlStr, whereArgs)
 	rows, err := s.db.QueryContext(ctx, sqlStr, whereArgs...)
@@ -526,7 +526,7 @@ func (s *SQL) Find(ctx context.Context, table string, query query.Query, opts ..
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	// 扫描结果
 	var records []Record
 	for rows.Next() {
@@ -536,7 +536,7 @@ func (s *SQL) Find(ctx context.Context, table string, query query.Query, opts ..
 		}
 		records = append(records, record)
 	}
-	
+
 	return records, nil
 }
 
@@ -546,24 +546,24 @@ func (s *SQL) Aggregate(ctx context.Context, table string, query query.Query, ag
 	for _, opt := range opts {
 		opt(options)
 	}
-	
+
 	// 构建 WHERE 条件
 	whereSQL, whereArgs, err := query.ToSQL()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 构建聚合查询
 	var selectParts []string
 	var groupByParts []string
-	
+
 	for _, agg := range aggs {
 		aggSQL, _, err := agg.ToSQL()
 		if err != nil {
 			return nil, err
 		}
 		selectParts = append(selectParts, aggSQL)
-		
+
 		// 处理桶聚合的 GROUP BY
 		switch agg.Type() {
 		case aggregation.AggTypeTerms:
@@ -579,15 +579,15 @@ func (s *SQL) Aggregate(ctx context.Context, table string, query query.Query, ag
 			}
 		}
 	}
-	
+
 	// 构建完整 SQL
 	sqlStr := fmt.Sprintf("SELECT %s FROM %s WHERE %s",
 		strings.Join(selectParts, ", "), table, whereSQL)
-	
+
 	if len(groupByParts) > 0 {
 		sqlStr += " GROUP BY " + strings.Join(groupByParts, ", ")
 	}
-	
+
 	// 添加排序
 	if options.OrderBy != "" {
 		direction := "ASC"
@@ -596,12 +596,12 @@ func (s *SQL) Aggregate(ctx context.Context, table string, query query.Query, ag
 		}
 		sqlStr += fmt.Sprintf(" ORDER BY %s %s", options.OrderBy, direction)
 	}
-	
+
 	// 添加分页
 	if options.Limit > 0 {
 		sqlStr += fmt.Sprintf(" LIMIT %d", options.Limit)
 	}
-	
+
 	// 执行聚合查询
 	sqlStr, whereArgs = s.formatSQL(sqlStr, whereArgs)
 	rows, err := s.db.QueryContext(ctx, sqlStr, whereArgs...)
@@ -609,16 +609,16 @@ func (s *SQL) Aggregate(ctx context.Context, table string, query query.Query, ag
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	// 构建聚合结果
 	result := aggregation.NewAggregationResult()
-	
+
 	for rows.Next() {
 		record, err := s.scanRowToRecord(rows)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// 简化处理：将第一个聚合的结果作为主要结果
 		if len(aggs) > 0 {
 			data := record.Fields()
@@ -628,7 +628,7 @@ func (s *SQL) Aggregate(ctx context.Context, table string, query query.Query, ag
 			}
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -646,7 +646,7 @@ func (s *SQL) BatchUpdate(ctx context.Context, table string, pks []map[string]an
 	if len(pks) != len(records) {
 		return fmt.Errorf("pks and records length mismatch")
 	}
-	
+
 	for i, record := range records {
 		if err := s.Update(ctx, table, pks[i], record); err != nil {
 			return err
@@ -670,7 +670,7 @@ func (s *SQL) BeginTx(ctx context.Context) (Transaction, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &SQLTransaction{
 		tx:      tx,
 		builder: s.builder,
@@ -683,19 +683,19 @@ func (s *SQL) WithTx(ctx context.Context, fn func(tx Transaction) error) error {
 	if err != nil {
 		return err
 	}
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			panic(r)
 		}
 	}()
-	
+
 	if err := fn(tx); err != nil {
 		tx.Rollback()
 		return err
 	}
-	
+
 	return tx.Commit()
 }
 
@@ -717,22 +717,22 @@ func (tx *SQLTransaction) Rollback() error {
 // 事务中的 CRUD 操作实现 (复用 SQL 的逻辑，但使用事务连接)
 func (tx *SQLTransaction) Create(ctx context.Context, table string, record Record, opts ...CreateOption) error {
 	fields := record.Fields()
-	
+
 	var columns []string
 	var placeholders []string
 	var args []any
-	
+
 	for col, val := range fields {
 		columns = append(columns, col)
 		placeholders = append(placeholders, "?")
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
 		table,
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "))
-	
+
 	sqlStr, args = tx.formatSQL(sqlStr, args)
 	_, err := tx.tx.ExecContext(ctx, sqlStr, args...)
 	return err
@@ -741,51 +741,51 @@ func (tx *SQLTransaction) Create(ctx context.Context, table string, record Recor
 func (tx *SQLTransaction) Get(ctx context.Context, table string, pk map[string]any) (Record, error) {
 	var whereParts []string
 	var args []any
-	
+
 	for col, val := range pk {
 		whereParts = append(whereParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("SELECT * FROM %s WHERE %s",
 		table, strings.Join(whereParts, " AND "))
-	
+
 	sqlStr, args = tx.formatSQL(sqlStr, args)
 	rows, err := tx.tx.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	if !rows.Next() {
 		return nil, ErrRecordNotFound
 	}
-	
+
 	return tx.scanRowToRecord(rows)
 }
 
 func (tx *SQLTransaction) Update(ctx context.Context, table string, pk map[string]any, record Record) error {
 	fields := record.Fields()
-	
+
 	var setParts []string
 	var args []any
-	
+
 	for col, val := range fields {
 		setParts = append(setParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	var whereParts []string
 	for col, val := range pk {
 		whereParts = append(whereParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("UPDATE %s SET %s WHERE %s",
 		table,
 		strings.Join(setParts, ", "),
 		strings.Join(whereParts, " AND "))
-	
+
 	sqlStr, args = tx.formatSQL(sqlStr, args)
 	_, err := tx.tx.ExecContext(ctx, sqlStr, args...)
 	return err
@@ -794,15 +794,15 @@ func (tx *SQLTransaction) Update(ctx context.Context, table string, pk map[strin
 func (tx *SQLTransaction) Delete(ctx context.Context, table string, pk map[string]any) error {
 	var whereParts []string
 	var args []any
-	
+
 	for col, val := range pk {
 		whereParts = append(whereParts, fmt.Sprintf("%s = ?", col))
 		args = append(args, val)
 	}
-	
+
 	sqlStr := fmt.Sprintf("DELETE FROM %s WHERE %s",
 		table, strings.Join(whereParts, " AND "))
-	
+
 	sqlStr, args = tx.formatSQL(sqlStr, args)
 	_, err := tx.tx.ExecContext(ctx, sqlStr, args...)
 	return err
@@ -814,16 +814,16 @@ func (tx *SQLTransaction) Find(ctx context.Context, table string, query query.Qu
 	for _, opt := range opts {
 		opt(options)
 	}
-	
+
 	// 构建 WHERE 条件
 	whereSQL, whereArgs, err := query.ToSQL()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// 构建完整 SQL
 	sqlStr := fmt.Sprintf("SELECT * FROM %s WHERE %s", table, whereSQL)
-	
+
 	// 添加排序和分页
 	if options.OrderBy != "" {
 		direction := "ASC"
@@ -832,14 +832,14 @@ func (tx *SQLTransaction) Find(ctx context.Context, table string, query query.Qu
 		}
 		sqlStr += fmt.Sprintf(" ORDER BY %s %s", options.OrderBy, direction)
 	}
-	
+
 	if options.Limit > 0 {
 		sqlStr += fmt.Sprintf(" LIMIT %d", options.Limit)
 	}
 	if options.Offset > 0 {
 		sqlStr += fmt.Sprintf(" OFFSET %d", options.Offset)
 	}
-	
+
 	// 执行查询
 	sqlStr, whereArgs = tx.formatSQL(sqlStr, whereArgs)
 	rows, err := tx.tx.QueryContext(ctx, sqlStr, whereArgs...)
@@ -847,7 +847,7 @@ func (tx *SQLTransaction) Find(ctx context.Context, table string, query query.Qu
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	// 扫描结果
 	var records []Record
 	for rows.Next() {
@@ -857,7 +857,7 @@ func (tx *SQLTransaction) Find(ctx context.Context, table string, query query.Qu
 		}
 		records = append(records, record)
 	}
-	
+
 	return records, nil
 }
 
@@ -879,7 +879,7 @@ func (tx *SQLTransaction) BatchUpdate(ctx context.Context, table string, pks []m
 	if len(pks) != len(records) {
 		return fmt.Errorf("pks and records length mismatch")
 	}
-	
+
 	for i, record := range records {
 		if err := tx.Update(ctx, table, pks[i], record); err != nil {
 			return err
@@ -908,7 +908,7 @@ func (tx *SQLTransaction) WithTx(ctx context.Context, fn func(tx Transaction) er
 func (tx *SQLTransaction) Migrate(ctx context.Context, model *TableModel) error {
 	// 构建 CREATE TABLE 语句
 	createTableSQL := tx.buildCreateTableSQL(model)
-	
+
 	// 执行创建表语句
 	if _, err := tx.tx.ExecContext(ctx, createTableSQL); err != nil {
 		// 如果表已存在，忽略错误（可根据需要调整策略）
@@ -916,20 +916,20 @@ func (tx *SQLTransaction) Migrate(ctx context.Context, model *TableModel) error 
 			return fmt.Errorf("failed to create table %s: %v", model.Table, err)
 		}
 	}
-	
+
 	// 创建索引
 	for _, index := range model.Indexes {
 		indexSQL := tx.buildCreateIndexSQL(model.Table, index)
 		if _, err := tx.tx.ExecContext(ctx, indexSQL); err != nil {
 			// 如果索引已存在，忽略错误
-			if !strings.Contains(err.Error(), "already exists") && 
-			   !strings.Contains(err.Error(), "already exist") &&
-			   !strings.Contains(err.Error(), "Duplicate key name") {
+			if !strings.Contains(err.Error(), "already exists") &&
+				!strings.Contains(err.Error(), "already exist") &&
+				!strings.Contains(err.Error(), "Duplicate key name") {
 				return fmt.Errorf("failed to create index %s: %v", index.Name, err)
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -956,42 +956,42 @@ func (tx *SQLTransaction) formatSQL(sqlStr string, args []any) (string, []any) {
 // buildCreateTableSQL 构建创建表的 SQL 语句 (事务版本)
 func (tx *SQLTransaction) buildCreateTableSQL(model *TableModel) string {
 	var columns []string
-	
+
 	// 构建字段定义
 	for _, field := range model.Fields {
 		columnDef := tx.buildColumnDefinition(field)
 		columns = append(columns, columnDef)
 	}
-	
+
 	// 添加主键定义
 	if len(model.PrimaryKey) > 0 {
 		pkDef := fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(model.PrimaryKey, ", "))
 		columns = append(columns, pkDef)
 	}
-	
-	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)", 
+
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)",
 		model.Table, strings.Join(columns, ",\n  "))
 }
 
 // buildColumnDefinition 构建单个字段定义 (事务版本)
 func (tx *SQLTransaction) buildColumnDefinition(field FieldDefinition) string {
 	var parts []string
-	
+
 	// 字段名和类型
 	parts = append(parts, field.Name)
 	parts = append(parts, tx.mapFieldTypeToSQL(field.Type, field.Size))
-	
+
 	// 是否必需
 	if field.Required {
 		parts = append(parts, "NOT NULL")
 	}
-	
+
 	// 默认值
 	if field.Default != nil {
 		defaultValue := tx.formatDefaultValue(field.Default)
 		parts = append(parts, fmt.Sprintf("DEFAULT %s", defaultValue))
 	}
-	
+
 	return strings.Join(parts, " ")
 }
 
@@ -1042,13 +1042,13 @@ func (tx *SQLTransaction) buildCreateIndexSQL(table string, index IndexDefinitio
 	if index.Unique {
 		indexType = "UNIQUE INDEX"
 	}
-	
+
 	// MySQL 不支持 IF NOT EXISTS 语法用于索引
 	if tx.driver == "mysql" {
 		return fmt.Sprintf("CREATE %s %s ON %s (%s)",
 			indexType, index.Name, table, strings.Join(index.Fields, ", "))
 	}
-	
+
 	return fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)",
 		indexType, index.Name, table, strings.Join(index.Fields, ", "))
 }

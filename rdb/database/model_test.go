@@ -1,4 +1,4 @@
-package rdb
+package database
 
 import (
 	"testing"
@@ -194,14 +194,14 @@ func TestTableModelBuilder_FieldTypeInference(t *testing.T) {
 	builder := NewTableModelBuilder()
 
 	type TestStruct struct {
-		StringField  string
-		IntField     int
-		Int64Field   int64
-		FloatField   float64
-		BoolField    bool
-		TimeField    time.Time
-		PtrField     *string
-		SliceField   []string
+		StringField string
+		IntField    int
+		Int64Field  int64
+		FloatField  float64
+		BoolField   bool
+		TimeField   time.Time
+		PtrField    *string
+		SliceField  []string
 	}
 
 	test := TestStruct{}
@@ -232,7 +232,7 @@ func TestTableModelBuilder_FieldTypeInference(t *testing.T) {
 	for _, test := range tests {
 		if field, exists := fieldMap[test.fieldName]; exists {
 			if field.Type != test.expectedType {
-				t.Errorf("Field %s: expected type %s, got %s", 
+				t.Errorf("Field %s: expected type %s, got %s",
 					test.fieldName, test.expectedType, field.Type)
 			}
 		} else {
