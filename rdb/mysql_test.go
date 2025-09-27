@@ -12,13 +12,13 @@ import (
 
 // 测试用的结构体
 type TestUser struct {
-	ID       int    `json:"id"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Age      int    `json:"age"`
-	Active   bool   `json:"active"`
-	Score    float64 `json:"score"`
-	CreateAt time.Time `json:"create_at"`
+	ID       int       `rdb:"id"`
+	Name     string    `rdb:"name"`
+	Email    string    `rdb:"email"`
+	Age      int       `rdb:"age"`
+	Active   bool      `rdb:"active"`
+	Score    float64   `rdb:"score"`
+	CreateAt time.Time `rdb:"create_at"`
 }
 
 // 测试配置
@@ -960,9 +960,9 @@ func TestSQLEdgeCases(t *testing.T) {
 
 		Convey("测试带有未导出字段的结构体", func() {
 			type StructWithPrivateFields struct {
-				ID           int    `json:"id"`
+				ID           int    `rdb:"id"`
 				privateField string // 未导出字段
-				Name         string `json:"name"`
+				Name         string `rdb:"name"`
 			}
 			
 			s := StructWithPrivateFields{
@@ -977,11 +977,11 @@ func TestSQLEdgeCases(t *testing.T) {
 			So(result["privateField"], ShouldBeNil) // 未导出字段不应该被包含
 		})
 
-		Convey("测试带有 json:'-' 标签的字段", func() {
+		Convey("测试带有 rdb:'-' 标签的字段", func() {
 			type StructWithIgnoredField struct {
-				ID      int    `json:"id"`
-				Ignored string `json:"-"`
-				Name    string `json:"name"`
+				ID      int    `rdb:"id"`
+				Ignored string `rdb:"-"`
+				Name    string `rdb:"name"`
 			}
 			
 			s := StructWithIgnoredField{

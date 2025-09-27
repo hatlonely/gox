@@ -110,8 +110,8 @@ func structToMap(v any) map[string]any {
 			continue
 		}
 
-		// 检查 json 标签
-		tag := field.Tag.Get("json")
+		// 检查 rdb 标签
+		tag := field.Tag.Get("rdb")
 		if tag == "-" {
 			continue // 跳过被忽略的字段
 		}
@@ -148,7 +148,7 @@ func mapToStruct(data map[string]any, dest any) error {
 		}
 
 		fieldName := field.Name
-		if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
+		if tag := field.Tag.Get("rdb"); tag != "" && tag != "-" {
 			if idx := strings.Index(tag, ","); idx != -1 {
 				fieldName = tag[:idx]
 			} else {
