@@ -59,7 +59,7 @@ type Transaction interface {
 // RDB ORM接口，统一使用Record接口实现类型灵活性
 type RDB interface {
 	// Migrate 自动创建/更新表结构
-	Migrate(ctx context.Context, table string, model any) error
+	Migrate(ctx context.Context, table string, model *TableModel) error
 
 	// Create 创建记录
 	Create(ctx context.Context, table string, record Record, opts ...CreateOption) error
