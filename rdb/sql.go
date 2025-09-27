@@ -181,9 +181,124 @@ func setFieldValue(fieldValue reflect.Value, value any) error {
 }
 
 // 实现 RDB 接口
-func (s *SQL) Migrate(ctx context.Context, table string, model any) error {
-	// 简单实现：假设表已存在，不做自动迁移
+func (s *SQL) Migrate(ctx context.Context, table string, model *TableModel) error {
+	// 构建 CREATE TABLE 语句
+	createTableSQL := s.buildCreateTableSQL(table, model)
+	
+	// 执行创建表语句
+	if _, err := s.db.ExecContext(ctx, createTableSQL); err != nil {
+		// 如果表已存在，忽略错误（可根据需要调整策略）
+		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
+			return fmt.Errorf("failed to create table %s: %v", table, err)
+		}
+	}
+	
+	// 创建索引
+	for _, index := range model.Indexes {
+		indexSQL := s.buildCreateIndexSQL(table, index)
+		if _, err := s.db.ExecContext(ctx, indexSQL); err != nil {
+			// 如果索引已存在，忽略错误
+			if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
+				return fmt.Errorf("failed to create index %s: %v", index.Name, err)
+			}
+		}
+	}
+	
 	return nil
+}
+
+// buildCreateTableSQL 构建创建表的 SQL 语句
+func (s *SQL) buildCreateTableSQL(table string, model *TableModel) string {
+	var columns []string
+	
+	// 构建字段定义
+	for _, field := range model.Fields {
+		columnDef := s.buildColumnDefinition(field)
+		columns = append(columns, columnDef)
+	}
+	
+	// 添加主键定义
+	if len(model.PrimaryKey) > 0 {
+		pkDef := fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(model.PrimaryKey, ", "))
+		columns = append(columns, pkDef)
+	}
+	
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)", 
+		table, strings.Join(columns, ",\n  "))
+}
+
+// buildColumnDefinition 构建单个字段定义
+func (s *SQL) buildColumnDefinition(field FieldDefinition) string {
+	var parts []string
+	
+	// 字段名和类型
+	parts = append(parts, field.Name)
+	parts = append(parts, s.mapFieldTypeToSQL(field.Type, field.Size))
+	
+	// 是否必需
+	if field.Required {
+		parts = append(parts, "NOT NULL")
+	}
+	
+	// 默认值
+	if field.Default != nil {
+		defaultValue := s.formatDefaultValue(field.Default)
+		parts = append(parts, fmt.Sprintf("DEFAULT %s", defaultValue))
+	}
+	
+	return strings.Join(parts, " ")
+}
+
+// mapFieldTypeToSQL 将字段类型映射为 SQL 类型
+func (s *SQL) mapFieldTypeToSQL(fieldType FieldType, size int) string {
+	switch fieldType {
+	case FieldTypeString:
+		if size > 0 {
+			return fmt.Sprintf("VARCHAR(%d)", size)
+		}
+		return "VARCHAR(255)"
+	case FieldTypeInt:
+		return "INT"
+	case FieldTypeFloat:
+		return "FLOAT"
+	case FieldTypeBool:
+		return "BOOLEAN"
+	case FieldTypeDate:
+		return "DATETIME"
+	case FieldTypeJSON:
+		if s.driver == "mysql" {
+			return "JSON"
+		}
+		return "TEXT"
+	default:
+		return "VARCHAR(255)"
+	}
+}
+
+// formatDefaultValue 格式化默认值
+func (s *SQL) formatDefaultValue(value any) string {
+	switch v := value.(type) {
+	case string:
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
+	case bool:
+		if v {
+			return "1"
+		}
+		return "0"
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// buildCreateIndexSQL 构建创建索引的 SQL 语句
+func (s *SQL) buildCreateIndexSQL(table string, index IndexDefinition) string {
+	indexType := "INDEX"
+	if index.Unique {
+		indexType = "UNIQUE INDEX"
+	}
+	
+	return fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)",
+		indexType, index.Name, table, strings.Join(index.Fields, ", "))
 }
 
 func (s *SQL) GetBuilder() RecordBuilder {
@@ -746,7 +861,29 @@ func (tx *SQLTransaction) WithTx(ctx context.Context, fn func(tx Transaction) er
 	return fn(tx)
 }
 
-func (tx *SQLTransaction) Migrate(ctx context.Context, table string, model any) error {
+func (tx *SQLTransaction) Migrate(ctx context.Context, table string, model *TableModel) error {
+	// 构建 CREATE TABLE 语句
+	createTableSQL := tx.buildCreateTableSQL(table, model)
+	
+	// 执行创建表语句
+	if _, err := tx.tx.ExecContext(ctx, createTableSQL); err != nil {
+		// 如果表已存在，忽略错误（可根据需要调整策略）
+		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
+			return fmt.Errorf("failed to create table %s: %v", table, err)
+		}
+	}
+	
+	// 创建索引
+	for _, index := range model.Indexes {
+		indexSQL := tx.buildCreateIndexSQL(table, index)
+		if _, err := tx.tx.ExecContext(ctx, indexSQL); err != nil {
+			// 如果索引已存在，忽略错误
+			if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
+				return fmt.Errorf("failed to create index %s: %v", index.Name, err)
+			}
+		}
+	}
+	
 	return nil
 }
 
@@ -768,6 +905,100 @@ func (tx *SQLTransaction) formatSQL(sqlStr string, args []any) (string, []any) {
 		}
 	}
 	return sqlStr, args
+}
+
+// buildCreateTableSQL 构建创建表的 SQL 语句 (事务版本)
+func (tx *SQLTransaction) buildCreateTableSQL(table string, model *TableModel) string {
+	var columns []string
+	
+	// 构建字段定义
+	for _, field := range model.Fields {
+		columnDef := tx.buildColumnDefinition(field)
+		columns = append(columns, columnDef)
+	}
+	
+	// 添加主键定义
+	if len(model.PrimaryKey) > 0 {
+		pkDef := fmt.Sprintf("PRIMARY KEY (%s)", strings.Join(model.PrimaryKey, ", "))
+		columns = append(columns, pkDef)
+	}
+	
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)", 
+		table, strings.Join(columns, ",\n  "))
+}
+
+// buildColumnDefinition 构建单个字段定义 (事务版本)
+func (tx *SQLTransaction) buildColumnDefinition(field FieldDefinition) string {
+	var parts []string
+	
+	// 字段名和类型
+	parts = append(parts, field.Name)
+	parts = append(parts, tx.mapFieldTypeToSQL(field.Type, field.Size))
+	
+	// 是否必需
+	if field.Required {
+		parts = append(parts, "NOT NULL")
+	}
+	
+	// 默认值
+	if field.Default != nil {
+		defaultValue := tx.formatDefaultValue(field.Default)
+		parts = append(parts, fmt.Sprintf("DEFAULT %s", defaultValue))
+	}
+	
+	return strings.Join(parts, " ")
+}
+
+// mapFieldTypeToSQL 将字段类型映射为 SQL 类型 (事务版本)
+func (tx *SQLTransaction) mapFieldTypeToSQL(fieldType FieldType, size int) string {
+	switch fieldType {
+	case FieldTypeString:
+		if size > 0 {
+			return fmt.Sprintf("VARCHAR(%d)", size)
+		}
+		return "VARCHAR(255)"
+	case FieldTypeInt:
+		return "INT"
+	case FieldTypeFloat:
+		return "FLOAT"
+	case FieldTypeBool:
+		return "BOOLEAN"
+	case FieldTypeDate:
+		return "DATETIME"
+	case FieldTypeJSON:
+		if tx.driver == "mysql" {
+			return "JSON"
+		}
+		return "TEXT"
+	default:
+		return "VARCHAR(255)"
+	}
+}
+
+// formatDefaultValue 格式化默认值 (事务版本)
+func (tx *SQLTransaction) formatDefaultValue(value any) string {
+	switch v := value.(type) {
+	case string:
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(v, "'", "''"))
+	case bool:
+		if v {
+			return "1"
+		}
+		return "0"
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// buildCreateIndexSQL 构建创建索引的 SQL 语句 (事务版本)
+func (tx *SQLTransaction) buildCreateIndexSQL(table string, index IndexDefinition) string {
+	indexType := "INDEX"
+	if index.Unique {
+		indexType = "UNIQUE INDEX"
+	}
+	
+	return fmt.Sprintf("CREATE %s IF NOT EXISTS %s ON %s (%s)",
+		indexType, index.Name, table, strings.Join(index.Fields, ", "))
 }
 
 func (tx *SQLTransaction) scanRowToRecord(rows *sql.Rows) (Record, error) {
