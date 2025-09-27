@@ -1219,3 +1219,133 @@ func TestSQLEdgeCases(t *testing.T) {
 		})
 	})
 }
+
+func TestSQLDropTable(t *testing.T) {
+	Convey("测试 SQL DropTable 方法", t, func() {
+		sql, err := NewSQLWithOptions(testMySQLOptions)
+		So(err, ShouldBeNil)
+		defer sql.Close()
+
+		ctx := context.Background()
+
+		Convey("删除存在的表", func() {
+			// 先创建一个测试表
+			model := &TableModel{
+				Table: "test_drop_table_exists",
+				Fields: []FieldDefinition{
+					{Name: "id", Type: FieldTypeInt, Required: true},
+					{Name: "name", Type: FieldTypeString, Size: 100, Required: true},
+				},
+				PrimaryKey: []string{"id"},
+			}
+			err := sql.Migrate(ctx, model)
+			So(err, ShouldBeNil)
+
+			// 删除表
+			err = sql.DropTable(ctx, "test_drop_table_exists")
+			So(err, ShouldBeNil)
+
+			// 验证表已被删除 - 尝试在已删除的表上执行操作应该失败
+			user := TestUser{ID: 1, Name: "Test"}
+			record := sql.builder.FromStruct(user)
+			err = sql.Create(ctx, "test_drop_table_exists", record)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("删除不存在的表", func() {
+			// 删除不存在的表应该不会报错（使用 IF EXISTS）
+			err := sql.DropTable(ctx, "test_drop_table_not_exists")
+			So(err, ShouldBeNil)
+		})
+
+		Convey("在事务中删除表", func() {
+			// 先创建一个测试表
+			model := &TableModel{
+				Table: "test_drop_table_tx",
+				Fields: []FieldDefinition{
+					{Name: "id", Type: FieldTypeInt, Required: true},
+					{Name: "name", Type: FieldTypeString, Size: 100, Required: true},
+				},
+				PrimaryKey: []string{"id"},
+			}
+			err := sql.Migrate(ctx, model)
+			So(err, ShouldBeNil)
+
+			// 在事务中删除表
+			tx, err := sql.BeginTx(ctx)
+			So(err, ShouldBeNil)
+
+			err = tx.DropTable(ctx, "test_drop_table_tx")
+			So(err, ShouldBeNil)
+
+			err = tx.Commit()
+			So(err, ShouldBeNil)
+
+			// 验证表已被删除
+			user := TestUser{ID: 1, Name: "Test"}
+			record := sql.builder.FromStruct(user)
+			err = sql.Create(ctx, "test_drop_table_tx", record)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("在事务中删除表后回滚", func() {
+			// 注意：在 MySQL 中，DDL 操作（如 DROP TABLE）会自动提交事务，无法回滚
+			// 这里测试验证 DDL 操作的自动提交行为
+			
+			// 先创建一个测试表
+			model := &TableModel{
+				Table: "test_drop_table_rollback",
+				Fields: []FieldDefinition{
+					{Name: "id", Type: FieldTypeInt, Required: true},
+					{Name: "name", Type: FieldTypeString, Size: 100, Required: true},
+				},
+				PrimaryKey: []string{"id"},
+			}
+			err := sql.Migrate(ctx, model)
+			So(err, ShouldBeNil)
+
+			// 在事务中删除表
+			tx, err := sql.BeginTx(ctx)
+			So(err, ShouldBeNil)
+
+			err = tx.DropTable(ctx, "test_drop_table_rollback")
+			So(err, ShouldBeNil)
+
+			// 回滚事务（但 DDL 操作已经自动提交了）
+			err = tx.Rollback()
+			So(err, ShouldBeNil)
+
+			// 验证表已被删除（DDL 操作无法回滚）
+			user := TestUser{ID: 1, Name: "Test"}
+			record := sql.builder.FromStruct(user)
+			err = sql.Create(ctx, "test_drop_table_rollback", record)
+			So(err, ShouldNotBeNil) // 表应该已被删除
+		})
+
+		Convey("使用 WithTx 删除表", func() {
+			// 先创建一个测试表
+			model := &TableModel{
+				Table: "test_drop_table_with_tx",
+				Fields: []FieldDefinition{
+					{Name: "id", Type: FieldTypeInt, Required: true},
+					{Name: "name", Type: FieldTypeString, Size: 100, Required: true},
+				},
+				PrimaryKey: []string{"id"},
+			}
+			err := sql.Migrate(ctx, model)
+			So(err, ShouldBeNil)
+
+			// 使用 WithTx 删除表
+			err = sql.WithTx(ctx, func(tx Transaction) error {
+				return tx.DropTable(ctx, "test_drop_table_with_tx")
+			})
+			So(err, ShouldBeNil)
+
+			// 验证表已被删除
+			user := TestUser{ID: 1, Name: "Test"}
+			record := sql.builder.FromStruct(user)
+			err = sql.Create(ctx, "test_drop_table_with_tx", record)
+			So(err, ShouldNotBeNil)
+		})
+	})
+}
