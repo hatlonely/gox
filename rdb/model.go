@@ -2,6 +2,7 @@ package rdb
 
 // TableModel 表模型定义
 type TableModel struct {
+	Table      string            // 表名
 	Fields     []FieldDefinition
 	PrimaryKey []string          // 主键字段名列表，支持复合主键
 	Indexes    []IndexDefinition // 普通索引

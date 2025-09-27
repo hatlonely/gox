@@ -181,21 +181,21 @@ func setFieldValue(fieldValue reflect.Value, value any) error {
 }
 
 // 实现 RDB 接口
-func (s *SQL) Migrate(ctx context.Context, table string, model *TableModel) error {
+func (s *SQL) Migrate(ctx context.Context, model *TableModel) error {
 	// 构建 CREATE TABLE 语句
-	createTableSQL := s.buildCreateTableSQL(table, model)
+	createTableSQL := s.buildCreateTableSQL(model)
 	
 	// 执行创建表语句
 	if _, err := s.db.ExecContext(ctx, createTableSQL); err != nil {
 		// 如果表已存在，忽略错误（可根据需要调整策略）
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
-			return fmt.Errorf("failed to create table %s: %v", table, err)
+			return fmt.Errorf("failed to create table %s: %v", model.Table, err)
 		}
 	}
 	
 	// 创建索引
 	for _, index := range model.Indexes {
-		indexSQL := s.buildCreateIndexSQL(table, index)
+		indexSQL := s.buildCreateIndexSQL(model.Table, index)
 		if _, err := s.db.ExecContext(ctx, indexSQL); err != nil {
 			// 如果索引已存在，忽略错误
 			if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
@@ -208,7 +208,7 @@ func (s *SQL) Migrate(ctx context.Context, table string, model *TableModel) erro
 }
 
 // buildCreateTableSQL 构建创建表的 SQL 语句
-func (s *SQL) buildCreateTableSQL(table string, model *TableModel) string {
+func (s *SQL) buildCreateTableSQL(model *TableModel) string {
 	var columns []string
 	
 	// 构建字段定义
@@ -224,7 +224,7 @@ func (s *SQL) buildCreateTableSQL(table string, model *TableModel) string {
 	}
 	
 	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)", 
-		table, strings.Join(columns, ",\n  "))
+		model.Table, strings.Join(columns, ",\n  "))
 }
 
 // buildColumnDefinition 构建单个字段定义
@@ -861,21 +861,21 @@ func (tx *SQLTransaction) WithTx(ctx context.Context, fn func(tx Transaction) er
 	return fn(tx)
 }
 
-func (tx *SQLTransaction) Migrate(ctx context.Context, table string, model *TableModel) error {
+func (tx *SQLTransaction) Migrate(ctx context.Context, model *TableModel) error {
 	// 构建 CREATE TABLE 语句
-	createTableSQL := tx.buildCreateTableSQL(table, model)
+	createTableSQL := tx.buildCreateTableSQL(model)
 	
 	// 执行创建表语句
 	if _, err := tx.tx.ExecContext(ctx, createTableSQL); err != nil {
 		// 如果表已存在，忽略错误（可根据需要调整策略）
 		if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
-			return fmt.Errorf("failed to create table %s: %v", table, err)
+			return fmt.Errorf("failed to create table %s: %v", model.Table, err)
 		}
 	}
 	
 	// 创建索引
 	for _, index := range model.Indexes {
-		indexSQL := tx.buildCreateIndexSQL(table, index)
+		indexSQL := tx.buildCreateIndexSQL(model.Table, index)
 		if _, err := tx.tx.ExecContext(ctx, indexSQL); err != nil {
 			// 如果索引已存在，忽略错误
 			if !strings.Contains(err.Error(), "already exists") && !strings.Contains(err.Error(), "already exist") {
@@ -908,7 +908,7 @@ func (tx *SQLTransaction) formatSQL(sqlStr string, args []any) (string, []any) {
 }
 
 // buildCreateTableSQL 构建创建表的 SQL 语句 (事务版本)
-func (tx *SQLTransaction) buildCreateTableSQL(table string, model *TableModel) string {
+func (tx *SQLTransaction) buildCreateTableSQL(model *TableModel) string {
 	var columns []string
 	
 	// 构建字段定义
@@ -924,7 +924,7 @@ func (tx *SQLTransaction) buildCreateTableSQL(table string, model *TableModel) s
 	}
 	
 	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (\n  %s\n)", 
-		table, strings.Join(columns, ",\n  "))
+		model.Table, strings.Join(columns, ",\n  "))
 }
 
 // buildColumnDefinition 构建单个字段定义 (事务版本)
