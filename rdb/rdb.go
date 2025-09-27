@@ -76,12 +76,6 @@ type RDB interface {
 	// Find 根据查询条件查询多条记录
 	Find(ctx context.Context, table string, query query.Query, opts ...QueryOption) ([]Record, error)
 
-	// FindOne 根据查询条件查询单条记录
-	FindOne(ctx context.Context, table string, query query.Query) (Record, error)
-
-	// Count 统计记录数量
-	Count(ctx context.Context, table string, query query.Query) (int64, error)
-
 	// Aggregate 执行聚合查询
 	Aggregate(ctx context.Context, table string, query query.Query, aggs []aggregation.Aggregation, opts ...QueryOption) (aggregation.AggregationResult, error)
 
