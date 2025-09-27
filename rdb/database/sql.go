@@ -393,6 +393,12 @@ func (s *SQL) scanRowToRecord(rows *sql.Rows) (Record, error) {
 
 // CRUD 操作实现
 func (s *SQL) Create(ctx context.Context, table string, record Record, opts ...CreateOption) error {
+	// 解析创建选项
+	options := &CreateOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	fields := record.Fields()
 
 	var columns []string
@@ -405,10 +411,47 @@ func (s *SQL) Create(ctx context.Context, table string, record Record, opts ...C
 		args = append(args, val)
 	}
 
-	sqlStr := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		table,
-		strings.Join(columns, ", "),
-		strings.Join(placeholders, ", "))
+	var sqlStr string
+	if options.IgnoreConflict {
+		// 使用 INSERT IGNORE 语法忽略冲突
+		if s.driver == "mysql" {
+			sqlStr = fmt.Sprintf("INSERT IGNORE INTO %s (%s) VALUES (%s)",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "))
+		} else {
+			// SQLite 使用 INSERT OR IGNORE
+			sqlStr = fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES (%s)",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "))
+		}
+	} else if options.UpdateOnConflict {
+		// 使用 ON DUPLICATE KEY UPDATE 语法在冲突时更新
+		if s.driver == "mysql" {
+			var updateParts []string
+			for col := range fields {
+				updateParts = append(updateParts, fmt.Sprintf("%s = VALUES(%s)", col, col))
+			}
+			sqlStr = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "),
+				strings.Join(updateParts, ", "))
+		} else {
+			// SQLite 使用 INSERT OR REPLACE
+			sqlStr = fmt.Sprintf("INSERT OR REPLACE INTO %s (%s) VALUES (%s)",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "))
+		}
+	} else {
+		// 默认的 INSERT 语法
+		sqlStr = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+			table,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "))
+	}
 
 	sqlStr, args = s.formatSQL(sqlStr, args)
 	_, err := s.db.ExecContext(ctx, sqlStr, args...)
@@ -716,6 +759,12 @@ func (tx *SQLTransaction) Rollback() error {
 
 // 事务中的 CRUD 操作实现 (复用 SQL 的逻辑，但使用事务连接)
 func (tx *SQLTransaction) Create(ctx context.Context, table string, record Record, opts ...CreateOption) error {
+	// 解析创建选项
+	options := &CreateOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	fields := record.Fields()
 
 	var columns []string
@@ -728,10 +777,47 @@ func (tx *SQLTransaction) Create(ctx context.Context, table string, record Recor
 		args = append(args, val)
 	}
 
-	sqlStr := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
-		table,
-		strings.Join(columns, ", "),
-		strings.Join(placeholders, ", "))
+	var sqlStr string
+	if options.IgnoreConflict {
+		// 使用 INSERT IGNORE 语法忽略冲突
+		if tx.driver == "mysql" {
+			sqlStr = fmt.Sprintf("INSERT IGNORE INTO %s (%s) VALUES (%s)",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "))
+		} else {
+			// SQLite 使用 INSERT OR IGNORE
+			sqlStr = fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES (%s)",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "))
+		}
+	} else if options.UpdateOnConflict {
+		// 使用 ON DUPLICATE KEY UPDATE 语法在冲突时更新
+		if tx.driver == "mysql" {
+			var updateParts []string
+			for col := range fields {
+				updateParts = append(updateParts, fmt.Sprintf("%s = VALUES(%s)", col, col))
+			}
+			sqlStr = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "),
+				strings.Join(updateParts, ", "))
+		} else {
+			// SQLite 使用 INSERT OR REPLACE
+			sqlStr = fmt.Sprintf("INSERT OR REPLACE INTO %s (%s) VALUES (%s)",
+				table,
+				strings.Join(columns, ", "),
+				strings.Join(placeholders, ", "))
+		}
+	} else {
+		// 默认的 INSERT 语法
+		sqlStr = fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+			table,
+			strings.Join(columns, ", "),
+			strings.Join(placeholders, ", "))
+	}
 
 	sqlStr, args = tx.formatSQL(sqlStr, args)
 	_, err := tx.tx.ExecContext(ctx, sqlStr, args...)
