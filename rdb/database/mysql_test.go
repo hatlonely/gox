@@ -336,6 +336,89 @@ func TestSQLCRUDOperations(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
+		Convey("测试 Create 方法的 IgnoreConflict 选项", func() {
+			// 先创建一条记录
+			user := TestUser{
+				ID:       10,
+				Name:     "Original User",
+				Email:    "original@example.com",
+				Age:      25,
+				Active:   true,
+				Score:    80.0,
+				CreateAt: time.Now(),
+			}
+			record := sql.builder.FromStruct(user)
+			err := sql.Create(ctx, "test_crud_users", record)
+			So(err, ShouldBeNil)
+
+			// 尝试创建相同ID的记录，使用 IgnoreConflict 选项
+			conflictUser := TestUser{
+				ID:       10,
+				Name:     "Conflict User",
+				Email:    "conflict@example.com",
+				Age:      30,
+				Active:   false,
+				Score:    90.0,
+				CreateAt: time.Now(),
+			}
+			conflictRecord := sql.builder.FromStruct(conflictUser)
+			
+			// 使用 IgnoreConflict 选项，应该忽略冲突
+			err = sql.Create(ctx, "test_crud_users", conflictRecord, WithIgnoreConflict())
+			So(err, ShouldBeNil)
+
+			// 验证原始记录没有被修改
+			pk := map[string]any{"id": 10}
+			result, err := sql.Get(ctx, "test_crud_users", pk)
+			So(err, ShouldBeNil)
+			var retrievedUser TestUser
+			result.Scan(&retrievedUser)
+			So(retrievedUser.Name, ShouldEqual, "Original User")
+			So(retrievedUser.Email, ShouldEqual, "original@example.com")
+		})
+
+		Convey("测试 Create 方法的 UpdateOnConflict 选项", func() {
+			// 先创建一条记录
+			user := TestUser{
+				ID:       11,
+				Name:     "Original User",
+				Email:    "original11@example.com",
+				Age:      25,
+				Active:   true,
+				Score:    80.0,
+				CreateAt: time.Now(),
+			}
+			record := sql.builder.FromStruct(user)
+			err := sql.Create(ctx, "test_crud_users", record)
+			So(err, ShouldBeNil)
+
+			// 尝试创建相同ID的记录，使用 UpdateOnConflict 选项
+			conflictUser := TestUser{
+				ID:       11,
+				Name:     "Updated User",
+				Email:    "updated11@example.com",
+				Age:      30,
+				Active:   false,
+				Score:    90.0,
+				CreateAt: time.Now(),
+			}
+			conflictRecord := sql.builder.FromStruct(conflictUser)
+			
+			// 使用 UpdateOnConflict 选项，应该更新记录
+			err = sql.Create(ctx, "test_crud_users", conflictRecord, WithUpdateOnConflict())
+			So(err, ShouldBeNil)
+
+			// 验证记录已被更新
+			pk := map[string]any{"id": 11}
+			result, err := sql.Get(ctx, "test_crud_users", pk)
+			So(err, ShouldBeNil)
+			var retrievedUser TestUser
+			result.Scan(&retrievedUser)
+			So(retrievedUser.Name, ShouldEqual, "Updated User")
+			So(retrievedUser.Email, ShouldEqual, "updated11@example.com")
+			So(retrievedUser.Age, ShouldEqual, 30)
+		})
+
 		Convey("测试 Get 方法", func() {
 			// 先创建一条记录
 			user := TestUser{
@@ -593,6 +676,48 @@ func TestSQLBatchOperations(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
+		Convey("测试 BatchCreate 的 CreateOption", func() {
+			// 先创建一些记录
+			users := []TestUser{
+				{ID: 50, Name: "OriginalUser50", Age: 20, CreateAt: time.Now()},
+				{ID: 51, Name: "OriginalUser51", Age: 21, CreateAt: time.Now()},
+			}
+			var records []Record
+			for _, user := range users {
+				records = append(records, sql.builder.FromStruct(user))
+			}
+			err := sql.BatchCreate(ctx, "test_batch_users", records)
+			So(err, ShouldBeNil)
+
+			// 测试批量创建时使用 IgnoreConflict 选项
+			conflictUsers := []TestUser{
+				{ID: 50, Name: "ConflictUser50", Age: 30, CreateAt: time.Now()}, // 冲突记录
+				{ID: 52, Name: "NewUser52", Age: 22, CreateAt: time.Now()},      // 新记录
+			}
+			var conflictRecords []Record
+			for _, user := range conflictUsers {
+				conflictRecords = append(conflictRecords, sql.builder.FromStruct(user))
+			}
+
+			err = sql.BatchCreate(ctx, "test_batch_users", conflictRecords, WithIgnoreConflict())
+			So(err, ShouldBeNil)
+
+			// 验证ID=50的记录没有被修改，ID=52的记录被创建
+			pk50 := map[string]any{"id": 50}
+			result50, err := sql.Get(ctx, "test_batch_users", pk50)
+			So(err, ShouldBeNil)
+			var user50 TestUser
+			result50.Scan(&user50)
+			So(user50.Name, ShouldEqual, "OriginalUser50") // 原始记录没有被修改
+
+			pk52 := map[string]any{"id": 52}
+			result52, err := sql.Get(ctx, "test_batch_users", pk52)
+			So(err, ShouldBeNil)
+			var user52 TestUser
+			result52.Scan(&user52)
+			So(user52.Name, ShouldEqual, "NewUser52") // 新记录被创建
+		})
+
 		Convey("测试 BatchUpdate", func() {
 			// 先创建记录
 			users := []TestUser{
@@ -720,6 +845,73 @@ func TestSQLTransaction(t *testing.T) {
 			result, err := sql.Get(ctx, "test_tx_users", pk)
 			So(err, ShouldBeNil)
 			So(result, ShouldNotBeNil)
+		})
+
+		Convey("测试事务中的 CreateOption", func() {
+			tx, err := sql.BeginTx(ctx)
+			So(err, ShouldBeNil)
+			defer tx.Rollback()
+
+			// 先创建一条记录
+			user := TestUser{
+				ID:       100,
+				Name:     "TxOriginal",
+				Email:    "txoriginal@example.com",
+				Age:      25,
+				Active:   true,
+				Score:    85.0,
+				CreateAt: time.Now(),
+			}
+			record := sql.builder.FromStruct(user)
+			err = tx.Create(ctx, "test_tx_users", record)
+			So(err, ShouldBeNil)
+
+			// 测试 IgnoreConflict 选项
+			conflictUser := TestUser{
+				ID:       100,
+				Name:     "TxConflict",
+				Email:    "txconflict@example.com",
+				Age:      30,
+				Active:   false,
+				Score:    95.0,
+				CreateAt: time.Now(),
+			}
+			conflictRecord := sql.builder.FromStruct(conflictUser)
+			
+			err = tx.Create(ctx, "test_tx_users", conflictRecord, WithIgnoreConflict())
+			So(err, ShouldBeNil)
+
+			// 验证原始记录没有被修改（在事务中）
+			pk := map[string]any{"id": 100}
+			result, err := tx.Get(ctx, "test_tx_users", pk)
+			So(err, ShouldBeNil)
+			var retrievedUser TestUser
+			result.Scan(&retrievedUser)
+			So(retrievedUser.Name, ShouldEqual, "TxOriginal")
+			So(retrievedUser.Email, ShouldEqual, "txoriginal@example.com")
+
+			// 测试 UpdateOnConflict 选项
+			updateUser := TestUser{
+				ID:       100,
+				Name:     "TxUpdated",
+				Email:    "txupdated@example.com",
+				Age:      35,
+				Active:   false,
+				Score:    99.0,
+				CreateAt: time.Now(),
+			}
+			updateRecord := sql.builder.FromStruct(updateUser)
+			
+			err = tx.Create(ctx, "test_tx_users", updateRecord, WithUpdateOnConflict())
+			So(err, ShouldBeNil)
+
+			// 验证记录已被更新（在事务中）
+			result, err = tx.Get(ctx, "test_tx_users", pk)
+			So(err, ShouldBeNil)
+			result.Scan(&retrievedUser)
+			So(retrievedUser.Name, ShouldEqual, "TxUpdated")
+			So(retrievedUser.Email, ShouldEqual, "txupdated@example.com")
+			So(retrievedUser.Age, ShouldEqual, 35)
 		})
 	})
 }

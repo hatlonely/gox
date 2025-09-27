@@ -23,6 +23,20 @@ type CreateOptions struct {
 
 type CreateOption func(*CreateOptions)
 
+// WithIgnoreConflict 设置忽略冲突选项
+func WithIgnoreConflict() CreateOption {
+	return func(opts *CreateOptions) {
+		opts.IgnoreConflict = true
+	}
+}
+
+// WithUpdateOnConflict 设置冲突时更新选项
+func WithUpdateOnConflict() CreateOption {
+	return func(opts *CreateOptions) {
+		opts.UpdateOnConflict = true
+	}
+}
+
 // QueryOptions 查询选项
 type QueryOptions struct {
 	Limit     int
