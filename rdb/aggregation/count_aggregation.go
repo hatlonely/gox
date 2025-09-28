@@ -27,9 +27,37 @@ func (a *CountAggregation) ToSQL() (string, []interface{}, error) {
 }
 
 func (a *CountAggregation) ToMongo() (map[string]interface{}, error) {
-	// 对于MongoDB，count聚合通常就是简单的计数
-	// 如果指定了字段，可以使用$sum配合条件，但为简化起见，我们使用基本计数
+	if a.Field == "" {
+		// 简单文档计数 - COUNT(*)
+		return map[string]interface{}{
+			"$sum": 1,
+		}, nil
+	}
+	
+	// 字段非空计数 - COUNT(field)
+	// 统计字段存在且不为null、不为空字符串的文档数量
 	return map[string]interface{}{
-		"$sum": 1,
+		"$sum": map[string]interface{}{
+			"$cond": map[string]interface{}{
+				"if": map[string]interface{}{
+					"$and": []interface{}{
+						// 字段不为null
+						map[string]interface{}{"$ne": []interface{}{"$" + a.Field, nil}},
+						// 字段存在（不是missing）
+						map[string]interface{}{"$ne": []interface{}{"$" + a.Field, "$$REMOVE"}},
+						// 如果是字符串类型，还要检查不为空字符串
+						map[string]interface{}{
+							"$cond": map[string]interface{}{
+								"if":   map[string]interface{}{"$eq": []interface{}{map[string]interface{}{"$type": "$" + a.Field}, "string"}},
+								"then": map[string]interface{}{"$ne": []interface{}{"$" + a.Field, ""}},
+								"else": true,
+							},
+						},
+					},
+				},
+				"then": 1,
+				"else": 0,
+			},
+		},
 	}, nil
 }
