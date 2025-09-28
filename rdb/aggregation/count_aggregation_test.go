@@ -65,10 +65,25 @@ func TestCountAggregation_ToMongo(t *testing.T) {
 			field: "status",
 			expected: map[string]interface{}{
 				"$sum": map[string]interface{}{
-					"$cond": []interface{}{
-						map[string]interface{}{"$ne": []interface{}{"$status", nil}},
-						1,
-						0,
+					"$cond": map[string]interface{}{
+						"if": map[string]interface{}{
+							"$and": []interface{}{
+								// 字段不为null
+								map[string]interface{}{"$ne": []interface{}{"$status", nil}},
+								// 字段存在（不是missing）
+								map[string]interface{}{"$ne": []interface{}{"$status", "$$REMOVE"}},
+								// 如果是字符串类型，还要检查不为空字符串
+								map[string]interface{}{
+									"$cond": map[string]interface{}{
+										"if":   map[string]interface{}{"$eq": []interface{}{map[string]interface{}{"$type": "$status"}, "string"}},
+										"then": map[string]interface{}{"$ne": []interface{}{"$status", ""}},
+										"else": true,
+									},
+								},
+							},
+						},
+						"then": 1,
+						"else": 0,
 					},
 				},
 			},
