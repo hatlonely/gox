@@ -637,27 +637,117 @@ func TestMongoAggregate(t *testing.T) {
 		mongo.Migrate(ctx, model)
 		defer mongo.DropTable(ctx, "test_agg_users")
 
-		// 插入测试数据
+		// 插入测试数据，包含一些空值用于测试COUNT(field)
 		users := []TestMongoUser{
-			{UserID: 1, Name: "John", Age: 30, Score: 95.5, Active: true},
-			{UserID: 2, Name: "Jane", Age: 25, Score: 88.0, Active: true},
-			{UserID: 3, Name: "Bob", Age: 35, Score: 92.5, Active: false},
+			{UserID: 1, Name: "John", Email: "john@test.com", Age: 30, Score: 95.5, Active: true},
+			{UserID: 2, Name: "Jane", Email: "", Age: 25, Score: 88.0, Active: true}, // 空email
+			{UserID: 3, Name: "Bob", Email: "bob@test.com", Age: 35, Score: 92.5, Active: false},
+			{UserID: 4, Name: "", Email: "alice@test.com", Age: 28, Score: 0, Active: true}, // 空name，score为0
+			{UserID: 5, Name: "Charlie", Email: "charlie@test.com", Age: 32, Score: 90.0, Active: true},
 		}
 		for _, user := range users {
 			record := mongo.builder.FromStruct(user)
 			mongo.Create(ctx, "test_agg_users", record)
 		}
 
-		Convey("Count 聚合", func() {
+		Convey("Count 聚合 - COUNT(*)", func() {
+			// 测试 COUNT(*) - 统计所有active=true的用户
 			termQuery := &query.TermQuery{Field: "active", Value: true}
 			countAgg := &aggregation.CountAggregation{}
 			countAgg.AggName = "total_count"
-			countAgg.Field = "user_id"
+			countAgg.Field = "" // 空字段表示COUNT(*)
 
 			aggs := []aggregation.Aggregation{countAgg}
 			result, err := mongo.Aggregate(ctx, "test_agg_users", termQuery, aggs)
 			So(err, ShouldBeNil)
 			So(result, ShouldNotBeNil)
+			
+			// 验证结果：应该有4个active=true的用户
+			count := result.Get("total_count")
+			So(count, ShouldEqual, 4)
+		})
+
+		Convey("Count 聚合 - COUNT(email)", func() {
+			// 测试 COUNT(email) - 统计有非空email的active用户
+			termQuery := &query.TermQuery{Field: "active", Value: true}
+			countAgg := &aggregation.CountAggregation{}
+			countAgg.AggName = "email_count"
+			countAgg.Field = "email"
+
+			aggs := []aggregation.Aggregation{countAgg}
+			result, err := mongo.Aggregate(ctx, "test_agg_users", termQuery, aggs)
+			So(err, ShouldBeNil)
+			So(result, ShouldNotBeNil)
+			
+			// 验证结果：4个active用户中，3个有非空email（Jane的email为空）
+			count := result.Get("email_count")
+			So(count, ShouldEqual, 3)
+		})
+
+		Convey("Count 聚合 - COUNT(name)", func() {
+			// 测试 COUNT(name) - 统计有非空name的active用户
+			termQuery := &query.TermQuery{Field: "active", Value: true}
+			countAgg := &aggregation.CountAggregation{}
+			countAgg.AggName = "name_count"
+			countAgg.Field = "name"
+
+			aggs := []aggregation.Aggregation{countAgg}
+			result, err := mongo.Aggregate(ctx, "test_agg_users", termQuery, aggs)
+			So(err, ShouldBeNil)
+			So(result, ShouldNotBeNil)
+			
+			// 验证结果：4个active用户中，3个有非空name（用户4的name为空）
+			count := result.Get("name_count")
+			So(count, ShouldEqual, 3)
+		})
+
+		Convey("Count 聚合 - COUNT(score)", func() {
+			// 测试 COUNT(score) - 统计有score的active用户（数字0也算有效值）
+			termQuery := &query.TermQuery{Field: "active", Value: true}
+			countAgg := &aggregation.CountAggregation{}
+			countAgg.AggName = "score_count"
+			countAgg.Field = "score"
+
+			aggs := []aggregation.Aggregation{countAgg}
+			result, err := mongo.Aggregate(ctx, "test_agg_users", termQuery, aggs)
+			So(err, ShouldBeNil)
+			So(result, ShouldNotBeNil)
+			
+			// 验证结果：所有4个active用户都有score（包括用户4的score=0）
+			count := result.Get("score_count")
+			So(count, ShouldEqual, 4)
+		})
+
+		Convey("Count 聚合 - 多字段COUNT组合", func() {
+			// 测试在同一个聚合中使用多个COUNT
+			termQuery := &query.TermQuery{Field: "active", Value: true}
+			
+			// 同时统计多个字段的count
+			countAllAgg := &aggregation.CountAggregation{}
+			countAllAgg.AggName = "total_count"
+			countAllAgg.Field = ""
+			
+			countEmailAgg := &aggregation.CountAggregation{}
+			countEmailAgg.AggName = "email_count"
+			countEmailAgg.Field = "email"
+			
+			countNameAgg := &aggregation.CountAggregation{}
+			countNameAgg.AggName = "name_count"
+			countNameAgg.Field = "name"
+
+			aggs := []aggregation.Aggregation{countAllAgg, countEmailAgg, countNameAgg}
+			result, err := mongo.Aggregate(ctx, "test_agg_users", termQuery, aggs)
+			So(err, ShouldBeNil)
+			So(result, ShouldNotBeNil)
+			
+			// 验证多个COUNT结果
+			totalCount := result.Get("total_count")
+			emailCount := result.Get("email_count")
+			nameCount := result.Get("name_count")
+			
+			So(totalCount, ShouldEqual, 4) // 总active用户数
+			So(emailCount, ShouldEqual, 3) // 有email的active用户数
+			So(nameCount, ShouldEqual, 3)  // 有name的active用户数
 		})
 	})
 }
