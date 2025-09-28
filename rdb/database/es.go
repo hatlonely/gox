@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -75,7 +76,7 @@ type ESRecord struct {
 }
 
 func (r *ESRecord) Scan(dest any) error {
-	return mapToStruct(r.source, dest)
+	return esMapToStruct(r.source, dest)
 }
 
 func (r *ESRecord) ScanStruct(dest any) error {
@@ -93,7 +94,7 @@ func (r *ESRecord) Fields() map[string]any {
 type ESRecordBuilder struct{}
 
 func (b *ESRecordBuilder) FromStruct(v any) Record {
-	data := structToMap(v)
+	data := esStructToMap(v)
 	return &ESRecord{data: data, source: data}
 }
 
@@ -109,8 +110,9 @@ func (es *ES) GetBuilder() RecordBuilder {
 func (es *ES) Close() error {
 	// Elasticsearch客户端不需要显式关闭
 	return nil
-}// M
-igrate 创建/更新索引映射
+}
+
+// Migrate 创建/更新索引映射
 func (es *ES) Migrate(ctx context.Context, model *TableModel) error {
 	// 构建索引映射
 	mapping := es.buildIndexMapping(model)
@@ -264,8 +266,9 @@ func (es *ES) DropTable(ctx context.Context, table string) error {
 	}
 	
 	return nil
-}// CRUD 
-操作实现
+}
+
+// CRUD 操作实现
 func (es *ES) Create(ctx context.Context, table string, record Record, opts ...CreateOption) error {
 	// 解析创建选项
 	createOpts := &CreateOptions{}
@@ -490,8 +493,9 @@ func (es *ES) Delete(ctx context.Context, table string, pk map[string]any) error
 	}
 	
 	return nil
-}//
- 查询和聚合功能实现
+}
+
+// 查询和聚合功能实现
 func (es *ES) Find(ctx context.Context, table string, query query.Query, opts ...QueryOption) ([]Record, error) {
 	// 解析查询选项
 	queryOpts := &QueryOptions{}
@@ -693,8 +697,9 @@ func (es *ES) Aggregate(ctx context.Context, table string, query query.Query, ag
 	}
 	
 	return result, nil
-}// 批
-量操作实现
+}
+
+// 批量操作实现
 func (es *ES) BatchCreate(ctx context.Context, table string, records []Record, opts ...CreateOption) error {
 	if len(records) == 0 {
 		return nil
@@ -911,8 +916,9 @@ func (es *ES) BatchDelete(ctx context.Context, table string, pks []map[string]an
 	}
 	
 	return nil
-}// 
-事务支持实现（ES不支持传统事务，使用文档版本控制模拟）
+}
+
+// 事务支持实现（ES不支持传统事务，使用文档版本控制模拟）
 func (es *ES) BeginTx(ctx context.Context) (Transaction, error) {
 	// Elasticsearch不支持传统的ACID事务
 	// 这里返回一个模拟的事务实现，主要用于批量操作的一致性
@@ -1241,4 +1247,185 @@ func (tx *ESTransaction) GetBuilder() RecordBuilder {
 
 func (tx *ESTransaction) Close() error {
 	return nil
+}
+
+
+
+// ES 特定的结构体转换为 map 函数
+func esStructToMap(v any) map[string]any {
+	result := make(map[string]any)
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Ptr {
+		rv = rv.Elem()
+	}
+	if rv.Kind() != reflect.Struct {
+		return result
+	}
+
+	rt := rv.Type()
+	for i := 0; i < rv.NumField(); i++ {
+		field := rt.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		// 检查 rdb 标签
+		tag := field.Tag.Get("rdb")
+		if tag == "-" {
+			continue // 跳过被忽略的字段
+		}
+
+		fieldName := field.Name
+		if tag != "" {
+			if idx := strings.Index(tag, ","); idx != -1 {
+				fieldName = tag[:idx]
+			} else {
+				fieldName = tag
+			}
+		}
+
+		value := rv.Field(i).Interface()
+		result[fieldName] = value
+	}
+	return result
+}
+
+// ES 特定的 map 转换为结构体函数
+func esMapToStruct(data map[string]any, dest any) error {
+	rv := reflect.ValueOf(dest)
+	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("dest must be a pointer to struct")
+	}
+
+	rv = rv.Elem()
+	rt := rv.Type()
+
+	for i := 0; i < rv.NumField(); i++ {
+		field := rt.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		fieldName := field.Name
+		if tag := field.Tag.Get("rdb"); tag != "" && tag != "-" {
+			if idx := strings.Index(tag, ","); idx != -1 {
+				fieldName = tag[:idx]
+			} else {
+				fieldName = tag
+			}
+		}
+
+		if value, exists := data[fieldName]; exists && value != nil {
+			fieldValue := rv.Field(i)
+			if fieldValue.CanSet() {
+				if err := setESFieldValue(fieldValue, value); err != nil {
+					return fmt.Errorf("failed to set field %s: %v", fieldName, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// 辅助函数：设置ES字段值
+func setESFieldValue(fieldValue reflect.Value, value any) error {
+	if value == nil {
+		return nil
+	}
+
+	valueType := reflect.TypeOf(value)
+	fieldType := fieldValue.Type()
+
+	// 处理时间类型
+	if fieldType.String() == "time.Time" {
+		switch v := value.(type) {
+		case string:
+			// 尝试解析时间字符串
+			if t, err := time.Parse(time.RFC3339, v); err == nil {
+				fieldValue.Set(reflect.ValueOf(t))
+				return nil
+			}
+			if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+				fieldValue.Set(reflect.ValueOf(t))
+				return nil
+			}
+		case float64:
+			// Unix 时间戳（毫秒）
+			t := time.Unix(0, int64(v)*int64(time.Millisecond))
+			fieldValue.Set(reflect.ValueOf(t))
+			return nil
+		}
+	}
+
+	// 处理数字类型转换
+	if fieldType.Kind() == reflect.Int && valueType.Kind() == reflect.Float64 {
+		fieldValue.SetInt(int64(value.(float64)))
+		return nil
+	}
+
+	if fieldType.Kind() == reflect.Float64 && valueType.Kind() == reflect.Float64 {
+		fieldValue.SetFloat(value.(float64))
+		return nil
+	}
+
+	// 处理布尔类型
+	if fieldType.Kind() == reflect.Bool {
+		switch v := value.(type) {
+		case bool:
+			fieldValue.SetBool(v)
+			return nil
+		case string:
+			if v == "true" || v == "1" {
+				fieldValue.SetBool(true)
+			} else {
+				fieldValue.SetBool(false)
+			}
+			return nil
+		}
+	}
+
+	// 处理切片类型
+	if fieldType.Kind() == reflect.Slice && valueType.Kind() == reflect.Slice {
+		sourceSlice := reflect.ValueOf(value)
+		newSlice := reflect.MakeSlice(fieldType, sourceSlice.Len(), sourceSlice.Cap())
+		
+		for i := 0; i < sourceSlice.Len(); i++ {
+			elem := newSlice.Index(i)
+			sourceElem := sourceSlice.Index(i)
+			
+			if elem.Type().AssignableTo(sourceElem.Type()) {
+				elem.Set(sourceElem)
+			} else if sourceElem.Type().ConvertibleTo(elem.Type()) {
+				elem.Set(sourceElem.Convert(elem.Type()))
+			}
+		}
+		
+		fieldValue.Set(newSlice)
+		return nil
+	}
+
+	// 处理嵌套结构体（JSON对象）
+	if fieldType.Kind() == reflect.Struct && valueType.Kind() == reflect.Map {
+		if mapValue, ok := value.(map[string]any); ok {
+			newStruct := reflect.New(fieldType).Elem()
+			if err := esMapToStruct(mapValue, newStruct.Addr().Interface()); err != nil {
+				return err
+			}
+			fieldValue.Set(newStruct)
+			return nil
+		}
+	}
+
+	// 直接赋值
+	if valueType.AssignableTo(fieldType) {
+		fieldValue.Set(reflect.ValueOf(value))
+		return nil
+	}
+
+	if valueType.ConvertibleTo(fieldType) {
+		fieldValue.Set(reflect.ValueOf(value).Convert(fieldType))
+		return nil
+	}
+
+	return fmt.Errorf("cannot convert %v to %v", valueType, fieldType)
 }
