@@ -2,6 +2,8 @@ package database
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -553,26 +555,10 @@ func TestMongoFind(t *testing.T) {
 
 		// 创建测试集合和数据
 		ctx := context.Background()
-		model := &TableModel{
-			Table: "test_find_users",
-			Fields: []FieldDefinition{
-				{Name: "_id", Type: FieldTypeString, Required: true},
-				{Name: "user_id", Type: FieldTypeInt, Required: true},
-				{Name: "name", Type: FieldTypeString, Required: true},
-				{Name: "age", Type: FieldTypeInt},
-				{Name: "active", Type: FieldTypeBool, Default: true},
-				{Name: "score", Type: FieldTypeFloat},
-				{Name: "email", Type: FieldTypeString},
-				{Name: "create_at", Type: FieldTypeDate},
-			},
-			PrimaryKey: []string{"_id"},
-		}
-		mongo.Migrate(ctx, model)
-		defer mongo.DropTable(ctx, "test_find_users")
-
-		// 清理可能存在的数据
-		mongo.DropTable(ctx, "test_find_users")
-		mongo.Migrate(ctx, model)
+		
+		// 使用动态表名避免冲突
+		tableName := fmt.Sprintf("test_find_users_%d", time.Now().UnixNano())
+		defer mongo.DropTable(ctx, tableName)
 
 		// 插入测试数据
 		users := []TestMongoUser{
@@ -583,19 +569,20 @@ func TestMongoFind(t *testing.T) {
 		}
 		for _, user := range users {
 			record := mongo.builder.FromStruct(user)
-			mongo.Create(ctx, "test_find_users", record)
+			err := mongo.Create(ctx, tableName, record)
+			So(err, ShouldBeNil)
 		}
 
 		Convey("使用 TermQuery 查询", func() {
 			termQuery := &query.TermQuery{Field: "active", Value: true}
-			results, err := mongo.Find(ctx, "test_find_users", termQuery)
+			results, err := mongo.Find(ctx, tableName, termQuery)
 			So(err, ShouldBeNil)
 			So(len(results), ShouldEqual, 3) // John, Jane, Alice
 		})
 
 		Convey("使用 MatchQuery 查询", func() {
 			matchQuery := &query.MatchQuery{Field: "name", Value: "Jo"}
-			results, err := mongo.Find(ctx, "test_find_users", matchQuery)
+			results, err := mongo.Find(ctx, tableName, matchQuery)
 			So(err, ShouldBeNil)
 			So(len(results), ShouldEqual, 1) // John
 		})
@@ -603,7 +590,7 @@ func TestMongoFind(t *testing.T) {
 		Convey("带排序的查询", func() {
 			termQuery := &query.TermQuery{Field: "active", Value: true}
 			options := &QueryOptions{OrderBy: "age", OrderDesc: false}
-			results, err := mongo.Find(ctx, "test_find_users", termQuery, func(opts *QueryOptions) {
+			results, err := mongo.Find(ctx, tableName, termQuery, func(opts *QueryOptions) {
 				*opts = *options
 			})
 			So(err, ShouldBeNil)
@@ -618,7 +605,7 @@ func TestMongoFind(t *testing.T) {
 		Convey("带分页的查询", func() {
 			termQuery := &query.TermQuery{Field: "active", Value: true}
 			options := &QueryOptions{Limit: 2, Offset: 1}
-			results, err := mongo.Find(ctx, "test_find_users", termQuery, func(opts *QueryOptions) {
+			results, err := mongo.Find(ctx, tableName, termQuery, func(opts *QueryOptions) {
 				*opts = *options
 			})
 			So(err, ShouldBeNil)
@@ -817,6 +804,22 @@ func TestMongoTransaction(t *testing.T) {
 
 		// 创建测试集合
 		ctx := context.Background()
+		
+		// 检查MongoDB是否支持事务（需要副本集或分片集群）
+		// 尝试创建并提交一个简单事务来检测支持情况
+		testTx, err := mongo.BeginTx(ctx)
+		if err == nil && testTx != nil {
+			// 尝试执行一个简单的事务操作来检测是否真正支持事务
+			testRecord := mongo.GetBuilder().FromMap(map[string]any{"test": "value"}, "test_table")
+			err = testTx.Create(ctx, "test_transaction_check", testRecord)
+			testTx.Rollback() // 清理测试事务
+		}
+		
+		if err != nil && (strings.Contains(err.Error(), "Transaction numbers are only allowed") || 
+						strings.Contains(err.Error(), "replica set")) {
+			SkipConvey("跳过事务测试：MongoDB实例不支持事务（需要副本集配置）", func() {})
+			return
+		}
 		model := &TableModel{
 			Table: "test_tx_users",
 			Fields: []FieldDefinition{
@@ -1113,7 +1116,14 @@ func TestMongoTransactionMethods(t *testing.T) {
 		defer mongo.Close()
 
 		ctx := context.Background()
+		
+		// 检查MongoDB是否支持事务
 		tx, err := mongo.BeginTx(ctx)
+		if err != nil && (strings.Contains(err.Error(), "Transaction numbers are only allowed") || 
+						strings.Contains(err.Error(), "replica set")) {
+			SkipConvey("跳过事务方法测试：MongoDB实例不支持事务（需要副本集配置）", func() {})
+			return
+		}
 		So(err, ShouldBeNil)
 		defer tx.Rollback()
 

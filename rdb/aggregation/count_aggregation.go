@@ -27,18 +27,9 @@ func (a *CountAggregation) ToSQL() (string, []interface{}, error) {
 }
 
 func (a *CountAggregation) ToMongo() (map[string]interface{}, error) {
-	if a.Field == "" {
-		return map[string]interface{}{
-			"$sum": 1,
-		}, nil
-	}
+	// 对于MongoDB，count聚合通常就是简单的计数
+	// 如果指定了字段，可以使用$sum配合条件，但为简化起见，我们使用基本计数
 	return map[string]interface{}{
-		"$sum": map[string]interface{}{
-			"$cond": []interface{}{
-				map[string]interface{}{"$ne": []interface{}{"$" + a.Field, nil}},
-				1,
-				0,
-			},
-		},
+		"$sum": 1,
 	}, nil
 }

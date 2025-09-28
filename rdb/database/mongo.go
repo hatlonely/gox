@@ -136,17 +136,37 @@ func structToBSON(v any) bson.M {
 
 		// 检查 rdb 或 bson 标签
 		fieldName := field.Name
+		omitEmpty := false
+		
+		// 优先使用 rdb 标签，但同时检查 bson 标签中的 omitempty
 		if tag := field.Tag.Get("rdb"); tag != "" && tag != "-" {
-			if idx := strings.Index(tag, ","); idx != -1 {
-				fieldName = tag[:idx]
-			} else {
-				fieldName = tag
+			parts := strings.Split(tag, ",")
+			fieldName = parts[0]
+			for _, part := range parts[1:] {
+				if part == "omitempty" {
+					omitEmpty = true
+				}
 			}
 		} else if tag := field.Tag.Get("bson"); tag != "" && tag != "-" {
-			if idx := strings.Index(tag, ","); idx != -1 {
-				fieldName = tag[:idx]
-			} else {
-				fieldName = tag
+			parts := strings.Split(tag, ",")
+			fieldName = parts[0]
+			for _, part := range parts[1:] {
+				if part == "omitempty" {
+					omitEmpty = true
+				}
+			}
+		}
+		
+		// 如果 rdb 标签没有 omitempty，检查 bson 标签是否有
+		if !omitEmpty {
+			if bsonTag := field.Tag.Get("bson"); bsonTag != "" {
+				parts := strings.Split(bsonTag, ",")
+				for _, part := range parts[1:] {
+					if part == "omitempty" {
+						omitEmpty = true
+						break
+					}
+				}
 			}
 		}
 
@@ -155,6 +175,15 @@ func structToBSON(v any) bson.M {
 		}
 
 		value := rv.Field(i).Interface()
+		
+		// 处理 omitempty: 如果值为零值且设置了omitempty，则跳过
+		if omitEmpty {
+			zeroValue := reflect.Zero(field.Type).Interface()
+			if reflect.DeepEqual(value, zeroValue) {
+				continue
+			}
+		}
+		
 		result[fieldName] = value
 	}
 	return result
@@ -600,8 +629,11 @@ func (m *Mongo) Aggregate(ctx context.Context, table string, query query.Query, 
 				groupStage["_id"] = nil // 全局聚合
 				hasGrouping = true
 			}
-			for k, v := range aggDoc {
-				groupStage[k] = v
+			// 使用聚合名称作为字段名，而不是直接使用操作符
+			aggName := agg.Name()
+			if aggName != "" {
+				// aggDoc 包含完整的聚合操作符，直接使用
+				groupStage[aggName] = aggDoc
 			}
 		case aggregation.AggTypeTerms:
 			// 分桶聚合
