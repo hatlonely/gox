@@ -680,15 +680,11 @@ func (m *Mongo) BeginTx(ctx context.Context) (Transaction, error) {
 		return nil, fmt.Errorf("failed to start session: %v", err)
 	}
 
-	if err := session.StartTransaction(); err != nil {
-		session.EndSession(ctx)
-		return nil, fmt.Errorf("failed to start transaction: %v", err)
-	}
-
 	return &MongoTransaction{
-		session:  session,
-		database: m.database,
-		builder:  m.builder,
+		session:    session,
+		database:   m.database,
+		builder:    m.builder,
+		hasStarted: false,
 	}, nil
 }
 
@@ -715,18 +711,25 @@ func (m *Mongo) WithTx(ctx context.Context, fn func(tx Transaction) error) error
 
 // MongoTransaction MongoDB事务实现
 type MongoTransaction struct {
-	session  mongo.Session
-	database *mongo.Database
-	builder  *MongoRecordBuilder
+	session    mongo.Session
+	database   *mongo.Database
+	builder    *MongoRecordBuilder
+	hasStarted bool
 }
 
 func (tx *MongoTransaction) Commit() error {
 	defer tx.session.EndSession(context.Background())
+	if !tx.hasStarted {
+		return nil // 没有开始事务，直接返回
+	}
 	return tx.session.CommitTransaction(context.Background())
 }
 
 func (tx *MongoTransaction) Rollback() error {
 	defer tx.session.EndSession(context.Background())
+	if !tx.hasStarted {
+		return nil // 没有开始事务，直接返回
+	}
 	return tx.session.AbortTransaction(context.Background())
 }
 
@@ -738,6 +741,16 @@ func (tx *MongoTransaction) Create(ctx context.Context, table string, record Rec
 		opt(createOpts)
 	}
 
+	// 确保事务已开始
+	if !tx.hasStarted {
+		if err := tx.session.StartTransaction(); err != nil {
+			return fmt.Errorf("failed to start transaction: %v", err)
+		}
+		tx.hasStarted = true
+	}
+
+	// 使用 session context
+	sessionCtx := mongo.NewSessionContext(ctx, tx.session)
 	collection := tx.database.Collection(table)
 	fields := record.Fields()
 
@@ -752,35 +765,40 @@ func (tx *MongoTransaction) Create(ctx context.Context, table string, record Rec
 		doc[k] = v
 	}
 
-	callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
-		if createOpts.IgnoreConflict {
-			// 尝试插入，如果失败则忽略
-			_, err := collection.InsertOne(sessionContext, doc)
-			if err != nil && strings.Contains(err.Error(), "duplicate key") {
-				return nil, nil // 忽略重复键错误
-			}
-			return nil, err
-		} else if createOpts.UpdateOnConflict {
-			// 使用ReplaceOne with upsert选项在冲突时更新
-			filter := bson.M{"_id": doc["_id"]}
-			replaceOptions := options.Replace().SetUpsert(true)
-			_, err := collection.ReplaceOne(sessionContext, filter, doc, replaceOptions)
-			return nil, err
-		} else {
-			// 默认的插入操作
-			_, err := collection.InsertOne(sessionContext, doc)
-			if err != nil && strings.Contains(err.Error(), "duplicate key") {
-				return nil, ErrDuplicateKey
-			}
-			return nil, err
+	if createOpts.IgnoreConflict {
+		// 尝试插入，如果失败则忽略
+		_, err := collection.InsertOne(sessionCtx, doc)
+		if err != nil && strings.Contains(err.Error(), "duplicate key") {
+			return nil // 忽略重复键错误
 		}
+		return err
+	} else if createOpts.UpdateOnConflict {
+		// 使用ReplaceOne with upsert选项在冲突时更新
+		filter := bson.M{"_id": doc["_id"]}
+		replaceOptions := options.Replace().SetUpsert(true)
+		_, err := collection.ReplaceOne(sessionCtx, filter, doc, replaceOptions)
+		return err
+	} else {
+		// 默认的插入操作
+		_, err := collection.InsertOne(sessionCtx, doc)
+		if err != nil && strings.Contains(err.Error(), "duplicate key") {
+			return ErrDuplicateKey
+		}
+		return err
 	}
-
-	_, err := tx.session.WithTransaction(ctx, callback)
-	return err
 }
 
 func (tx *MongoTransaction) Get(ctx context.Context, table string, pk map[string]any) (Record, error) {
+	// 确保事务已开始
+	if !tx.hasStarted {
+		if err := tx.session.StartTransaction(); err != nil {
+			return nil, fmt.Errorf("failed to start transaction: %v", err)
+		}
+		tx.hasStarted = true
+	}
+
+	// 使用 session context
+	sessionCtx := mongo.NewSessionContext(ctx, tx.session)
 	collection := tx.database.Collection(table)
 
 	// 构建查询过滤器
@@ -790,22 +808,15 @@ func (tx *MongoTransaction) Get(ctx context.Context, table string, pk map[string
 	}
 
 	var result bson.M
-	callback := func(sessionContext mongo.SessionContext) (interface{}, error) {
-		err := collection.FindOne(sessionContext, filter).Decode(&result)
-		if err == mongo.ErrNoDocuments {
-			return nil, ErrRecordNotFound
-		}
-		return &MongoRecord{data: result}, err
+	err := collection.FindOne(sessionCtx, filter).Decode(&result)
+	if err == mongo.ErrNoDocuments {
+		return nil, ErrRecordNotFound
 	}
-
-	res, err := tx.session.WithTransaction(ctx, callback)
 	if err != nil {
 		return nil, err
 	}
-	if res == nil {
-		return nil, ErrRecordNotFound
-	}
-	return res.(Record), nil
+	
+	return &MongoRecord{data: result}, nil
 }
 
 func (tx *MongoTransaction) Update(ctx context.Context, table string, pk map[string]any, record Record) error {
