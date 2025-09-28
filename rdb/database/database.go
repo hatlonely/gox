@@ -120,5 +120,21 @@ type Database interface {
 
 // 工厂方法
 func NewDatabaseWithOptions(options *ref.TypeOptions) (Database, error) {
-	return nil, errors.New("not implemented yet")
+	// 注册 database 类型
+	ref.RegisterT[*SQL](NewSQLWithOptions)
+	ref.RegisterT[*Mongo](NewMongoWithOptions)
+	ref.RegisterT[*ES](NewESWithOptions)
+
+	database, err := ref.New(options.Namespace, options.Type, options.Options)
+	if err != nil {
+		return nil, errors.WithMessage(err, "ref.New failed")
+	}
+	if database == nil {
+		return nil, errors.New("database is nil")
+	}
+	if _, ok := database.(Database); !ok {
+		return nil, errors.New("database is not a Database")
+	}
+
+	return database.(Database), nil
 }
