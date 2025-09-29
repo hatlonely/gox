@@ -21,10 +21,6 @@ type User struct {
 	CreateAt time.Time `rdb:"create_at"`
 }
 
-// 设置表名
-func (u User) TableName() string {
-	return "users"
-}
 
 // 复合主键测试实体
 type UserProfile struct {
@@ -34,9 +30,6 @@ type UserProfile struct {
 	Avatar   string `rdb:"avatar"`
 }
 
-func (up UserProfile) TableName() string {
-	return "user_profiles"
-}
 
 // 测试配置 - 复用 mysql_test.go 中的配置
 var testMySQLOptions = &database.SQLOptions{
