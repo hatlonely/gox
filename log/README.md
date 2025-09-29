@@ -1,109 +1,117 @@
-# Log - 基于标准 slog 的日志库
+# Log 日志库
 
-基于 Go 1.21+ 标准 `log/slog` 包构建的结构化日志库，与 [cfg](../cfg) 配置库完全集成。
+一个基于 Go 标准库 `slog` 的高性能日志库，支持多种输出方式和灵活的配置。
+
+## 特性
+
+- 🚀 基于 Go 1.21+ `slog` 标准库
+- 📝 支持 Text/JSON 格式输出
+- 🎯 支持控制台、文件、多输出器
+- 🎨 控制台彩色输出
+- 📦 文件轮转和压缩
+- ⚙️ 灵活的配置管理
+- 🏗️ 支持分组和字段日志
 
 ## 快速开始
 
-### 基本用法
+### 基础使用
 
 ```go
 package main
 
+import "github.com/hatlonely/gox/log"
+
+func main() {
+    // 使用默认日志器
+    log.Default().Info("Hello, World!", "user", "john")
+    
+    // 使用全局方法
+    logger := log.GetLogger("default")
+    logger.Warn("这是一条警告", "code", 404)
+}
+```
+
+### 控制台输出
+
+```go
 import (
-    "github.com/hatlonely/gox/log"
+    "github.com/hatlonely/gox/log/logger"
     "github.com/hatlonely/gox/log/writer"
     "github.com/hatlonely/gox/ref"
 )
 
 func main() {
-    // 创建日志器
-    logger, err := log.NewLogWithOptions(&log.Options{
+    options := &logger.SLogOptions{
         Level:  "info",
-        Format: "json",
-        Output: ref.TypeOptions{
+        Format: "text",        // text 或 json
+        Output: &ref.TypeOptions{
             Namespace: "github.com/hatlonely/gox/log/writer",
             Type:      "ConsoleWriter",
             Options: &writer.ConsoleWriterOptions{
-                Color:  true,
-                Target: "stdout",
+                Color:  true,   // 彩色输出
+                Target: "stdout", // stdout 或 stderr
             },
         },
-    })
+    }
+    
+    logger, err := logger.NewSLogWithOptions(options)
     if err != nil {
         panic(err)
     }
-
-    // 使用日志
-    logger.Info("应用启动", "version", "1.0.0")
-    logger.Warn("连接池容量不足", "current", 10, "max", 100)
-    logger.Error("数据库连接失败", "error", err)
-}
-```
-
-## 配置选项
-
-### 日志级别
-- `debug` - 调试信息
-- `info` - 一般信息  
-- `warn` - 警告信息
-- `error` - 错误信息
-
-### 输出格式
-- `text` - 文本格式（默认）
-- `json` - JSON 格式
-
-### 时间格式
-- 支持 Go 时间格式，默认 RFC3339
-- 示例：`"2006-01-02 15:04:05"`
-
-## 输出器类型
-
-### 控制台输出
-```go
-Output: ref.TypeOptions{
-    Namespace: "github.com/hatlonely/gox/log/writer",
-    Type:      "ConsoleWriter",
-    Options: &writer.ConsoleWriterOptions{
-        Color:  true,    // 彩色输出
-        Target: "stdout", // stdout 或 stderr
-    },
+    
+    logger.Info("用户登录", "userId", "12345")
+    logger.Error("处理失败", "error", "网络超时")
 }
 ```
 
 ### 文件输出
+
 ```go
-Output: ref.TypeOptions{
-    Namespace: "github.com/hatlonely/gox/log/writer",
-    Type:      "FileWriter", 
-    Options: &writer.FileWriterOptions{
-        Path:       "./logs/app.log",
-        MaxSize:    100,  // MB
-        MaxBackups: 3,    // 备份文件数
-        MaxAge:     7,    // 保留天数
-        Compress:   true, // 压缩旧文件
+options := &logger.SLogOptions{
+    Level:  "debug",
+    Format: "json",
+    Output: &ref.TypeOptions{
+        Namespace: "github.com/hatlonely/gox/log/writer",
+        Type:      "FileWriter",
+        Options: &writer.FileWriterOptions{
+            Path:       "./logs/app.log",
+            MaxSize:    10,   // 10MB
+            MaxBackups: 5,    // 保留5个备份
+            MaxAge:     30,   // 30天
+            Compress:   true, // 压缩备份
+        },
     },
 }
+
+logger, err := logger.NewSLogWithOptions(options)
+// ...
 ```
 
-### 多输出
+### 多输出器
+
 ```go
-Output: ref.TypeOptions{
-    Namespace: "github.com/hatlonely/gox/log/writer",
-    Type:      "MultiWriter",
-    Options: &writer.MultiWriterOptions{
-        Writers: []ref.TypeOptions{
-            // 控制台输出
-            {
-                Namespace: "github.com/hatlonely/gox/log/writer",
-                Type:      "ConsoleWriter",
-                Options: &writer.ConsoleWriterOptions{Color: true},
-            },
-            // 文件输出
-            {
-                Namespace: "github.com/hatlonely/gox/log/writer",
-                Type:      "FileWriter",
-                Options: &writer.FileWriterOptions{
-                    Path: "./logs/app.log",
+options := &logger.SLogOptions{
+    Level:  "info", 
+    Format: "text",
+    Output: &ref.TypeOptions{
+        Namespace: "github.com/hatlonely/gox/log/writer",
+        Type:      "MultiWriter",
+        Options: &writer.MultiWriterOptions{
+            Writers: []ref.TypeOptions{
+                {
+                    Namespace: "github.com/hatlonely/gox/log/writer",
+                    Type:      "ConsoleWriter",
+                    Options: &writer.ConsoleWriterOptions{
+                        Color:  true,
+                        Target: "stdout",
+                    },
+                },
+                {
+                    Namespace: "github.com/hatlonely/gox/log/writer", 
+                    Type:      "FileWriter",
+                    Options: &writer.FileWriterOptions{
+                        Path: "./logs/app.log",
+                    },
                 },
             },
         },
@@ -111,120 +119,123 @@ Output: ref.TypeOptions{
 }
 ```
 
-## 配置文件集成
+## 日志管理器
 
-### YAML 配置
-```yaml
-log:
-  level: info
-  format: json
-  timeFormat: "2006-01-02 15:04:05"
-  addSource: true
-  fields:
-    service: "my-service"
-    version: "1.0.0"
-  output:
-    namespace: "github.com/hatlonely/gox/log/writer"
-    type: "MultiWriter"
-    options:
-      writers:
-        - namespace: "github.com/hatlonely/gox/log/writer"
-          type: "ConsoleWriter"
-          options:
-            color: true
-        - namespace: "github.com/hatlonely/gox/log/writer"
-          type: "FileWriter"
-          options:
-            path: "./logs/app.log"
-            maxSize: 100
-            maxBackups: 3
-            maxAge: 7
-            compress: true
-```
+使用 LogManager 管理多个日志器实例：
 
-### 使用配置文件
 ```go
 import (
-    "github.com/hatlonely/gox/cfg"
     "github.com/hatlonely/gox/log"
+    "github.com/hatlonely/gox/log/manager"
 )
 
-// 加载配置
-config, err := cfg.NewConfig("config.yaml")
-if err != nil {
-    panic(err)
-}
-
-// 转换为日志选项
-var logOptions log.Options
-err = config.Sub("log").ConvertTo(&logOptions)
-if err != nil {
-    panic(err)
-}
-
-// 创建日志器
-logger, err := log.NewLogWithOptions(&logOptions)
-if err != nil {
-    panic(err)
+func main() {
+    // 初始化日志管理器
+    options := manager.Options{
+        "default": &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/logger",
+            Type:      "SLog",
+            Options: &logger.SLogOptions{
+                Level:  "info",
+                Format: "text",
+            },
+        },
+        "file": &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/logger", 
+            Type:      "SLog",
+            Options: &logger.SLogOptions{
+                Level:  "debug",
+                Format: "json",
+                Output: &ref.TypeOptions{
+                    Namespace: "github.com/hatlonely/gox/log/writer",
+                    Type:      "FileWriter",
+                    Options: &writer.FileWriterOptions{
+                        Path: "./logs/debug.log",
+                    },
+                },
+            },
+        },
+    }
+    
+    if err := log.Init(options); err != nil {
+        panic(err)
+    }
+    
+    // 使用不同的日志器
+    log.GetLogger("default").Info("默认日志器")
+    log.GetLogger("file").Debug("文件日志器")
+    
+    // 获取管理器
+    mgr := log.Manager()
+    fileLogger := mgr.GetLogger("file")
+    fileLogger.Error("错误信息")
 }
 ```
 
-## 高级用法
+## 上下文和字段
 
-### 带字段的日志
 ```go
-// 添加固定字段
-userLogger := logger.With("userId", "12345", "requestId", "req-001")
-userLogger.Info("处理用户请求")
+// 带字段的日志
+logger.With("requestId", "12345", "userId", "john").Info("处理请求")
 
-// 分组字段
+// 分组日志
 dbLogger := logger.WithGroup("database")
-dbLogger.Info("查询执行", "table", "users", "duration", "50ms")
-// 输出: {"database":{"table":"users","duration":"50ms"},...}
-```
+dbLogger.Info("连接成功", "host", "localhost", "port", 5432)
 
-### 上下文日志
-```go
-import "context"
-
+// 上下文日志
 ctx := context.Background()
-logger.InfoContext(ctx, "处理请求", "path", "/api/users")
-logger.ErrorContext(ctx, "请求失败", "error", err)
+logger.InfoContext(ctx, "处理完成", "duration", "200ms")
 ```
 
-### 自定义级别
-```go
-import "log/slog"
+## 配置选项
 
-logger.Log(ctx, slog.LevelDebug, "自定义调试信息", "key", "value")
-```
-
-## 默认配置
-
-不提供输出配置时，会使用默认的控制台输出：
-```go
-logger, err := log.NewLogWithOptions(&log.Options{
-    Level: "info",
-})
-// 等同于彩色控制台输出，文本格式
-```
-
-## 性能说明
-
-- 基于标准库 `log/slog`，性能优异
-- 结构化日志，便于日志分析
-- 支持延迟求值，避免不必要的计算
-- 零分配的快速路径优化
-
-## 扩展开发
-
-可以通过实现 `writer.Writer` 接口来添加自定义输出器：
+### SLogOptions
 
 ```go
-type Writer interface {
-    io.Writer
-    io.Closer
+type SLogOptions struct {
+    Level      string                 // debug, info, warn, error
+    Format     string                 // text, json  
+    TimeFormat string                 // 时间格式
+    AddSource  bool                   // 是否添加源码位置
+    Fields     map[string]interface{} // 全局字段
+    Output     *ref.TypeOptions       // 输出器配置
 }
 ```
 
-然后使用 `ref.MustRegister` 注册到框架中。
+### ConsoleWriterOptions
+
+```go  
+type ConsoleWriterOptions struct {
+    Color  bool   // 彩色输出
+    Target string // stdout, stderr
+}
+```
+
+### FileWriterOptions
+
+```go
+type FileWriterOptions struct {
+    Path       string // 文件路径
+    MaxSize    int    // 最大文件大小(MB)
+    MaxAge     int    // 最大保存天数  
+    MaxBackups int    // 最大备份数量
+    Compress   bool   // 是否压缩
+}
+```
+
+## 包结构
+
+```
+log/
+├── log.go              # 主包，全局日志器
+├── manager/            # 日志管理器
+│   └── manager.go
+├── logger/             # 日志器实现
+│   ├── logger.go       # Logger 接口
+│   └── slog_logger.go  # SLog 实现
+└── writer/             # 输出器
+    ├── writer.go       # Writer 接口  
+    ├── console_writer.go  # 控制台输出
+    ├── file_writer.go  # 文件输出
+    └── multi_writer.go # 多输出器
+```
