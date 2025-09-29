@@ -119,6 +119,63 @@ options := &logger.SLogOptions{
 }
 ```
 
+## 通过名称获取日志器
+
+使用 `NewLoggerWithOptions` 通过日志器名称获取：
+
+```go
+import "github.com/hatlonely/gox/log"
+
+func main() {
+    // 先初始化日志管理器
+    options := manager.Options{
+        "api": &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/logger",
+            Type:      "SLog",
+            Options: &logger.SLogOptions{
+                Level:  "info",
+                Format: "json",
+            },
+        },
+        "db": &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/logger",
+            Type:      "SLog", 
+            Options: &logger.SLogOptions{
+                Level:  "debug",
+                Format: "text",
+            },
+        },
+    }
+    
+    if err := log.Init(options); err != nil {
+        panic(err)
+    }
+    
+    // 通过名称获取日志器
+    apiLogger, err := log.NewLoggerWithOptions(&ref.TypeOptions{
+        Namespace: "github.com/hatlonely/gox/log",
+        Type:      "GetLogger",
+        Options:   "api",  // 直接设置为日志器名称
+    })
+    if err != nil {
+        panic(err)
+    }
+    
+    dbLogger, err := log.NewLoggerWithOptions(&ref.TypeOptions{
+        Namespace: "github.com/hatlonely/gox/log", 
+        Type:      "GetLogger",
+        Options:   "db",   // 直接设置为日志器名称
+    })
+    if err != nil {
+        panic(err)
+    }
+    
+    // 使用获取到的日志器
+    apiLogger.Info("API 请求处理", "path", "/users", "method", "GET")
+    dbLogger.Debug("数据库查询", "table", "users", "query", "SELECT * FROM users")
+}
+```
+
 ## 日志管理器
 
 使用 LogManager 管理多个日志器实例：
