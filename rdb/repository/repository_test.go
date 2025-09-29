@@ -500,6 +500,87 @@ func TestRepositoryWithCreateOptions(t *testing.T) {
 	})
 }
 
+// 专门用于测试表名设置的实体
+type Product struct {
+	ID    int    `rdb:"id,primary"`
+	Name  string `rdb:"name,required"`
+	Price float64 `rdb:"price"`
+}
+
+// 实现 Table 方法来自定义表名
+func (p Product) Table() string {
+	return "products"
+}
+
+// 另一个测试实体，不设置自定义表名，使用默认结构体名
+type Category struct {
+	ID   int    `rdb:"id,primary"`
+	Name string `rdb:"name,required"`
+}
+
+func TestRepositoryTableName(t *testing.T) {
+	Convey("测试 Repository 表名设置", t, func() {
+		db, err := database.NewSQLWithOptions(testMySQLOptions)
+		So(err, ShouldBeNil)
+		defer db.Close()
+
+		Convey("使用自定义表名", func() {
+			repo, err := NewRepository[Product](db)
+			So(err, ShouldBeNil)
+			So(repo, ShouldNotBeNil)
+
+			// 检查内部状态
+			impl := repo.(*repositoryImpl[Product])
+			So(impl.table, ShouldEqual, "products") // 使用 Table() 方法返回的自定义表名
+		})
+
+		Convey("使用默认表名（结构体名）", func() {
+			repo, err := NewRepository[Category](db)
+			So(err, ShouldBeNil)
+			So(repo, ShouldNotBeNil)
+
+			// 检查内部状态
+			impl := repo.(*repositoryImpl[Category])
+			So(impl.table, ShouldEqual, "Category") // 使用结构体名作为默认表名
+		})
+
+		Convey("自定义表名的完整 CRUD 测试", func() {
+			repo, err := NewRepository[Product](db)
+			So(err, ShouldBeNil)
+
+			ctx := context.Background()
+
+			// 清理数据 - 使用自定义表名
+			_ = db.DropTable(ctx, "products")
+
+			// 迁移表结构
+			err = repo.Migrate(ctx)
+			So(err, ShouldBeNil)
+
+			// 清理函数
+			Reset(func() {
+				_ = db.DropTable(ctx, "products")
+			})
+
+			// 创建产品
+			product := &Product{
+				ID:    1,
+				Name:  "iPhone",
+				Price: 999.99,
+			}
+
+			err = repo.Create(ctx, product)
+			So(err, ShouldBeNil)
+
+			// 获取产品
+			retrievedProduct, err := repo.Get(ctx, 1)
+			So(err, ShouldBeNil)
+			So(retrievedProduct.Name, ShouldEqual, "iPhone")
+			So(retrievedProduct.Price, ShouldAlmostEqual, 999.99, 0.01)
+		})
+	})
+}
+
 func TestRepositoryCompositeKey(t *testing.T) {
 	Convey("测试复合主键 Repository", t, func() {
 		db, err := database.NewSQLWithOptions(testMySQLOptions)
