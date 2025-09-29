@@ -311,6 +311,14 @@ type FileWriterOptions struct {
 }
 ```
 
+### MultiWriterOptions
+
+```go
+type MultiWriterOptions struct {
+    Writers []ref.TypeOptions // 多个输出器配置
+}
+```
+
 ## 包结构
 
 ```
