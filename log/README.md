@@ -31,6 +31,194 @@ func main() {
 }
 ```
 
+## 推荐使用方式
+
+### 日志管理器配置
+
+使用 LogManager 管理多个日志器实例（**推荐**）：
+
+```go
+import (
+    "github.com/hatlonely/gox/log"
+    "github.com/hatlonely/gox/log/manager"
+    "github.com/hatlonely/gox/log/logger"
+    "github.com/hatlonely/gox/log/writer"
+    "github.com/hatlonely/gox/ref"
+)
+
+func main() {
+    // 初始化日志管理器
+    options := manager.Options{
+        "default": &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/logger",
+            Type:      "SLog",
+            Options: &logger.SLogOptions{
+                Level:  "info",
+                Format: "text",
+            },
+        },
+        "api": &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/logger",
+            Type:      "SLog",
+            Options: &logger.SLogOptions{
+                Level:  "info",
+                Format: "json",
+                Output: &ref.TypeOptions{
+                    Namespace: "github.com/hatlonely/gox/log/writer",
+                    Type:      "FileWriter",
+                    Options: &writer.FileWriterOptions{
+                        Path: "./logs/api.log",
+                    },
+                },
+            },
+        },
+        "db": &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/logger", 
+            Type:      "SLog",
+            Options: &logger.SLogOptions{
+                Level:  "debug",
+                Format: "text",
+                Output: &ref.TypeOptions{
+                    Namespace: "github.com/hatlonely/gox/log/writer",
+                    Type:      "MultiWriter",
+                    Options: &writer.MultiWriterOptions{
+                        Writers: []ref.TypeOptions{
+                            {
+                                Namespace: "github.com/hatlonely/gox/log/writer",
+                                Type:      "ConsoleWriter",
+                                Options: &writer.ConsoleWriterOptions{
+                                    Color:  true,
+                                    Target: "stdout",
+                                },
+                            },
+                            {
+                                Namespace: "github.com/hatlonely/gox/log/writer",
+                                Type:      "FileWriter",
+                                Options: &writer.FileWriterOptions{
+                                    Path: "./logs/db.log",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+    
+    if err := log.Init(options); err != nil {
+        panic(err)
+    }
+    
+    // 使用不同的日志器
+    log.GetLogger("default").Info("默认日志器")
+    log.GetLogger("api").Info("API 请求", "path", "/users", "method", "GET")
+    log.GetLogger("db").Debug("数据库操作", "table", "users")
+    
+    // 获取管理器
+    mgr := log.Manager()
+    apiLogger := mgr.GetLogger("api")
+    apiLogger.Error("API 错误", "error", "timeout")
+}
+```
+
+### 通过配置获取日志器
+
+使用 `NewLoggerWithOptions` 通过日志器名称获取（**推荐**）：
+
+```go
+func main() {
+    // 先初始化日志管理器（同上）
+    if err := log.Init(options); err != nil {
+        panic(err)
+    }
+    
+    // 通过名称获取日志器
+    apiLogger, err := log.NewLoggerWithOptions(&ref.TypeOptions{
+        Namespace: "github.com/hatlonely/gox/log",
+        Type:      "GetLogger", 
+        Options:   "api",  // 直接设置为日志器名称
+    })
+    if err != nil {
+        panic(err)
+    }
+    
+    dbLogger, err := log.NewLoggerWithOptions(&ref.TypeOptions{
+        Namespace: "github.com/hatlonely/gox/log", 
+        Type:      "GetLogger",
+        Options:   "db",   // 直接设置为日志器名称
+    })
+    if err != nil {
+        panic(err)
+    }
+    
+    // 使用获取到的日志器
+    apiLogger.Info("API 请求处理", "path", "/users", "method", "GET")
+    dbLogger.Debug("数据库查询", "table", "users", "query", "SELECT * FROM users")
+}
+```
+
+## 上下文和字段
+
+```go
+// 带字段的日志
+logger := log.GetLogger("api")
+logger.With("requestId", "12345", "userId", "john").Info("处理请求")
+
+// 分组日志
+dbLogger := log.GetLogger("db").WithGroup("database")
+dbLogger.Info("连接成功", "host", "localhost", "port", 5432)
+
+// 上下文日志
+ctx := context.Background()
+logger.InfoContext(ctx, "处理完成", "duration", "200ms")
+```
+
+## 高级配置
+
+### 多输出器示例
+
+```go
+"multi": &ref.TypeOptions{
+    Namespace: "github.com/hatlonely/gox/log/logger",
+    Type:      "SLog",
+    Options: &logger.SLogOptions{
+        Level:  "info", 
+        Format: "text",
+        Output: &ref.TypeOptions{
+            Namespace: "github.com/hatlonely/gox/log/writer",
+            Type:      "MultiWriter",
+            Options: &writer.MultiWriterOptions{
+                Writers: []ref.TypeOptions{
+                    {
+                        Namespace: "github.com/hatlonely/gox/log/writer",
+                        Type:      "ConsoleWriter",
+                        Options: &writer.ConsoleWriterOptions{
+                            Color:  true,
+                            Target: "stdout",
+                        },
+                    },
+                    {
+                        Namespace: "github.com/hatlonely/gox/log/writer", 
+                        Type:      "FileWriter",
+                        Options: &writer.FileWriterOptions{
+                            Path:       "./logs/app.log",
+                            MaxSize:    10,   // 10MB
+                            MaxBackups: 5,    // 保留5个备份
+                            MaxAge:     30,   // 30天
+                            Compress:   true, // 压缩备份
+                        },
+                    },
+                },
+            },
+        },
+    },
+},
+```
+
+## 直接创建日志器（不推荐）
+
+如果不使用日志管理器，也可以直接创建日志器实例：
+
 ### 控制台输出
 
 ```go
@@ -85,163 +273,6 @@ options := &logger.SLogOptions{
 
 logger, err := logger.NewSLogWithOptions(options)
 // ...
-```
-
-### 多输出器
-
-```go
-options := &logger.SLogOptions{
-    Level:  "info", 
-    Format: "text",
-    Output: &ref.TypeOptions{
-        Namespace: "github.com/hatlonely/gox/log/writer",
-        Type:      "MultiWriter",
-        Options: &writer.MultiWriterOptions{
-            Writers: []ref.TypeOptions{
-                {
-                    Namespace: "github.com/hatlonely/gox/log/writer",
-                    Type:      "ConsoleWriter",
-                    Options: &writer.ConsoleWriterOptions{
-                        Color:  true,
-                        Target: "stdout",
-                    },
-                },
-                {
-                    Namespace: "github.com/hatlonely/gox/log/writer", 
-                    Type:      "FileWriter",
-                    Options: &writer.FileWriterOptions{
-                        Path: "./logs/app.log",
-                    },
-                },
-            },
-        },
-    },
-}
-```
-
-## 通过名称获取日志器
-
-使用 `NewLoggerWithOptions` 通过日志器名称获取：
-
-```go
-import "github.com/hatlonely/gox/log"
-
-func main() {
-    // 先初始化日志管理器
-    options := manager.Options{
-        "api": &ref.TypeOptions{
-            Namespace: "github.com/hatlonely/gox/log/logger",
-            Type:      "SLog",
-            Options: &logger.SLogOptions{
-                Level:  "info",
-                Format: "json",
-            },
-        },
-        "db": &ref.TypeOptions{
-            Namespace: "github.com/hatlonely/gox/log/logger",
-            Type:      "SLog", 
-            Options: &logger.SLogOptions{
-                Level:  "debug",
-                Format: "text",
-            },
-        },
-    }
-    
-    if err := log.Init(options); err != nil {
-        panic(err)
-    }
-    
-    // 通过名称获取日志器
-    apiLogger, err := log.NewLoggerWithOptions(&ref.TypeOptions{
-        Namespace: "github.com/hatlonely/gox/log",
-        Type:      "GetLogger",
-        Options:   "api",  // 直接设置为日志器名称
-    })
-    if err != nil {
-        panic(err)
-    }
-    
-    dbLogger, err := log.NewLoggerWithOptions(&ref.TypeOptions{
-        Namespace: "github.com/hatlonely/gox/log", 
-        Type:      "GetLogger",
-        Options:   "db",   // 直接设置为日志器名称
-    })
-    if err != nil {
-        panic(err)
-    }
-    
-    // 使用获取到的日志器
-    apiLogger.Info("API 请求处理", "path", "/users", "method", "GET")
-    dbLogger.Debug("数据库查询", "table", "users", "query", "SELECT * FROM users")
-}
-```
-
-## 日志管理器
-
-使用 LogManager 管理多个日志器实例：
-
-```go
-import (
-    "github.com/hatlonely/gox/log"
-    "github.com/hatlonely/gox/log/manager"
-)
-
-func main() {
-    // 初始化日志管理器
-    options := manager.Options{
-        "default": &ref.TypeOptions{
-            Namespace: "github.com/hatlonely/gox/log/logger",
-            Type:      "SLog",
-            Options: &logger.SLogOptions{
-                Level:  "info",
-                Format: "text",
-            },
-        },
-        "file": &ref.TypeOptions{
-            Namespace: "github.com/hatlonely/gox/log/logger", 
-            Type:      "SLog",
-            Options: &logger.SLogOptions{
-                Level:  "debug",
-                Format: "json",
-                Output: &ref.TypeOptions{
-                    Namespace: "github.com/hatlonely/gox/log/writer",
-                    Type:      "FileWriter",
-                    Options: &writer.FileWriterOptions{
-                        Path: "./logs/debug.log",
-                    },
-                },
-            },
-        },
-    }
-    
-    if err := log.Init(options); err != nil {
-        panic(err)
-    }
-    
-    // 使用不同的日志器
-    log.GetLogger("default").Info("默认日志器")
-    log.GetLogger("file").Debug("文件日志器")
-    
-    // 获取管理器
-    mgr := log.Manager()
-    fileLogger := mgr.GetLogger("file")
-    fileLogger.Error("错误信息")
-}
-```
-
-## 上下文和字段
-
-```go
-// 带字段的日志
-logger.With("requestId", "12345", "userId", "john").Info("处理请求")
-
-// 分组日志
-dbLogger := logger.WithGroup("database")
-dbLogger.Info("连接成功", "host", "localhost", "port", 5432)
-
-// 上下文日志
-ctx := context.Background()
-logger.InfoContext(ctx, "处理完成", "duration", "200ms")
 ```
 
 ## 配置选项
