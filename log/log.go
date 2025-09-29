@@ -2,12 +2,13 @@ package log
 
 import (
 	"github.com/hatlonely/gox/log/logger"
+	"github.com/hatlonely/gox/log/manager"
 	"github.com/hatlonely/gox/ref"
 )
 
 var (
 	defaultLogger     logger.Logger
-	defaultLogManager *LogManager
+	defaultLogManager *manager.LogManager
 )
 
 func init() {
@@ -29,21 +30,24 @@ func Default() logger.Logger {
 }
 
 // Init 初始化默认的 LogManager
-func Init(options Options) error {
-	manager, err := NewLogManagerWithOptions(options)
+func Init(options manager.Options) error {
+	mgr, err := manager.NewLogManagerWithOptions(options)
 	if err != nil {
 		return err
 	}
-	defaultLogManager = manager
+	defaultLogManager = mgr
+
+	// 设置默认日志器如果 LogManager 的默认日志器为 nil
+	mgr.SetDefaultLoggerIfNil(defaultLogger)
 
 	// 更新默认日志器为 LogManager 的默认日志器
-	defaultLogger = manager.GetDefault()
+	defaultLogger = mgr.GetDefault()
 
 	return nil
 }
 
 // Manager 获取默认的 LogManager
-func Manager() *LogManager {
+func Manager() *manager.LogManager {
 	return defaultLogManager
 }
 

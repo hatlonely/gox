@@ -1,4 +1,4 @@
-package log
+package manager
 
 import (
 	"fmt"
@@ -45,10 +45,8 @@ func NewLogManagerWithOptions(options Options) (*LogManager, error) {
 		}
 	}
 
-	// 如果没有设置默认日志器，使用全局默认的
-	if manager.defaultLogger == nil {
-		manager.defaultLogger = Default()
-	}
+	// 如果没有设置默认日志器，需要从外部传入或者设置为 nil
+	// 这里先设置为 nil，让调用方处理
 
 	return manager, nil
 }
@@ -96,4 +94,11 @@ func (m *LogManager) SetDefaultByName(name string) error {
 		return nil
 	}
 	return fmt.Errorf("logger '%s' not found", name)
+}
+
+// SetDefaultLoggerIfNil 如果默认日志器为 nil，则设置为指定的日志器
+func (m *LogManager) SetDefaultLoggerIfNil(l logger.Logger) {
+	if m.defaultLogger == nil {
+		m.defaultLogger = l
+	}
 }
