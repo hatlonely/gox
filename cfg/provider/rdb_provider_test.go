@@ -7,20 +7,25 @@ import (
 	"github.com/hatlonely/gox/rdb/database"
 	"github.com/hatlonely/gox/ref"
 	. "github.com/smartystreets/goconvey/convey"
-	_ "github.com/mattn/go-sqlite3" // SQLite 驱动
+	_ "github.com/go-sql-driver/mysql" // MySQL 驱动
 )
 
 func TestRdbProvider(t *testing.T) {
 	Convey("测试 RdbProvider", t, func() {
-		// 使用 SQLite 内存数据库进行测试
+		// 使用 MySQL 测试数据库
 		options := &RdbProviderOptions{
 			ConfigID: "test-config",
 			Database: &ref.TypeOptions{
 				Namespace: "github.com/hatlonely/gox/rdb/database",
 				Type:      "SQL",
 				Options: &database.SQLOptions{
-					Driver: "sqlite3",
-					DSN:    ":memory:",
+					Driver:   "mysql",
+					Host:     "localhost",
+					Port:     "3306",
+					Database: "testdb",
+					Username: "testuser",
+					Password: "testpass",
+					Charset:  "utf8mb4",
 				},
 			},
 			PollInterval: 100 * time.Millisecond,

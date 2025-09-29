@@ -14,11 +14,16 @@ import (
 
 // RdbConfigData RDB 配置数据模型
 type RdbConfigData struct {
-	ID        string    `rdb:"id,primary_key"`
-	Content   string    `rdb:"content,not_null"`
-	Version   int64     `rdb:"version,auto_increment"`
-	CreatedAt time.Time `rdb:"created_at,default=CURRENT_TIMESTAMP"`
-	UpdatedAt time.Time `rdb:"updated_at,on_update=CURRENT_TIMESTAMP"`
+	ID        string    `rdb:"id,primary"`
+	Content   string    `rdb:"content,required"`
+	Version   int64     `rdb:"version"`
+	CreatedAt time.Time `rdb:"created_at"`
+	UpdatedAt time.Time `rdb:"updated_at"`
+}
+
+// Table 返回表名
+func (RdbConfigData) Table() string {
+	return "config_data"
 }
 
 // RdbProvider 基于 RDB 的配置提供者
@@ -112,6 +117,11 @@ func (p *RdbProvider) Save(data []byte) error {
 
 	ctx := context.Background()
 
+	// 确保表已经被迁移
+	if err := p.repo.Migrate(ctx); err != nil {
+		return errors.Wrap(err, "failed to migrate table")
+	}
+
 	// 检查是否存在
 	exists, err := p.repo.Exists(ctx, &query.TermQuery{Field: "id", Value: p.configID})
 	if err != nil {
@@ -120,9 +130,13 @@ func (p *RdbProvider) Save(data []byte) error {
 
 	if !exists {
 		// 不存在，执行插入
+		now := time.Now()
 		config := &RdbConfigData{
-			ID:      p.configID,
-			Content: string(data),
+			ID:        p.configID,
+			Content:   string(data),
+			Version:   1,
+			CreatedAt: now,
+			UpdatedAt: now,
 		}
 		err = p.repo.Create(ctx, config)
 	} else {
@@ -133,7 +147,8 @@ func (p *RdbProvider) Save(data []byte) error {
 		}
 
 		config.Content = string(data)
-		config.Version++ // 手动增加版本号
+		config.Version++                // 手动增加版本号
+		config.UpdatedAt = time.Now()   // 更新时间
 		err = p.repo.Update(ctx, config)
 	}
 
