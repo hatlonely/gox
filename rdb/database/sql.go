@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hatlonely/gox/rdb/aggregation"
@@ -192,6 +193,35 @@ func setFieldValue(fieldValue reflect.Value, value any) error {
 		}
 	}
 
+	// 特殊处理：time.Time 字段
+	if fieldType == reflect.TypeOf(time.Time{}) {
+		switch v := value.(type) {
+		case time.Time:
+			fieldValue.Set(reflect.ValueOf(v))
+			return nil
+		case string:
+			// 尝试多种时间格式解析
+			timeFormats := []string{
+				"2006-01-02 15:04:05.999999-07:00", // SQLite 格式
+				"2006-01-02 15:04:05.999999+07:00", // SQLite 格式
+				"2006-01-02 15:04:05",             // 标准格式
+				time.RFC3339,                      // RFC3339
+				time.RFC3339Nano,                  // RFC3339 with nanoseconds
+			}
+			
+			var parsedTime time.Time
+			var lastErr error
+			for _, format := range timeFormats {
+				parsedTime, lastErr = time.Parse(format, v)
+				if lastErr == nil {
+					fieldValue.Set(reflect.ValueOf(parsedTime))
+					return nil
+				}
+			}
+			return fmt.Errorf("cannot parse time string %s: %v", v, lastErr)
+		}
+	}
+
 	// 特殊处理：数据库返回的数字类型转换
 	if fieldType.Kind() == reflect.Int && valueType.Kind() == reflect.Int64 {
 		fieldValue.SetInt(value.(int64))
@@ -291,17 +321,32 @@ func (s *SQL) buildColumnDefinition(field FieldDefinition) string {
 func (s *SQL) mapFieldTypeToSQL(fieldType FieldType, size int) string {
 	switch fieldType {
 	case FieldTypeString:
+		if s.driver == "sqlite3" {
+			return "TEXT"
+		}
 		if size > 0 {
 			return fmt.Sprintf("VARCHAR(%d)", size)
 		}
 		return "VARCHAR(255)"
 	case FieldTypeInt:
+		if s.driver == "sqlite3" {
+			return "INTEGER"
+		}
 		return "INT"
 	case FieldTypeFloat:
+		if s.driver == "sqlite3" {
+			return "REAL"
+		}
 		return "FLOAT"
 	case FieldTypeBool:
+		if s.driver == "sqlite3" {
+			return "INTEGER"
+		}
 		return "BOOLEAN"
 	case FieldTypeDate:
+		if s.driver == "sqlite3" {
+			return "TEXT"
+		}
 		return "DATETIME"
 	case FieldTypeJSON:
 		if s.driver == "mysql" {
@@ -309,6 +354,9 @@ func (s *SQL) mapFieldTypeToSQL(fieldType FieldType, size int) string {
 		}
 		return "TEXT"
 	default:
+		if s.driver == "sqlite3" {
+			return "TEXT"
+		}
 		return "VARCHAR(255)"
 	}
 }
@@ -1097,17 +1145,32 @@ func (tx *SQLTransaction) buildColumnDefinition(field FieldDefinition) string {
 func (tx *SQLTransaction) mapFieldTypeToSQL(fieldType FieldType, size int) string {
 	switch fieldType {
 	case FieldTypeString:
+		if tx.driver == "sqlite3" {
+			return "TEXT"
+		}
 		if size > 0 {
 			return fmt.Sprintf("VARCHAR(%d)", size)
 		}
 		return "VARCHAR(255)"
 	case FieldTypeInt:
+		if tx.driver == "sqlite3" {
+			return "INTEGER"
+		}
 		return "INT"
 	case FieldTypeFloat:
+		if tx.driver == "sqlite3" {
+			return "REAL"
+		}
 		return "FLOAT"
 	case FieldTypeBool:
+		if tx.driver == "sqlite3" {
+			return "INTEGER"
+		}
 		return "BOOLEAN"
 	case FieldTypeDate:
+		if tx.driver == "sqlite3" {
+			return "TEXT"
+		}
 		return "DATETIME"
 	case FieldTypeJSON:
 		if tx.driver == "mysql" {
@@ -1115,6 +1178,9 @@ func (tx *SQLTransaction) mapFieldTypeToSQL(fieldType FieldType, size int) strin
 		}
 		return "TEXT"
 	default:
+		if tx.driver == "sqlite3" {
+			return "TEXT"
+		}
 		return "VARCHAR(255)"
 	}
 }
