@@ -8,11 +8,13 @@ import (
 func init() {
 	ref.MustRegisterT[FileProvider](NewFileProviderWithOptions)
 	ref.MustRegisterT[GormProvider](NewGormProviderWithOptions)
+	ref.MustRegisterT[RdbProvider](NewRdbProviderWithOptions)
 	ref.MustRegisterT[EnvProvider](NewEnvProviderWithOptions)
 	ref.MustRegisterT[CmdProvider](NewCmdProviderWithOptions)
 
 	ref.MustRegisterT[*FileProvider](NewFileProviderWithOptions)
 	ref.MustRegisterT[*GormProvider](NewGormProviderWithOptions)
+	ref.MustRegisterT[*RdbProvider](NewRdbProviderWithOptions)
 	ref.MustRegisterT[*EnvProvider](NewEnvProviderWithOptions)
 	ref.MustRegisterT[*CmdProvider](NewCmdProviderWithOptions)
 }
