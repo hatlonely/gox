@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -54,6 +55,9 @@ func TestNewSQLiteWithOptions(t *testing.T) {
 
 			// 清理资源
 			sql.Close()
+			
+			// 清理数据库文件
+			os.Remove("./test.db")
 		})
 
 		Convey("使用自定义 DSN", func() {
