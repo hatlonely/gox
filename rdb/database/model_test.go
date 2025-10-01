@@ -29,6 +29,16 @@ type Product struct {
 	InStock     bool    `rdb:"in_stock,type=bool,default=true"`
 }
 
+// Order 测试联合索引的结构体
+type Order struct {
+	ID         int64  `rdb:"id,primary"`
+	UserID     int64  `rdb:"user_id,required,index=idx_user_date"`
+	OrderDate  string `rdb:"order_date,required,index=idx_user_date"`
+	Status     string `rdb:"status,required,index=idx_status_date"`
+	CreateDate string `rdb:"create_date,required,index=idx_status_date"`
+	Amount     float64 `rdb:"amount,required"`
+}
+
 // CustomTableStruct 测试实现 Table() 方法的结构体
 type CustomTableStruct struct {
 	ID   int64  `rdb:"id,primary"`
@@ -198,6 +208,81 @@ func TestTableModelBuilder_FromStruct(t *testing.T) {
 		}
 
 		t.Logf("Generated model: %+v", model)
+	})
+
+	t.Run("Order struct with composite indexes", func(t *testing.T) {
+		order := Order{}
+		model, err := builder.FromStruct(order)
+		if err != nil {
+			t.Fatalf("Failed to build model: %v", err)
+		}
+
+		// 验证表名
+		expectedTable := "Order"
+		if model.Table != expectedTable {
+			t.Errorf("Expected table name %s, got %s", expectedTable, model.Table)
+		}
+
+		// 验证字段数量
+		expectedFieldCount := 6
+		if len(model.Fields) != expectedFieldCount {
+			t.Errorf("Expected %d fields, got %d", expectedFieldCount, len(model.Fields))
+		}
+
+		// 验证索引
+		indexMap := make(map[string]IndexDefinition)
+		for _, index := range model.Indexes {
+			indexMap[index.Name] = index
+		}
+
+		// 验证联合索引 idx_user_date (user_id + order_date)
+		if userDateIndex, exists := indexMap["idx_user_date"]; exists {
+			if userDateIndex.Unique {
+				t.Error("Expected user_date index to be non-unique")
+			}
+			expectedFields := []string{"user_id", "order_date"}
+			if len(userDateIndex.Fields) != len(expectedFields) {
+				t.Errorf("Expected user_date index fields %v, got %v", expectedFields, userDateIndex.Fields)
+			} else {
+				for i, field := range expectedFields {
+					if userDateIndex.Fields[i] != field {
+						t.Errorf("Expected user_date index field[%d] %s, got %s", i, field, userDateIndex.Fields[i])
+					}
+				}
+			}
+		} else {
+			t.Error("User date composite index not found")
+		}
+
+		// 验证联合索引 idx_status_date (status + create_date)
+		if statusDateIndex, exists := indexMap["idx_status_date"]; exists {
+			if statusDateIndex.Unique {
+				t.Error("Expected status_date index to be non-unique")
+			}
+			expectedFields := []string{"status", "create_date"}
+			if len(statusDateIndex.Fields) != len(expectedFields) {
+				t.Errorf("Expected status_date index fields %v, got %v", expectedFields, statusDateIndex.Fields)
+			} else {
+				for i, field := range expectedFields {
+					if statusDateIndex.Fields[i] != field {
+						t.Errorf("Expected status_date index field[%d] %s, got %s", i, field, statusDateIndex.Fields[i])
+					}
+				}
+			}
+		} else {
+			t.Error("Status date composite index not found")
+		}
+
+		// 验证索引总数应该是 2 个（两个联合索引）
+		expectedIndexCount := 2
+		if len(model.Indexes) != expectedIndexCount {
+			t.Errorf("Expected %d indexes, got %d", expectedIndexCount, len(model.Indexes))
+		}
+
+		t.Logf("Generated model with composite indexes: %+v", model)
+		for _, index := range model.Indexes {
+			t.Logf("Composite Index: %+v", index)
+		}
 	})
 
 	t.Run("CustomTableStruct with Table() method", func(t *testing.T) {
