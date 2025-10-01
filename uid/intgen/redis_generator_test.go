@@ -3,23 +3,14 @@ package intgen
 import (
 	"testing"
 	"time"
-
-	"github.com/alicebob/miniredis/v2"
 )
 
 func TestRedisGenerator_Generate(t *testing.T) {
-	// 启动 miniredis 模拟 Redis
-	mr, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("Failed to start miniredis: %v", err)
-	}
-	defer mr.Close()
-
-	// 创建 RedisGenerator
+	// 使用真实的 Redis 环境进行测试
 	generator := NewRedisGeneratorWithOptions(&RedisOptions{
-		Addr:    mr.Addr(),
+		Addr:    "localhost:6379",
 		KeyName: "test:uid",
-		Timeout: time.Second,
+		Timeout: 5 * time.Second,
 	})
 
 	// 测试生成ID
@@ -50,19 +41,14 @@ func TestRedisGenerator_Generate(t *testing.T) {
 	if timestamp2 > now || timestamp2 < now-1000 {
 		t.Errorf("Timestamp2 %d should be close to current time %d", timestamp2, now)
 	}
+
+	t.Logf("Generated IDs: %d, %d", id1, id2)
 }
 
 func TestRedisGenerator_GenerateWithDefaultOptions(t *testing.T) {
-	// 启动 miniredis 模拟 Redis
-	mr, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("Failed to start miniredis: %v", err)
-	}
-	defer mr.Close()
-
 	// 创建 RedisGenerator 使用默认选项
 	generator := NewRedisGeneratorWithOptions(&RedisOptions{
-		Addr: mr.Addr(),
+		Addr: "localhost:6379",
 	})
 
 	// 测试生成ID
@@ -97,22 +83,15 @@ func TestRedisGenerator_GenerateNilOptions(t *testing.T) {
 }
 
 func TestRedisGenerator_Concurrency(t *testing.T) {
-	// 启动 miniredis 模拟 Redis
-	mr, err := miniredis.Run()
-	if err != nil {
-		t.Fatalf("Failed to start miniredis: %v", err)
-	}
-	defer mr.Close()
-
 	generator := NewRedisGeneratorWithOptions(&RedisOptions{
-		Addr:    mr.Addr(),
+		Addr:    "localhost:6379",
 		KeyName: "test:concurrent",
-		Timeout: time.Second,
+		Timeout: 5 * time.Second,
 	})
 
 	// 并发生成ID
-	const numGoroutines = 100
-	const numIDsPerGoroutine = 10
+	const numGoroutines = 50
+	const numIDsPerGoroutine = 20
 	
 	idChan := make(chan int64, numGoroutines*numIDsPerGoroutine)
 	
@@ -135,8 +114,47 @@ func TestRedisGenerator_Concurrency(t *testing.T) {
 	}
 
 	// 验证生成了预期数量的唯一ID
-	if len(ids) != numGoroutines*numIDsPerGoroutine {
-		t.Errorf("Expected %d unique IDs, got %d", numGoroutines*numIDsPerGoroutine, len(ids))
+	expectedCount := numGoroutines * numIDsPerGoroutine
+	if len(ids) != expectedCount {
+		t.Errorf("Expected %d unique IDs, got %d", expectedCount, len(ids))
+	}
+
+	t.Logf("Successfully generated %d unique IDs in concurrency test", len(ids))
+}
+
+func TestRedisGenerator_SequenceIncrement(t *testing.T) {
+	generator := NewRedisGeneratorWithOptions(&RedisOptions{
+		Addr:    "localhost:6379",
+		KeyName: "test:sequence",
+		Timeout: 5 * time.Second,
+	})
+
+	// 快速生成多个ID，尽可能在同一毫秒内
+	var sameTimestampIDs []int64
+	lastTimestamp := int64(-1)
+	
+	for i := 0; i < 1000; i++ {
+		id := generator.Generate()
+		timestamp := id >> 12
+		
+		if timestamp == lastTimestamp {
+			sameTimestampIDs = append(sameTimestampIDs, id)
+		} else {
+			if len(sameTimestampIDs) > 1 {
+				// 检查同一时间戳内序列号递增
+				for j := 1; j < len(sameTimestampIDs); j++ {
+					seq1 := sameTimestampIDs[j-1] & 0xFFF
+					seq2 := sameTimestampIDs[j] & 0xFFF
+					if seq2 != seq1+1 {
+						t.Errorf("Sequence should increment: %d -> %d", seq1, seq2)
+					}
+				}
+				t.Logf("Found %d IDs with same timestamp, sequences properly incremented", len(sameTimestampIDs))
+				break
+			}
+			sameTimestampIDs = []int64{id}
+			lastTimestamp = timestamp
+		}
 	}
 }
 
@@ -151,17 +169,10 @@ func TestFormatTimestamp(t *testing.T) {
 }
 
 func BenchmarkRedisGenerator_Generate(b *testing.B) {
-	// 启动 miniredis 模拟 Redis
-	mr, err := miniredis.Run()
-	if err != nil {
-		b.Fatalf("Failed to start miniredis: %v", err)
-	}
-	defer mr.Close()
-
 	generator := NewRedisGeneratorWithOptions(&RedisOptions{
-		Addr:    mr.Addr(),
+		Addr:    "localhost:6379",
 		KeyName: "bench:uid",
-		Timeout: time.Second,
+		Timeout: 5 * time.Second,
 	})
 
 	b.ResetTimer()
