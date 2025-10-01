@@ -9,6 +9,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+func init() {
+	ref.RegisterT[*SQL](NewSQLWithOptions)
+	ref.RegisterT[*Mongo](NewMongoWithOptions)
+	ref.RegisterT[*ES](NewESWithOptions)
+}
+
 var (
 	ErrRecordNotFound   = errors.New("record not found")
 	ErrDuplicateKey     = errors.New("duplicate key")
@@ -120,11 +126,6 @@ type Database interface {
 
 // 工厂方法
 func NewDatabaseWithOptions(options *ref.TypeOptions) (Database, error) {
-	// 注册 database 类型
-	ref.RegisterT[*SQL](NewSQLWithOptions)
-	ref.RegisterT[*Mongo](NewMongoWithOptions)
-	ref.RegisterT[*ES](NewESWithOptions)
-
 	database, err := ref.New(options.Namespace, options.Type, options.Options)
 	if err != nil {
 		return nil, errors.WithMessage(err, "ref.New failed")
