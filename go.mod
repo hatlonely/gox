@@ -4,10 +4,12 @@ go 1.25.1
 
 require (
 	github.com/BurntSushi/toml v1.5.0
+	github.com/alicebob/miniredis/v2 v2.35.0
 	github.com/bytedance/mockey v1.2.14
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce
 	github.com/cockroachdb/pebble v1.1.5
 	github.com/coocood/freecache v1.2.4
+	github.com/elastic/go-elasticsearch/v8 v8.19.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/go-sql-driver/mysql v1.8.1
@@ -43,7 +45,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/elastic/elastic-transport-go/v8 v8.7.0 // indirect
-	github.com/elastic/go-elasticsearch/v8 v8.19.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -74,6 +75,7 @@ require (
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	golang.org/x/arch v0.11.0 // indirect
