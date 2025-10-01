@@ -22,7 +22,6 @@ type SnowflakeGenerator struct {
 const (
 	sequenceBits  = 12
 	machineIDBits = 10
-	timestampBits = 41
 
 	maxSequence  = (1 << sequenceBits) - 1  // 4095
 	maxMachineID = (1 << machineIDBits) - 1 // 1023
@@ -31,22 +30,22 @@ const (
 	timestampShift = sequenceBits + machineIDBits
 )
 
-// NewSnowflakeGenerator 创建Snowflake生成器
-func NewSnowflakeGenerator(opts *Options) *SnowflakeGenerator {
+// NewSnowflakeGeneratorWithOptions 创建Snowflake生成器
+func NewSnowflakeGeneratorWithOptions(options *Options) *SnowflakeGenerator {
 	var machineID int64
-	
-	if opts != nil && opts.MachineID != nil {
-		machineID = *opts.MachineID
+
+	if options != nil && options.MachineID != nil {
+		machineID = *options.MachineID
 	} else {
 		machineID = getMachineIDFromIP()
 	}
-	
+
 	// 确保机器ID在有效范围内
 	machineID = machineID & maxMachineID
-	
+
 	// 使用固定的起始时间（2020-01-01 00:00:00 UTC）
 	epoch := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
-	
+
 	now := time.Now().UnixMilli()
 	return &SnowflakeGenerator{
 		state:     (now - epoch) << sequenceBits, // 初始状态：当前时间戳，序列号为0
@@ -61,7 +60,7 @@ func getMachineIDFromIP() int64 {
 	if err != nil {
 		return 0
 	}
-	
+
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipv4 := ipnet.IP.To4(); ipv4 != nil {
@@ -70,7 +69,7 @@ func getMachineIDFromIP() int64 {
 			}
 		}
 	}
-	
+
 	return 0
 }
 
@@ -80,11 +79,11 @@ func (g *SnowflakeGenerator) Generate() int64 {
 		oldState := atomic.LoadInt64(&g.state)
 		oldTimestamp := oldState >> sequenceBits
 		oldSequence := oldState & maxSequence
-		
+
 		currentTimestamp := time.Now().UnixMilli() - g.epoch
-		
+
 		var newTimestamp, newSequence int64
-		
+
 		if currentTimestamp == oldTimestamp {
 			// 同一毫秒内，序列号递增
 			newSequence = (oldSequence + 1) & maxSequence
@@ -102,9 +101,9 @@ func (g *SnowflakeGenerator) Generate() int64 {
 			newTimestamp = currentTimestamp
 			newSequence = 0
 		}
-		
+
 		newState := (newTimestamp << sequenceBits) | newSequence
-		
+
 		// 原子更新状态
 		if atomic.CompareAndSwapInt64(&g.state, oldState, newState) {
 			// 组装最终的Snowflake ID
