@@ -1,7 +1,6 @@
 package uid
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -39,18 +38,17 @@ func TestNewStrGenerator(t *testing.T) {
 			t.Error("Generated UUID should not be empty")
 		}
 		
-		// UUID v7 格式检查：8-4-4-4-12 字符
-		if len(uuid) != 36 {
-			t.Errorf("UUID length should be 36, got %d", len(uuid))
+		// UUID v7 格式检查：默认无连字符，32个十六进制字符
+		if len(uuid) != 32 {
+			t.Errorf("UUID length should be 32 (without hyphens), got %d", len(uuid))
 		}
 		
-		if strings.Count(uuid, "-") != 4 {
-			t.Errorf("UUID should have 4 hyphens, got %d", strings.Count(uuid, "-"))
-		}
-		
-		// 检查版本号（第15个字符应该是7）
-		if uuid[14] != '7' {
-			t.Errorf("Expected UUID v7, but version character is %c", uuid[14])
+		// 验证只包含十六进制字符
+		for _, char := range uuid {
+			if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')) {
+				t.Errorf("UUID should only contain hex characters, got: %s", uuid)
+				break
+			}
 		}
 		
 		if uuids[uuid] {

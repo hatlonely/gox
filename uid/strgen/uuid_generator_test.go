@@ -56,7 +56,8 @@ func TestNewUUIDGeneratorWithOptions(t *testing.T) {
 }
 
 func TestUUIDGenerator_Generate(t *testing.T) {
-	uuidRegex := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+	// 默认无连字符的UUID格式：32个十六进制字符
+	uuidRegex := regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 	tests := []struct {
 		name    string
@@ -79,7 +80,9 @@ func TestUUIDGenerator_Generate(t *testing.T) {
 				t.Errorf("generated UUID %s does not match expected format", result)
 			}
 			
-			_, err := uuid.Parse(result)
+			// 为了验证，需要重新添加连字符进行解析
+			formattedUUID := result[:8] + "-" + result[8:12] + "-" + result[12:16] + "-" + result[16:20] + "-" + result[20:]
+			_, err := uuid.Parse(formattedUUID)
 			if err != nil {
 				t.Errorf("generated UUID %s is not valid: %v", result, err)
 			}
@@ -123,7 +126,9 @@ func TestUUIDGenerator_VersionSpecificFormat(t *testing.T) {
 			gen := NewUUIDGeneratorWithOptions(&UUIDOptions{Version: tt.version})
 			result := gen.Generate()
 			
-			parsed, err := uuid.Parse(result)
+			// 重新添加连字符以便解析
+			formattedUUID := result[:8] + "-" + result[8:12] + "-" + result[12:16] + "-" + result[16:20] + "-" + result[20:]
+			parsed, err := uuid.Parse(formattedUUID)
 			if err != nil {
 				t.Fatalf("failed to parse UUID: %v", err)
 			}
@@ -153,5 +158,59 @@ func BenchmarkUUIDGenerator_GenerateV7(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		gen.Generate()
+	}
+}
+
+func TestUUIDGenerator_WithHyphens(t *testing.T) {
+	tests := []struct {
+		name        string
+		withHyphens bool
+		expectHyphen bool
+	}{
+		{
+			name:         "default without hyphens",
+			withHyphens:  false,
+			expectHyphen: false,
+		},
+		{
+			name:         "with hyphens enabled",
+			withHyphens:  true,
+			expectHyphen: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gen := NewUUIDGeneratorWithOptions(&UUIDOptions{
+				Version:     "v4",
+				WithHyphens: tt.withHyphens,
+			})
+			
+			result := gen.Generate()
+			
+			hasHyphens := len(result) == 36 && result[8] == '-'
+			
+			if tt.expectHyphen && !hasHyphens {
+				t.Errorf("expected UUID with hyphens, got: %s", result)
+			}
+			
+			if !tt.expectHyphen && hasHyphens {
+				t.Errorf("expected UUID without hyphens, got: %s", result)
+			}
+			
+			if !tt.expectHyphen {
+				// 验证无连字符格式: 32个十六进制字符
+				if len(result) != 32 {
+					t.Errorf("expected 32 characters without hyphens, got %d: %s", len(result), result)
+				}
+				
+				for _, char := range result {
+					if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')) {
+						t.Errorf("expected only hex characters, got: %s", result)
+						break
+					}
+				}
+			}
+		})
 	}
 }

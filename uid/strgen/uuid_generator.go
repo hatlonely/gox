@@ -1,13 +1,18 @@
 package strgen
 
-import "github.com/google/uuid"
+import (
+	"strings"
+	"github.com/google/uuid"
+)
 
 type UUIDOptions struct {
-	Version string
+	Version    string
+	WithHyphens bool // 是否包含中划线连字符，默认不包含
 }
 
 type UUIDGenerator struct {
-	version string
+	version     string
+	withHyphens bool
 }
 
 func NewUUIDGeneratorWithOptions(options *UUIDOptions) *UUIDGenerator {
@@ -19,22 +24,29 @@ func NewUUIDGeneratorWithOptions(options *UUIDOptions) *UUIDGenerator {
 	}
 	
 	return &UUIDGenerator{
-		version: options.Version,
+		version:     options.Version,
+		withHyphens: options.WithHyphens,
 	}
 }
 
 func (g *UUIDGenerator) Generate() string {
+	var uuidStr string
 	switch g.version {
 	case "v1":
 		v1, _ := uuid.NewUUID()
-		return v1.String()
+		uuidStr = v1.String()
 	case "v4":
-		return uuid.New().String()
+		uuidStr = uuid.New().String()
 	case "v6":
-		return uuid.Must(uuid.NewV6()).String()
+		uuidStr = uuid.Must(uuid.NewV6()).String()
 	case "v7":
-		return uuid.Must(uuid.NewV7()).String()
+		uuidStr = uuid.Must(uuid.NewV7()).String()
 	default:
-		return uuid.New().String()
+		uuidStr = uuid.New().String()
 	}
+	
+	if !g.withHyphens {
+		return strings.ReplaceAll(uuidStr, "-", "")
+	}
+	return uuidStr
 }
