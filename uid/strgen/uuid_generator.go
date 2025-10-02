@@ -1,7 +1,7 @@
 package strgen
 
 import (
-	"strings"
+	"encoding/hex"
 	"github.com/google/uuid"
 )
 
@@ -30,23 +30,24 @@ func NewUUIDGeneratorWithOptions(options *UUIDOptions) *UUIDGenerator {
 }
 
 func (g *UUIDGenerator) Generate() string {
-	var uuidStr string
+	var u uuid.UUID
 	switch g.version {
 	case "v1":
-		v1, _ := uuid.NewUUID()
-		uuidStr = v1.String()
+		u, _ = uuid.NewUUID()
 	case "v4":
-		uuidStr = uuid.New().String()
+		u = uuid.New()
 	case "v6":
-		uuidStr = uuid.Must(uuid.NewV6()).String()
+		u = uuid.Must(uuid.NewV6())
 	case "v7":
-		uuidStr = uuid.Must(uuid.NewV7()).String()
+		u = uuid.Must(uuid.NewV7())
 	default:
-		uuidStr = uuid.New().String()
+		u = uuid.New()
 	}
 	
-	if !g.withHyphens {
-		return strings.ReplaceAll(uuidStr, "-", "")
+	if g.withHyphens {
+		return u.String()
 	}
-	return uuidStr
+	
+	// 直接将字节转换为十六进制字符串，避免字符串替换
+	return hex.EncodeToString(u[:])
 }

@@ -161,6 +161,24 @@ func BenchmarkUUIDGenerator_GenerateV7(b *testing.B) {
 	}
 }
 
+func BenchmarkUUIDGenerator_WithHyphens(b *testing.B) {
+	gen := NewUUIDGeneratorWithOptions(&UUIDOptions{Version: "v4", WithHyphens: true})
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		gen.Generate()
+	}
+}
+
+func BenchmarkUUIDGenerator_WithoutHyphens(b *testing.B) {
+	gen := NewUUIDGeneratorWithOptions(&UUIDOptions{Version: "v4", WithHyphens: false})
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		gen.Generate()
+	}
+}
+
 func TestUUIDGenerator_WithHyphens(t *testing.T) {
 	tests := []struct {
 		name        string
