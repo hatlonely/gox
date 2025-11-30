@@ -97,9 +97,20 @@ func (l *KVFileLoader[K, V]) OnChange(listener Listener[K, V]) error {
 		return errors.Wrap(err, "fsnotify.NewWatcher failed")
 	}
 
-	err = watcher.Add(filepath.Dir(l.filePath))
+	// 确保文件目录存在
+	fileDir := filepath.Dir(l.filePath)
+	if _, err := os.Stat(fileDir); os.IsNotExist(err) {
+		// 如果目录不存在，尝试创建它
+		if err := os.MkdirAll(fileDir, 0755); err != nil {
+			watcher.Close()
+			return errors.Wrapf(err, "failed to create directory %s", fileDir)
+		}
+	}
+
+	err = watcher.Add(fileDir)
 	if err != nil {
-		return errors.Wrap(err, "watcher.Add failed")
+		watcher.Close()
+		return errors.Wrapf(err, "watcher.Add failed: %s", fileDir)
 	}
 
 	l.wg.Add(1)
